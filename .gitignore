@@ -1,0 +1,15 @@
+node_modules/
+dist/
+build/
+coverage/
+
+.env
+.env.local
+!.env.example
+
+*.log
+.DS_Store
+
+.pnpm-store/
+
+apps/api/generated/

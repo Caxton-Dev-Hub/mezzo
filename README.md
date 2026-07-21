@@ -35,6 +35,8 @@ Mezzo is built on the opposite premise: **structured evidence capture is the fou
 
 The name reflects the product's role: Mezzo — Italian for "middle" — sits as the neutral, verifiable intermediary between two parties who have no other basis for trust.
 
+Mezzo is a full-stack application: a NestJS API that owns every rule about money, state, and evidence integrity, and a Next.js web client that gives buyers, sellers, and arbiters a fast, camera-first interface for creating escrows, capturing condition evidence, and resolving disputes.
+
 ## Transaction Flow
 
 1. **Create** — The initiating party creates an escrow, specifying item description, price, delivery method, and inspection window, along with required photo evidence and optional video.
@@ -59,13 +61,19 @@ The name reflects the product's role: Mezzo — Italian for "middle" — sits as
 
 ## System Architecture
 
-Mezzo is implemented as a modular monolith (NestJS), organized by business domain rather than technical layer. Each module owns its data models, service logic, and test suite.
+Mezzo is a monorepo with a clear client/server boundary: a NestJS API organized by business domain, and a web client responsible for evidence capture, transaction management, and the arbitration console. Each backend module owns its data models, service logic, and test suite; the frontend owns its routes, components, and end-to-end tests against a running API.
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                            API (NestJS)                          │
-│   auth · users · kyc · escrow · evidence · chat · notifications  │
-└────────────────┬─────────────────────────────┬───────────────────┘
+┌────────────────────────────────────────────────────────────────────┐
+│                         Web Client (Next.js)                        │
+│  auth · escrow wizard · camera/media capture · chat · wallet ·       │
+│  dispute center · arbiter console                                    │
+└───────────────────────────────┬────────────────────────────────────┘
+                                 │  REST + WebSocket, JWT-authenticated
+┌────────────────────────────────▼───────────────────────────────────┐
+│                            API (NestJS)                            │
+│   auth · users · kyc · escrow · evidence · chat · notifications    │
+└────────────────┬─────────────────────────────┬─────────────────────┘
                   │                             │
          ┌────────▼─────────┐          ┌────────▼──────────┐
          │  Escrow state      │          │   Evidence store    │
@@ -84,6 +92,8 @@ Mezzo is implemented as a modular monolith (NestJS), organized by business domai
          └────────────────────┘          └────────────────────┘
 ```
 
+The client never talks to Paystack, storage, or the AI provider directly — every external integration is mediated by the API, so secrets, webhook verification, and ledger writes stay server-side.
+
 ### Design Invariants
 
 The following properties hold across the entire system and are enforced structurally, not by convention:
@@ -96,19 +106,37 @@ The following properties hold across the entire system and are enforced structur
 
 ## Technology Stack
 
-| Layer | Technology |
-|---|---|
-| Language / framework | TypeScript, NestJS |
-| Database | PostgreSQL, Prisma ORM |
-| Cache / queues | Redis, BullMQ |
-| Authentication | JWT (access + rotating refresh), Passport, role-based access control |
-| Payments | Paystack (NGN funding and payouts) |
-| Identity verification | Dojah / Mono |
-| Media storage | S3-compatible object storage |
-| AI arbitration | Anthropic (primary) and OpenAI (fallback), via LangChain, with schema-validated structured output |
-| Realtime | WebSocket (NestJS gateway) |
-| Testing | Jest, Supertest, Testcontainers |
-| Observability | pino (structured logging), OpenTelemetry, Prometheus |
+### Backend
+
+| Layer                 | Technology                                                                                        |
+| --------------------- | ------------------------------------------------------------------------------------------------- |
+| Language / framework  | TypeScript, NestJS                                                                                |
+| Database              | PostgreSQL, TypeORM                                                                               |
+| Cache / queues        | Redis, BullMQ                                                                                     |
+| Authentication        | JWT (access + rotating refresh), Passport, role-based access control                              |
+| Payments              | Paystack (NGN funding and payouts)                                                                |
+| Identity verification | Dojah / Mono                                                                                      |
+| Media storage         | S3-compatible object storage                                                                      |
+| AI arbitration        | Anthropic (primary) and OpenAI (fallback), via LangChain, with schema-validated structured output |
+| Realtime              | WebSocket (NestJS gateway)                                                                        |
+| Testing               | Jest, Supertest, Testcontainers                                                                   |
+| Observability         | pino (structured logging), OpenTelemetry, Prometheus                                              |
+
+### Frontend
+
+| Layer                 | Technology                                                                                                                   |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Framework             | Next.js (App Router), TypeScript                                                                                             |
+| Styling / components  | Tailwind CSS, shadcn/ui                                                                                                      |
+| Data fetching / cache | TanStack Query                                                                                                               |
+| Forms / validation    | React Hook Form + Zod (schemas shared with the API via a common package)                                                     |
+| State                 | Zustand for local/UI state; server state stays in TanStack Query, not duplicated into a global store                         |
+| Realtime              | WebSocket client for live escrow status, chat, and inspection countdowns                                                     |
+| Media capture         | `getUserMedia` / native `<input capture>` for in-browser photo and video capture, with client-side compression before upload |
+| Auth                  | HTTP-only cookie or secure storage for tokens; silent refresh against the API                                                |
+| Testing               | Vitest + React Testing Library (unit/component), Playwright (end-to-end against a running API)                               |
+
+A React Native (Expo) client is a natural phase-two addition once the web app and API are stable — native camera access, push notifications, and offline evidence queuing are meaningfully better on native than in a mobile browser. It is treated as an optional milestone (see [Development Roadmap](#development-roadmap)) rather than a day-one dependency, since the API and evidence contracts are client-agnostic by design.
 
 ## Escrow State Machine
 
@@ -160,29 +188,55 @@ The arbitration layer consumes a deterministic `DisputePacket` — frozen transa
 ## Repository Structure
 
 ```
-src/
-  auth/              registration, login, JWT issuance, refresh rotation, RBAC
-  users/             user profile and role management
-  kyc/               verification tiers, provider integration, transaction caps
-  escrow/            state machine, terms, invitations
-  evidence/          media upload, hashing, EXIF extraction, integrity flags
-  ledger/            double-entry postings, accounts, reconciliation
-  payments/          Paystack funding and payouts, webhook processing
-  disputes/          dispute lifecycle, evidence windows, DisputePacket assembly
-  arbitration/        AI recommendation engine and evaluation harness
-  chat/              in-transaction messaging
-  notifications/      email and SMS notifications on state transitions
-  admin/             arbiter console, audit log, ledger explorer
-  common/            shared guards, filters, decorators, and the Money value object
-prisma/
-  schema.prisma
-  migrations/
-test/
-  e2e/
-  fixtures/
+apps/
+  api/                         NestJS backend
+    src/
+      auth/                    registration, login, JWT issuance, refresh rotation, RBAC
+      users/                   user profile and role management
+      kyc/                     verification tiers, provider integration, transaction caps
+      escrow/                  state machine, terms, invitations
+      evidence/                media upload, hashing, EXIF extraction, integrity flags
+      ledger/                  double-entry postings, accounts, reconciliation
+      payments/                Paystack funding and payouts, webhook processing
+      disputes/                dispute lifecycle, evidence windows, DisputePacket assembly
+      arbitration/             AI recommendation engine and evaluation harness
+      chat/                    in-transaction messaging
+      notifications/           email and SMS notifications on state transitions
+      admin/                   arbiter console, audit log, ledger explorer
+      common/                  shared guards, filters, decorators, and the Money value object
+    src/database/
+      entities/                TypeORM entity definitions
+      migrations/              database migrations
+    test/
+      e2e/
+      fixtures/
+
+  web/                         Next.js frontend
+    app/
+      (auth)/                  login, register, onboarding
+      (dashboard)/             escrow list, wallet, notifications
+      escrow/[id]/             escrow detail: status, evidence, chat
+      escrow/new/               escrow creation wizard, evidence capture
+      disputes/[id]/            dispute center (buyer/seller view)
+      admin/                   arbiter console (role-gated route group)
+    components/
+      evidence/                camera capture, upload progress, media gallery
+      escrow/                  status timeline, terms summary, action buttons
+      chat/                    message thread, attachment upload
+      ui/                      shadcn/ui primitives
+    lib/
+      api-client/              typed REST client generated/shared from API contracts
+      websocket/               realtime subscription hooks
+    test/
+      e2e/                     Playwright specs
+
+packages/
+  shared-types/                Zod schemas and TypeScript types shared between api and web
+  config/                      shared ESLint/TSConfig/Prettier base configs
+
 docker-compose.yml
-CLAUDE.md             project conventions for AI-assisted development
-prompts.md             milestone-based build plan with acceptance test cases
+CLAUDE.md                      project conventions for AI-assisted development
+prompts.md                     milestone-based build plan with acceptance test cases
 ```
 
 ## Getting Started
@@ -196,44 +250,68 @@ prompts.md             milestone-based build plan with acceptance test cases
 
 ### Installation
 
+This is a pnpm-workspaces monorepo. A single install at the root pulls dependencies for both `apps/api` and `apps/web`.
+
 ```bash
 git clone <repository-url> mezzo
 cd mezzo
-cp .env.example .env
-npm install
+pnpm install
+
+# Backend
+cp apps/api/.env.example apps/api/.env
 docker compose up -d
-npx prisma migrate dev
-npm run start:dev
+pnpm --filter @mezzo/api migration:run
+pnpm --filter @mezzo/api start:dev
+
+# Frontend (separate terminal)
+cp apps/web/.env.example apps/web/.env.local
+pnpm --filter @mezzo/web dev
 ```
 
-The API is served at `http://localhost:3000`. The `GET /health` endpoint verifies database and cache connectivity; the application fails fast on startup if either is unreachable or if required configuration is missing.
+The API is served at `http://localhost:3000`; the web client at `http://localhost:3001`, configured to talk to the local API via `NEXT_PUBLIC_API_URL`. The API's `GET /health` endpoint verifies database and cache connectivity; both apps fail fast on startup if required configuration is missing.
 
 ## Configuration
 
-| Variable | Purpose |
-|---|---|
-| `DATABASE_URL` | PostgreSQL connection string |
-| `REDIS_URL` | Redis connection string |
-| `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | Token signing secrets |
-| `PAYSTACK_SECRET_KEY` | Paystack API credential |
-| `PAYSTACK_WEBHOOK_SECRET` | Webhook signature verification |
-| `KYC_PROVIDER_API_KEY` | Identity verification provider credential |
-| `S3_ENDPOINT` / `S3_BUCKET` / `S3_ACCESS_KEY` / `S3_SECRET_KEY` | Media storage configuration |
-| `ANTHROPIC_API_KEY` | Primary arbitration model provider |
-| `OPENAI_API_KEY` | Fallback arbitration model provider |
-| `ARBITRATION_CONFIDENCE_THRESHOLD` | Minimum confidence required to surface an AI recommendation |
+### `apps/api/.env`
 
-All configuration is validated against a schema at startup; the application will not boot with missing or malformed required variables.
+| Variable                                                        | Purpose                                                                   |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `DATABASE_URL`                                                  | PostgreSQL connection string                                              |
+| `REDIS_URL`                                                     | Redis connection string                                                   |
+| `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET`                      | Token signing secrets                                                     |
+| `PAYSTACK_SECRET_KEY`                                           | Paystack API credential                                                   |
+| `PAYSTACK_WEBHOOK_SECRET`                                       | Webhook signature verification                                            |
+| `KYC_PROVIDER_API_KEY`                                          | Identity verification provider credential                                 |
+| `S3_ENDPOINT` / `S3_BUCKET` / `S3_ACCESS_KEY` / `S3_SECRET_KEY` | Media storage configuration                                               |
+| `ANTHROPIC_API_KEY`                                             | Primary arbitration model provider                                        |
+| `OPENAI_API_KEY`                                                | Fallback arbitration model provider                                       |
+| `ARBITRATION_CONFIDENCE_THRESHOLD`                              | Minimum confidence required to surface an AI recommendation               |
+| `CORS_ALLOWED_ORIGINS`                                          | Origins permitted to call the API (the web app's URL in each environment) |
+
+### `apps/web/.env.local`
+
+| Variable                    | Purpose                                                                           |
+| --------------------------- | --------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_API_URL`       | Base URL of the API the client talks to                                           |
+| `NEXT_PUBLIC_WS_URL`        | WebSocket endpoint for realtime updates                                           |
+| `NEXT_PUBLIC_MAX_UPLOAD_MB` | Client-side cap enforced before an upload is attempted, mirroring the API's limit |
+
+All configuration is validated against a schema at startup; neither application will boot with missing or malformed required variables. No secret keys (Paystack, KYC provider, AI providers, storage credentials) are ever exposed to the frontend — only the API holds them.
 
 ## Testing
 
 ```bash
-npm run test          # unit tests
-npm run test:e2e       # end-to-end tests (Testcontainers-backed Postgres/Redis)
-npm run test:cov       # coverage report
+# Backend
+pnpm --filter @mezzo/api test           # unit tests
+pnpm --filter @mezzo/api test:e2e        # end-to-end tests (Testcontainers-backed Postgres/Redis)
+pnpm --filter @mezzo/api test:cov        # coverage report
+
+# Frontend
+pnpm --filter @mezzo/web test            # component/unit tests (Vitest)
+pnpm --filter @mezzo/web test:e2e         # Playwright, against a running API
 ```
 
-Each milestone defined in `prompts.md` carries its own acceptance criteria, including state-machine transition coverage, ledger reconciliation under randomized and concurrent operations, webhook idempotency and replay safety, and arbitration evaluation accuracy and abstention rates. A milestone is not considered complete until its associated tests pass.
+Each milestone defined in `prompts.md` carries its own acceptance criteria. Backend milestones are gated on state-machine transition coverage, ledger reconciliation under randomized and concurrent operations, webhook idempotency and replay safety, and arbitration evaluation accuracy and abstention rates. Frontend milestones are gated on component tests for evidence capture and upload states, and Playwright flows covering the full escrow journey (create → invite → agree → fund → deliver → release/dispute) against a live API. A milestone is not considered complete until its associated tests pass.
 
 ## Development Roadmap
 
@@ -252,7 +330,10 @@ The complete milestone breakdown, including per-milestone build prompts and acce
 - [ ] M9 — AI arbitration and evaluation harness
 - [ ] M10 — Transaction chat and notifications
 - [ ] M11 — Admin console, audit log, observability
-- [ ] M12 — On-chain settlement mirror *(optional)*
+- [ ] M12 — On-chain settlement mirror _(optional)_
+- [ ] M13 — React Native client _(optional, phase two)_
+
+`prompts.md` currently details backend milestones only. Frontend milestones (auth screens, escrow creation wizard, evidence capture, wallet, chat, dispute center, arbiter console) follow the same domain boundaries and are tracked as a parallel milestone track — each backend milestone that exposes a new API surface has a corresponding frontend milestone to build the screens against it.
 
 ## Security
 
