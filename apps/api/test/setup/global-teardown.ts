@@ -7,4 +7,5 @@ export default async function globalTeardown(): Promise<void> {
 
   await containers.redis.stop();
   await containers.postgres.stop();
+  await containers.minio.stop();
 }
