@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards, UsePipes } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { Public } from '../common/decorators/public.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
@@ -22,8 +22,7 @@ export class AuthController {
   @UseGuards(AuthRateLimitGuard)
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  @UsePipes(new ZodValidationPipe(registerSchema))
-  register(@Body() dto: RegisterDto): Promise<UserResponse> {
+  register(@Body(new ZodValidationPipe(registerSchema)) dto: RegisterDto): Promise<UserResponse> {
     return this.authService.register(dto);
   }
 
@@ -31,16 +30,16 @@ export class AuthController {
   @UseGuards(AuthRateLimitGuard)
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @UsePipes(new ZodValidationPipe(loginSchema))
-  login(@Body() dto: LoginDto): Promise<TokenPair & { user: UserResponse }> {
+  login(
+    @Body(new ZodValidationPipe(loginSchema)) dto: LoginDto,
+  ): Promise<TokenPair & { user: UserResponse }> {
     return this.authService.login(dto);
   }
 
   @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  @UsePipes(new ZodValidationPipe(refreshSchema))
-  refresh(@Body() dto: RefreshDto): Promise<TokenPair> {
+  refresh(@Body(new ZodValidationPipe(refreshSchema)) dto: RefreshDto): Promise<TokenPair> {
     return this.authService.refresh(dto);
   }
 }

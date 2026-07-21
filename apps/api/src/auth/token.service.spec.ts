@@ -6,6 +6,7 @@ import { TokenService } from './token.service';
 import { RefreshToken } from '../database/entities/refresh-token.entity';
 import { User } from '../database/entities/user.entity';
 import { UserRole } from '../users/entities/user-role.enum';
+import { KycTier } from '../kyc/entities/kyc-tier.enum';
 import { InvalidRefreshTokenError } from './errors/invalid-refresh-token.error';
 import { RefreshTokenReusedError } from './errors/refresh-token-reused.error';
 
@@ -75,6 +76,7 @@ describe('TokenService', () => {
     email: 'user@example.com',
     passwordHash: 'irrelevant',
     role: UserRole.USER,
+    kycTier: KycTier.TIER_0,
     createdAt: new Date(),
     updatedAt: new Date(),
   };

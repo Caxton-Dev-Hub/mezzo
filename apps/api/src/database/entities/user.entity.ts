@@ -7,6 +7,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { UserRole } from '../../users/entities/user-role.enum';
+import { KycTier } from '../../kyc/entities/kyc-tier.enum';
 
 @Entity('users')
 export class User {
@@ -22,6 +23,9 @@ export class User {
 
   @Column({ type: 'enum', enum: UserRole, default: UserRole.USER })
   role!: UserRole;
+
+  @Column({ name: 'kyc_tier', type: 'enum', enum: KycTier, default: KycTier.TIER_0 })
+  kycTier!: KycTier;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

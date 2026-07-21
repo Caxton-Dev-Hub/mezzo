@@ -13,6 +13,7 @@ interface ErrorResponseBody {
   statusCode: number;
   code: string;
   message: string;
+  details?: Record<string, unknown>;
 }
 
 @Catch()
@@ -31,6 +32,7 @@ export class DomainExceptionFilter implements ExceptionFilter {
         statusCode: exception.statusCode,
         code: exception.code,
         message: exception.message,
+        ...(exception.details ? { details: exception.details } : {}),
       };
     }
 
