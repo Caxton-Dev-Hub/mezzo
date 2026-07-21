@@ -17,6 +17,7 @@ export const envSchema = z.object({
   DOJAH_BASE_URL: z.string().url().optional(),
   DOJAH_APP_ID: z.string().min(1).optional(),
   DOJAH_PRIVATE_KEY: z.string().min(1).optional(),
+  ESCROW_INVITE_EXPIRY_HOURS: z.coerce.number().int().positive().default(72),
 });
 
 export type Env = z.infer<typeof envSchema>;
