@@ -13,6 +13,7 @@ import { escrowHoldingRef, platformFeeRevenueRef, userWalletRef } from '../ledge
 import { EntryDirection } from '../ledger/entities/entry-direction.enum';
 import { Money } from '../common/money/money';
 import { EscrowTerms } from '../database/entities/escrow-terms.entity';
+import { computeFeeSplit } from './fee-split';
 import { ShipEscrowDto } from './dto/settlement.schemas';
 import { OnlySellerMayActError } from './errors/only-seller-may-act.error';
 import { OnlyBuyerMayActError } from './errors/only-buyer-may-act.error';
@@ -198,11 +199,7 @@ export class SettlementService {
     feeAmount: Money;
   } {
     const price = Money.of(terms.priceAmount, terms.priceCurrency);
-    const feeAmount = Money.of(
-      Math.floor((terms.priceAmount * terms.feeBps) / 10_000),
-      terms.priceCurrency,
-    );
-    const sellerAmount = price.subtract(feeAmount);
-    return { price, sellerAmount, feeAmount };
+    const { feeAmount, netAmount } = computeFeeSplit(price, terms.feeBps);
+    return { price, sellerAmount: netAmount, feeAmount };
   }
 }
