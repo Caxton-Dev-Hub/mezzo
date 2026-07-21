@@ -3,6 +3,8 @@ import { Injectable } from '@nestjs/common';
 import {
   InitializeTransactionInput,
   InitializeTransactionResult,
+  InitiateTransferInput,
+  InitiateTransferResult,
   PaystackProvider,
   PaystackTransaction,
   TransactionWindow,
@@ -30,6 +32,13 @@ export class FakePaystackProvider implements PaystackProvider {
           transaction.paidAt <= window.to,
       ),
     );
+  }
+
+  initiateTransfer(input: InitiateTransferInput): Promise<InitiateTransferResult> {
+    return Promise.resolve({
+      transferCode: `fake-transfer-${randomUUID()}`,
+      reference: input.reference,
+    });
   }
 
   seedTransaction(transaction: PaystackTransaction): void {

@@ -30,8 +30,23 @@ export interface TransactionWindow {
   to: Date;
 }
 
+export interface InitiateTransferInput {
+  amountKobo: number;
+  currency: Currency;
+  reference: string;
+  accountNumber: string;
+  bankCode: string;
+  reason?: string;
+}
+
+export interface InitiateTransferResult {
+  transferCode: string;
+  reference: string;
+}
+
 export interface PaystackProvider {
   readonly name: string;
   initializeTransaction(input: InitializeTransactionInput): Promise<InitializeTransactionResult>;
   listTransactions(window: TransactionWindow): Promise<PaystackTransaction[]>;
+  initiateTransfer(input: InitiateTransferInput): Promise<InitiateTransferResult>;
 }

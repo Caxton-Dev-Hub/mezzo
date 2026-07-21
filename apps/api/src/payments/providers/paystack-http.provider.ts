@@ -3,6 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import {
   InitializeTransactionInput,
   InitializeTransactionResult,
+  InitiateTransferInput,
+  InitiateTransferResult,
   PaystackProvider,
   PaystackTransaction,
   PaystackTransactionStatus,
@@ -13,6 +15,16 @@ import { Currency } from '../../common/money/currency';
 interface PaystackInitializeResponse {
   status: boolean;
   data: { authorization_url: string; reference: string };
+}
+
+interface PaystackRecipientResponse {
+  status: boolean;
+  data: { recipient_code: string };
+}
+
+interface PaystackTransferResponse {
+  status: boolean;
+  data: { transfer_code: string; reference: string };
 }
 
 interface PaystackListTransactionsResponse {
@@ -77,6 +89,45 @@ export class PaystackHttpProvider implements PaystackProvider {
       status: this.mapStatus(transaction.status),
       paidAt: transaction.paid_at ? new Date(transaction.paid_at) : null,
     }));
+  }
+
+  async initiateTransfer(input: InitiateTransferInput): Promise<InitiateTransferResult> {
+    const recipientResponse = await fetch(`${this.baseUrl()}/transferrecipient`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({
+        type: 'nuban',
+        name: input.reference,
+        account_number: input.accountNumber,
+        bank_code: input.bankCode,
+        currency: input.currency,
+      }),
+    });
+
+    if (!recipientResponse.ok) {
+      throw new ServiceUnavailableException('Paystack transfer recipient creation failed');
+    }
+
+    const recipient = (await recipientResponse.json()) as PaystackRecipientResponse;
+
+    const transferResponse = await fetch(`${this.baseUrl()}/transfer`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({
+        source: 'balance',
+        amount: input.amountKobo,
+        recipient: recipient.data.recipient_code,
+        reference: input.reference,
+        reason: input.reason,
+      }),
+    });
+
+    if (!transferResponse.ok) {
+      throw new ServiceUnavailableException('Paystack transfer initiation failed');
+    }
+
+    const transfer = (await transferResponse.json()) as PaystackTransferResponse;
+    return { transferCode: transfer.data.transfer_code, reference: transfer.data.reference };
   }
 
   private mapStatus(status: string): PaystackTransactionStatus {

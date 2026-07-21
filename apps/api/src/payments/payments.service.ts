@@ -16,6 +16,7 @@ import { KycService } from '../kyc/kyc.service';
 import { UsersService } from '../users/users.service';
 import { Money } from '../common/money/money';
 import { PAYSTACK_PROVIDER, PaystackProvider } from './providers/paystack-provider.interface';
+import { PayoutService } from './payout.service';
 import { WebhookSignatureService } from './webhook-signature.service';
 import { PaystackWebhookDto } from './dto/payments.schemas';
 import { PaymentIntentResponse, toPaymentIntentResponse } from './dto/payments-response';
@@ -36,6 +37,7 @@ export class PaymentsService {
     private readonly ledgerService: LedgerService,
     private readonly kycService: KycService,
     private readonly usersService: UsersService,
+    private readonly payoutService: PayoutService,
     @Inject(PAYSTACK_PROVIDER)
     private readonly paystackProvider: PaystackProvider,
     private readonly webhookSignature: WebhookSignatureService,
@@ -109,6 +111,12 @@ export class PaymentsService {
       where: { provider: this.paystackProvider.name, providerEventId },
     });
     if (alreadyProcessed) {
+      return;
+    }
+
+    if (dto.event.startsWith('transfer.')) {
+      await this.payoutService.handleTransferWebhook(dto);
+      await this.recordWebhookEvent(providerEventId, null);
       return;
     }
 
