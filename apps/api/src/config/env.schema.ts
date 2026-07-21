@@ -29,6 +29,9 @@ export const envSchema = z.object({
     .transform((value) => value === 'true'),
   S3_PRESIGN_EXPIRY_SECONDS: z.coerce.number().int().positive().default(900),
   EVIDENCE_TIMESTAMP_DRIFT_HOURS: z.coerce.number().int().positive().default(720),
+  PAYSTACK_PROVIDER: z.enum(['fake', 'paystack']).default('fake'),
+  PAYSTACK_SECRET_KEY: z.string().min(1),
+  PAYSTACK_BASE_URL: z.string().url().default('https://api.paystack.co'),
 });
 
 export type Env = z.infer<typeof envSchema>;

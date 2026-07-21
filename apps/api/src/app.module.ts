@@ -9,6 +9,7 @@ import { KycModule } from './kyc/kyc.module';
 import { EscrowModule } from './escrow/escrow.module';
 import { EvidenceModule } from './evidence/evidence.module';
 import { LedgerModule } from './ledger/ledger.module';
+import { PaymentsModule } from './payments/payments.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { LedgerModule } from './ledger/ledger.module';
     EscrowModule,
     EvidenceModule,
     LedgerModule,
+    PaymentsModule,
   ],
 })
 export class AppModule {}

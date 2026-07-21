@@ -42,6 +42,8 @@ export default async function globalSetup(): Promise<void> {
   process.env.S3_SECRET_ACCESS_KEY = 'mezzo-minio-secret';
   process.env.S3_BUCKET ??= 'mezzo-evidence-test';
   process.env.S3_FORCE_PATH_STYLE = 'true';
+  process.env.PAYSTACK_PROVIDER ??= 'fake';
+  process.env.PAYSTACK_SECRET_KEY ??= 'test-paystack-secret-key';
 
   execSync('pnpm typeorm migration:run', {
     cwd: join(__dirname, '..', '..'),
