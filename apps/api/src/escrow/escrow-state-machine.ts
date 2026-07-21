@@ -33,12 +33,14 @@ export class EscrowStateMachine {
     options: TransitionOptions,
     manager?: EntityManager,
   ): Promise<Escrow> {
-    const escrow = await this.escrows.findOne({ where: { id: escrowId } });
+    const escrowRepo = manager ? manager.getRepository(Escrow) : this.escrows;
+    const escrow = await escrowRepo.findOne({ where: { id: escrowId } });
     if (!escrow) {
       throw new NotFoundException('Escrow not found');
     }
 
-    const partyRows = await this.parties.find({ where: { escrowId } });
+    const partyRepo = manager ? manager.getRepository(EscrowParty) : this.parties;
+    const partyRows = await partyRepo.find({ where: { escrowId } });
     const partyUserIds = new Set(partyRows.map((party) => party.userId));
 
     const rule = findTransitionRule(escrow.state, to);
