@@ -2,10 +2,11 @@ import { execSync } from 'node:child_process';
 import { join } from 'node:path';
 import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { RedisContainer, StartedRedisContainer } from '@testcontainers/redis';
+import { GenericContainer, StartedTestContainer } from 'testcontainers';
 
 declare global {
   var __MEZZO_TESTCONTAINERS__:
-    | { postgres: StartedPostgreSqlContainer; redis: StartedRedisContainer }
+    | { postgres: StartedPostgreSqlContainer; redis: StartedRedisContainer; minio: StartedTestContainer }
     | undefined;
 }
 
@@ -18,8 +19,15 @@ export default async function globalSetup(): Promise<void> {
 
   const redis = await new RedisContainer('redis:7-alpine').start();
 
+  const minio = await new GenericContainer('minio/minio:latest')
+    .withCommand(['server', '/data'])
+    .withEnvironment({ MINIO_ROOT_USER: 'mezzo', MINIO_ROOT_PASSWORD: 'mezzo-minio-secret' })
+    .withExposedPorts(9000)
+    .start();
+
   const databaseUrl = postgres.getConnectionUri();
   const redisUrl = `redis://${redis.getHost()}:${redis.getMappedPort(6379)}`;
+  const s3Endpoint = `http://${minio.getHost()}:${minio.getMappedPort(9000)}`;
 
   process.env.NODE_ENV = 'test';
   process.env.DATABASE_URL = databaseUrl;
@@ -28,6 +36,12 @@ export default async function globalSetup(): Promise<void> {
   process.env.JWT_REFRESH_SECRET ??= 'test-refresh-secret-at-least-32-characters-long';
   process.env.AUTH_RATE_LIMIT_MAX_ATTEMPTS ??= '5';
   process.env.AUTH_RATE_LIMIT_WINDOW_SECONDS ??= '60';
+  process.env.S3_ENDPOINT = s3Endpoint;
+  process.env.S3_REGION ??= 'us-east-1';
+  process.env.S3_ACCESS_KEY_ID = 'mezzo';
+  process.env.S3_SECRET_ACCESS_KEY = 'mezzo-minio-secret';
+  process.env.S3_BUCKET ??= 'mezzo-evidence-test';
+  process.env.S3_FORCE_PATH_STYLE = 'true';
 
   execSync('pnpm typeorm migration:run', {
     cwd: join(__dirname, '..', '..'),
@@ -35,5 +49,5 @@ export default async function globalSetup(): Promise<void> {
     stdio: 'inherit',
   });
 
-  globalThis.__MEZZO_TESTCONTAINERS__ = { postgres, redis };
+  globalThis.__MEZZO_TESTCONTAINERS__ = { postgres, redis, minio };
 }
