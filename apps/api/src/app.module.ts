@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { KycModule } from './kyc/kyc.module';
 import { EscrowModule } from './escrow/escrow.module';
 import { EvidenceModule } from './evidence/evidence.module';
+import { LedgerModule } from './ledger/ledger.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { EvidenceModule } from './evidence/evidence.module';
     KycModule,
     EscrowModule,
     EvidenceModule,
+    LedgerModule,
   ],
 })
 export class AppModule {}
