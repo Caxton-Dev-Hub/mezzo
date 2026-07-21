@@ -12,6 +12,8 @@ import { Escrow } from '../../src/database/entities/escrow.entity';
 import { EscrowEvent } from '../../src/database/entities/escrow-event.entity';
 import { EscrowParty } from '../../src/database/entities/escrow-party.entity';
 import { Invite } from '../../src/database/entities/invite.entity';
+import { EvidenceItem } from '../../src/database/entities/evidence-item.entity';
+import { EvidencePhase } from '../../src/evidence/entities/evidence-phase.enum';
 import { RedisService } from '../../src/redis/redis.service';
 
 interface AuthTokensBody {
@@ -53,6 +55,7 @@ describe('Escrow (e2e)', () => {
   let escrowEvents: Repository<EscrowEvent>;
   let escrowParties: Repository<EscrowParty>;
   let invites: Repository<Invite>;
+  let evidenceItems: Repository<EvidenceItem>;
   let redis: RedisService;
   let userCounter = 0;
 
@@ -82,12 +85,36 @@ describe('Escrow (e2e)', () => {
     return { Authorization: `Bearer ${token}` };
   }
 
+  async function seedCreationEvidence(escrowId: string, uploaderId: string): Promise<void> {
+    await evidenceItems.save(
+      evidenceItems.create({
+        escrowId,
+        uploaderId,
+        phase: EvidencePhase.AT_CREATION,
+        storageKey: `evidence/${escrowId}/seed-${Date.now()}`,
+        contentHash: 'seed-hash-not-a-real-sha256',
+        declaredMime: 'image/jpeg',
+        detectedMime: 'image/jpeg',
+        sizeBytes: 1,
+        width: null,
+        height: null,
+        capturedAt: null,
+        deviceMake: null,
+        deviceModel: null,
+        gpsLatitude: null,
+        gpsLongitude: null,
+      }),
+    );
+  }
+
   async function createDraft(accessToken: string): Promise<EscrowDetailBody> {
     const response = await request(server)
       .post('/escrows')
       .set(auth(accessToken))
       .send({ role: EscrowRole.BUYER, ...validTerms });
-    return response.body as EscrowDetailBody;
+    const draft = response.body as EscrowDetailBody;
+    await seedCreationEvidence(draft.id, draft.parties[0].userId);
+    return draft;
   }
 
   async function createAgreedEscrow(): Promise<{
@@ -125,6 +152,7 @@ describe('Escrow (e2e)', () => {
     escrowEvents = app.get<Repository<EscrowEvent>>(getRepositoryToken(EscrowEvent));
     escrowParties = app.get<Repository<EscrowParty>>(getRepositoryToken(EscrowParty));
     invites = app.get<Repository<Invite>>(getRepositoryToken(Invite));
+    evidenceItems = app.get<Repository<EvidenceItem>>(getRepositoryToken(EvidenceItem));
     redis = app.get(RedisService);
   });
 

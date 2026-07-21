@@ -7,6 +7,7 @@ import { Escrow } from '../database/entities/escrow.entity';
 import { EscrowTerms } from '../database/entities/escrow-terms.entity';
 import { EscrowParty } from '../database/entities/escrow-party.entity';
 import { Invite } from '../database/entities/invite.entity';
+import { EvidenceItem } from '../database/entities/evidence-item.entity';
 import { EscrowState } from './entities/escrow-state.enum';
 import { opposite } from './entities/escrow-role.enum';
 import { EscrowStateMachine } from './escrow-state-machine';
@@ -18,6 +19,8 @@ import { EscrowFullError } from './errors/escrow-full.error';
 import { CannotJoinOwnEscrowError } from './errors/cannot-join-own-escrow.error';
 import { InviteNotFoundError } from './errors/invite-not-found.error';
 import { InviteNoLongerValidError } from './errors/invite-no-longer-valid.error';
+import { MissingCreationEvidenceError } from './errors/missing-creation-evidence.error';
+import { EvidencePhase } from '../evidence/entities/evidence-phase.enum';
 
 const EDITABLE_STATES: ReadonlySet<EscrowState> = new Set([
   EscrowState.DRAFT,
@@ -35,6 +38,8 @@ export class EscrowService {
     private readonly parties: Repository<EscrowParty>,
     @InjectRepository(Invite)
     private readonly invites: Repository<Invite>,
+    @InjectRepository(EvidenceItem)
+    private readonly evidenceItems: Repository<EvidenceItem>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly stateMachine: EscrowStateMachine,
@@ -75,6 +80,15 @@ export class EscrowService {
   }
 
   async invite(escrowId: string, actorId: string): Promise<Invite> {
+    await this.assertIsParty(escrowId, actorId);
+
+    const creationEvidenceCount = await this.evidenceItems.count({
+      where: { escrowId, phase: EvidencePhase.AT_CREATION },
+    });
+    if (creationEvidenceCount === 0) {
+      throw new MissingCreationEvidenceError();
+    }
+
     await this.stateMachine.transition(escrowId, EscrowState.PENDING_COUNTERPARTY, {
       actorId,
       reason: 'Initiator invited a counterparty',
