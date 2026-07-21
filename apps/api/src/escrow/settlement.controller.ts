@@ -45,16 +45,6 @@ export class SettlementController {
     return this.getDetail(id);
   }
 
-  @Post(':id/dispute')
-  @HttpCode(HttpStatus.OK)
-  async dispute(
-    @CurrentUser() currentUser: AuthenticatedUser,
-    @Param('id') id: string,
-  ): Promise<EscrowDetailResponse> {
-    await this.settlementService.dispute(id, currentUser.id);
-    return this.getDetail(id);
-  }
-
   private async getDetail(id: string): Promise<EscrowDetailResponse> {
     const detail = await this.escrowService.getDetail(id);
     return toEscrowDetailResponse(detail.escrow, detail.terms, detail.parties);

@@ -1,0 +1,7 @@
+export enum DisputeReasonCode {
+  NOT_RECEIVED = 'NOT_RECEIVED',
+  NOT_AS_DESCRIBED = 'NOT_AS_DESCRIBED',
+  DAMAGED = 'DAMAGED',
+  WRONG_ITEM = 'WRONG_ITEM',
+  PARTIAL = 'PARTIAL',
+}
