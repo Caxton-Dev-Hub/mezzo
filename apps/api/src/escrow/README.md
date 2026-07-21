@@ -44,33 +44,100 @@ already landed them there — is rejected.
 ## What this milestone owns vs. what it doesn't
 
 The full table above is encoded now (`escrow-transition-table.ts`) and
-mechanically enforced end-to-end, but this milestone only implements the
-*business logic* and HTTP surface for the left-hand side of the diagram:
-draft creation, invite, agreement, and cancellation. The transitions from
-`AGREED` onward (`FUNDED`, `SHIPPED`, `DELIVERED`, `RELEASED`, `DISPUTED`,
-`RESOLVED_RELEASE`, `RESOLVED_REFUND`, `REFUNDED`) exist in the table and
-are exercised directly against `EscrowStateMachine` in the e2e suite, but
-have no guard and no HTTP endpoint yet — those belong to the modules that
-will actually own that business logic:
+mechanically enforced end-to-end. Milestone 3 implements the left-hand
+side of the diagram: draft creation, invite, agreement, and cancellation.
+Everything from `AGREED` through `RELEASED`/`REFUNDED` is now implemented
+too (Milestones 6 and 7):
 
 | Transition | Owned by |
 |---|---|
-| `AGREED -> FUNDED` | Milestone 6 (funding), on a verified payment webhook |
-| `FUNDED -> SHIPPED` | Milestone 7 (settlement) |
-| `SHIPPED -> DELIVERED` | Milestone 7 (settlement) |
-| `DELIVERED -> RELEASED` | Milestone 7 (settlement / auto-release) |
-| `DELIVERED -> DISPUTED` | Milestone 8 (disputes) |
-| `DISPUTED -> RESOLVED_RELEASE` / `RESOLVED_REFUND` | Milestone 8/9 (disputes / arbitration) |
-| `RESOLVED_* -> RELEASED` / `REFUNDED` | Milestone 8 (disputes), alongside the ledger posting |
+| `AGREED -> FUNDED` | Milestone 6 (`payments` module), on a verified payment webhook |
+| `FUNDED -> SHIPPED` | Milestone 7 — `SettlementService.ship()` |
+| `SHIPPED -> DELIVERED` | Milestone 7 — `SettlementService.confirmDelivery()` |
+| `DELIVERED -> RELEASED` | Milestone 7 — `SettlementService.release()` (manual) or `.autoRelease()` (BullMQ) |
+| `DELIVERED -> DISPUTED` | Milestone 7 provides a minimal `SettlementService.dispute()`; Milestone 8 will add reason codes, evidence windows, and a rebuttal flow on top |
+| `DISPUTED -> RESOLVED_RELEASE` / `RESOLVED_REFUND` | Milestone 8/9 (disputes / arbitration) — not yet implemented |
+| `RESOLVED_RELEASE -> RELEASED` | Milestone 7 — `SettlementService.release()` (state-agnostic; legal from either `DELIVERED` or `RESOLVED_RELEASE`) |
+| `RESOLVED_REFUND -> REFUNDED` | Milestone 7 — `SettlementService.refund()` |
 
-When those milestones land, they attach their own guards to the relevant
-table rows and call `escrowStateMachine.transition()` — they never assign
-`escrow.state` directly, and never touch money outside a single DB
-transaction shared with the state transition (Milestone 5's ledger rule).
+Every one of these attaches its own party/role check at the service layer
+(not in the transition table's guard system, which only knows "is *a*
+party", not "is specifically the buyer") and calls
+`escrowStateMachine.transition()` — never assigns `escrow.state` directly,
+and never touches money outside a single DB transaction shared with the
+state transition (Milestone 5's ledger rule; see `SettlementService`
+below for how that composition works).
 
 `EXPIRED` is reachable from `DRAFT` and `PENDING_COUNTERPARTY` in the table
-(an escrow nobody ever agreed to), but no scheduler drives it yet — that's
-a natural fit for the BullMQ patterns introduced in Milestone 7.
+(an escrow nobody ever agreed to), but no scheduler drives it yet.
+
+## Settlement (Milestone 7)
+
+`SettlementService` (`settlement.service.ts`) owns ship / confirm-delivery
+/ release / dispute / refund. It lives in this module rather than a
+separate "settlement" module because CLAUDE.md fixes the module list and
+these are fundamentally escrow-lifecycle operations; the money side reuses
+`LedgerModule` and the scheduling side reuses BullMQ via `QueueModule`.
+
+**Inspection window.** `confirmDelivery()` sets `Escrow.deliveredAt` and
+enqueues a BullMQ delayed job (`escrow-auto-release` queue, job id
+`auto-release-{escrowId}`, delay = `inspectionWindowHours` in ms). BullMQ
+job ids may not contain `:` — `escrowId` alone would be ambiguous across
+queues but is fine within one queue's own key namespace, hence the dash.
+`AutoReleaseProcessor` (a `WorkerHost`) just calls
+`SettlementService.autoRelease(escrowId)` when the job fires.
+
+**Why `release()` doesn't hard-code its source state.** The ledger posting
+for a release (`DR escrow:holding -> CR seller:wallet` for `price - fee`,
+`CR platform:fee_revenue` for the fee) is identical whether the escrow
+arrived at `RELEASED` from `DELIVERED` (the normal path) or from
+`RESOLVED_RELEASE` (a future dispute resolved in the seller's favor,
+Milestone 8/11). `executeRelease()` doesn't check the *current* state
+itself — it hands `RELEASED` to `EscrowStateMachine.transition()`, which
+already knows from the table which source states are legal and throws
+`IllegalTransitionError` for anything else. Same reasoning for `refund()`
+against `REFUNDED` (legal only from `RESOLVED_REFUND`).
+
+**Composing the ledger post and the transition atomically.** Both
+`LedgerService.postTransaction()` and `EscrowStateMachine.transition()`
+accept an optional trailing `EntityManager` (added in this milestone).
+`executeRelease()`/`refund()` open one `dataSource.transaction()` and pass
+that single manager to both calls, transition first: if the transition's
+optimistic-version check fails, the ledger post never runs and nothing
+rolls back partially. This is also why a losing concurrent request never
+pays twice — see below.
+
+**Concurrency.** Every one of the races the milestone calls out reduces to
+the same mechanism already proven in `EscrowStateMachine`'s own
+optimistic-version check (`escrow-state-machine.spec.ts` /
+`escrow.e2e-spec.ts`), not to anything settlement-specific:
+
+- *Dispute vs. auto-release, same instant:* both resolve to
+  `stateMachine.transition()` reading the same `version`; the database
+  lets exactly one `UPDATE ... WHERE version = :version` match. The loser
+  throws `StaleEscrowVersionError`.
+- *Auto-release firing after a dispute already landed:* no race needed —
+  `findTransitionRule(DISPUTED, RELEASED)` is simply absent from the
+  table, so it's an `IllegalTransitionError` regardless of timing.
+- *`autoRelease()` never throws to its caller* (the BullMQ worker): it
+  catches exactly `IllegalTransitionError` and `StaleEscrowVersionError`
+  as expected no-ops — "someone else already resolved this" — and
+  rethrows anything else so BullMQ's retry policy still applies to real
+  failures. `dispute()` and `release()` (the buyer-facing HTTP paths) do
+  **not** swallow those errors — a buyer racing and losing sees a clean
+  409, which is correct: they tried to act on an escrow that had just
+  moved.
+- *Double release:* two concurrent `release()` calls are the *same* race
+  as dispute-vs-auto-release, just with both sides calling `release()`
+  instead of one calling `dispute()`.
+
+## Payouts
+
+Withdrawing a seller's wallet balance out to a bank account lives in the
+`payments` module (`PayoutService`), not here — it's a money-out-to-a-
+provider concern symmetric with funding's money-in-from-a-provider, and
+CLAUDE.md doesn't name a separate payouts module either. See
+`apps/api/src/payments/README.md`.
 
 ## Key pieces
 
