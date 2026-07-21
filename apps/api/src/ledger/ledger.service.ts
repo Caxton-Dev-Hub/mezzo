@@ -42,11 +42,19 @@ export class LedgerService {
     private readonly dataSource: DataSource,
   ) {}
 
-  async postTransaction(lines: PostingLine[], options: PostTransactionOptions): Promise<LedgerPosting> {
+  async postTransaction(
+    lines: PostingLine[],
+    options: PostTransactionOptions,
+    manager?: EntityManager,
+  ): Promise<LedgerPosting> {
     if (lines.length < 2) {
       throw new EmptyPostingError();
     }
     this.assertBalanced(lines);
+
+    if (manager) {
+      return this.postWithinManager(manager, lines, options);
+    }
 
     const existing = await this.postings.findOne({ where: { idempotencyKey: options.idempotencyKey } });
     if (existing) {
@@ -54,45 +62,9 @@ export class LedgerService {
     }
 
     try {
-      return await this.dataSource.transaction(async (manager) => {
-        const posting = await manager.save(
-          LedgerPosting,
-          manager.create(LedgerPosting, {
-            idempotencyKey: options.idempotencyKey,
-            correlationId: options.correlationId ?? null,
-          }),
-        );
-
-        for (const line of lines) {
-          const account = await this.getOrCreateAccount(manager, line.accountRef, line.money.currency);
-          if (account.currency !== line.money.currency) {
-            throw new CurrencyMismatchError(account.currency, line.money.currency);
-          }
-
-          await manager.save(
-            LedgerEntry,
-            manager.create(LedgerEntry, {
-              postingId: posting.id,
-              accountId: account.id,
-              direction: line.direction,
-              amount: line.money.amount,
-              currency: line.money.currency,
-            }),
-          );
-
-          const delta =
-            account.normalBalance === line.direction ? line.money.amount : -line.money.amount;
-          await manager
-            .createQueryBuilder()
-            .update(LedgerAccount)
-            .set({ cachedBalance: () => 'cached_balance + :delta', cachedAt: () => 'now()' })
-            .where('id = :id', { id: account.id })
-            .setParameter('delta', delta)
-            .execute();
-        }
-
-        return posting;
-      });
+      return await this.dataSource.transaction((txManager) =>
+        this.postWithinManager(txManager, lines, options),
+      );
     } catch (error) {
       if (isUniqueViolation(error)) {
         const raced = await this.postings.findOne({ where: { idempotencyKey: options.idempotencyKey } });
@@ -102,6 +74,56 @@ export class LedgerService {
       }
       throw error;
     }
+  }
+
+  private async postWithinManager(
+    manager: EntityManager,
+    lines: PostingLine[],
+    options: PostTransactionOptions,
+  ): Promise<LedgerPosting> {
+    const existing = await manager.findOne(LedgerPosting, {
+      where: { idempotencyKey: options.idempotencyKey },
+    });
+    if (existing) {
+      return existing;
+    }
+
+    const posting = await manager.save(
+      LedgerPosting,
+      manager.create(LedgerPosting, {
+        idempotencyKey: options.idempotencyKey,
+        correlationId: options.correlationId ?? null,
+      }),
+    );
+
+    for (const line of lines) {
+      const account = await this.getOrCreateAccount(manager, line.accountRef, line.money.currency);
+      if (account.currency !== line.money.currency) {
+        throw new CurrencyMismatchError(account.currency, line.money.currency);
+      }
+
+      await manager.save(
+        LedgerEntry,
+        manager.create(LedgerEntry, {
+          postingId: posting.id,
+          accountId: account.id,
+          direction: line.direction,
+          amount: line.money.amount,
+          currency: line.money.currency,
+        }),
+      );
+
+      const delta = account.normalBalance === line.direction ? line.money.amount : -line.money.amount;
+      await manager
+        .createQueryBuilder()
+        .update(LedgerAccount)
+        .set({ cachedBalance: () => 'cached_balance + :delta', cachedAt: () => 'now()' })
+        .where('id = :id', { id: account.id })
+        .setParameter('delta', delta)
+        .execute();
+    }
+
+    return posting;
   }
 
   async getBalance(ref: string): Promise<AccountBalance> {

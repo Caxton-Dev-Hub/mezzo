@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { Escrow } from '../database/entities/escrow.entity';
 import { EscrowEvent } from '../database/entities/escrow-event.entity';
 import { EscrowParty } from '../database/entities/escrow-party.entity';
@@ -27,7 +27,12 @@ export class EscrowStateMachine {
     private readonly dataSource: DataSource,
   ) {}
 
-  async transition(escrowId: string, to: EscrowState, options: TransitionOptions): Promise<Escrow> {
+  async transition(
+    escrowId: string,
+    to: EscrowState,
+    options: TransitionOptions,
+    manager?: EntityManager,
+  ): Promise<Escrow> {
     const escrow = await this.escrows.findOne({ where: { id: escrowId } });
     if (!escrow) {
       throw new NotFoundException('Escrow not found');
@@ -42,8 +47,8 @@ export class EscrowStateMachine {
     }
     rule.guard?.({ actorId: options.actorId, partyUserIds });
 
-    await this.dataSource.transaction(async (manager) => {
-      const updateResult = await manager
+    const applyTransition = async (txManager: EntityManager): Promise<void> => {
+      const updateResult = await txManager
         .createQueryBuilder()
         .update(Escrow)
         .set({ state: to, version: () => 'version + 1' })
@@ -54,7 +59,7 @@ export class EscrowStateMachine {
         throw new StaleEscrowVersionError();
       }
 
-      await manager.insert(EscrowEvent, {
+      await txManager.insert(EscrowEvent, {
         escrowId: escrow.id,
         actorId: options.actorId,
         fromState: escrow.state,
@@ -62,7 +67,13 @@ export class EscrowStateMachine {
         reason: options.reason ?? null,
         correlationId: options.correlationId ?? randomUUID(),
       });
-    });
+    };
+
+    if (manager) {
+      await applyTransition(manager);
+    } else {
+      await this.dataSource.transaction(applyTransition);
+    }
 
     escrow.state = to;
     escrow.version += 1;
