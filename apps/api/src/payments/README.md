@@ -96,4 +96,41 @@ by reference: a successful provider transaction with no matching intent is
 an `orphanProviderReferences` entry; a `FUNDED` intent with no matching
 successful provider transaction is an `unmatchedFundedIntentIds` entry. It
 has no HTTP surface yet — like the ledger's own `ReconciliationService`, it's
-meant to run as a scheduled job once Milestone 10 wires up BullMQ.
+meant to run as a scheduled (repeatable) BullMQ job; the queue
+infrastructure exists as of Milestone 7 (`QueueModule`), but nothing
+schedules this one on a cron yet.
+
+## Payouts (Milestone 7)
+
+`PayoutService` is the money-out side, symmetric with funding's money-in:
+a verified seller withdraws from `user:{id}:wallet` to a bank account via
+a Paystack transfer.
+
+- **The debit happens at request time, not on confirmation.**
+  `requestPayout()` posts `DR user:wallet -> CR provider:paystack:clearing`
+  immediately (inside the same transaction as creating the `Payout` row),
+  removing the balance from the seller's *available* wallet right away so
+  two payout requests can't both spend the same money while the transfer
+  is in flight. The `transfer.success` webhook only flips `Payout.status`
+  to `CONFIRMED` — no further posting, because the money already moved.
+  `transfer.failed` (or `.reversed`) posts the exact reverse (`DR clearing
+  -> CR wallet`) as a compensating entry and marks the payout `FAILED` —
+  never an in-place edit, per the ledger's own append-only rule.
+- **Idempotency is the caller's `idempotencyKey`, not a generated one.**
+  Unlike funding (where the API generates the Paystack reference),
+  `requestPayout()` takes a client-supplied `idempotencyKey` and looks up
+  an existing `Payout` by it before ever calling Paystack again — a
+  network retry on the *client* side (button double-click, a timed-out
+  request that actually succeeded) replays the same key and gets back the
+  original payout instead of a second transfer.
+- **Same webhook endpoint as funding.** Paystack posts both `charge.*` and
+  `transfer.*` events to one configured URL in real life, so
+  `PaymentsController`'s `/payments/webhook/paystack` stays the single
+  entry point; `PaymentsService.handleWebhook()` branches on the `event`
+  prefix and delegates `transfer.*` to `PayoutService.handleTransferWebhook()`
+  after the same signature-verification and provider-event-id dedupe every
+  other webhook goes through.
+- **KYC-gated, not capped.** `requireTier(sellerId, TIER_1)` mirrors
+  funding's minimum tier; unlike funding there's no per-tier amount cap
+  here (the milestone doesn't specify one for payouts), only the wallet
+  balance check (`InsufficientWalletBalanceError`).
