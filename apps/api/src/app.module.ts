@@ -10,6 +10,7 @@ import { EscrowModule } from './escrow/escrow.module';
 import { EvidenceModule } from './evidence/evidence.module';
 import { LedgerModule } from './ledger/ledger.module';
 import { PaymentsModule } from './payments/payments.module';
+import { QueueModule } from './queue/queue.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { PaymentsModule } from './payments/payments.module';
     DatabaseModule,
     HealthModule,
     CommonModule,
+    QueueModule,
     UsersModule,
     AuthModule,
     KycModule,
