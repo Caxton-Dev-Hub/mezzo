@@ -12,6 +12,12 @@ export class Escrow {
   @Column({ type: 'int', default: 1 })
   version!: number;
 
+  @Column({ name: 'tracking_reference', type: 'varchar', length: 255, nullable: true })
+  trackingReference!: string | null;
+
+  @Column({ name: 'delivered_at', type: 'timestamptz', nullable: true })
+  deliveredAt!: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 

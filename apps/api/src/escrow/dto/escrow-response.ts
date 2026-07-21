@@ -40,6 +40,8 @@ export interface EscrowDetailResponse {
   version: number;
   terms: EscrowTermsResponse | null;
   parties: EscrowPartyResponse[];
+  trackingReference: string | null;
+  deliveredAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -55,6 +57,8 @@ export function toEscrowDetailResponse(
     version: escrow.version,
     terms: terms ? toEscrowTermsResponse(terms) : null,
     parties: parties.map(toEscrowPartyResponse),
+    trackingReference: escrow.trackingReference,
+    deliveredAt: escrow.deliveredAt,
     createdAt: escrow.createdAt,
     updatedAt: escrow.updatedAt,
   };

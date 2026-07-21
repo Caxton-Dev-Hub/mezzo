@@ -13,6 +13,8 @@ function buildEscrow(state: EscrowState): Escrow {
     id: randomUUID(),
     state,
     version: 1,
+    trackingReference: null,
+    deliveredAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
