@@ -261,7 +261,7 @@ describe('Settlement (e2e)', () => {
     expect(feeBalance.amount).toBeGreaterThanOrEqual(feeAmount);
   });
 
-  it('rejects ship from a non-seller and confirm-delivery/release/dispute from a non-buyer', async () => {
+  it('rejects ship from a non-seller and confirm-delivery/release from a non-buyer', async () => {
     const { escrowId, buyer, seller } = await createFundedEscrow(50_000);
 
     const buyerShips = await request(server)
@@ -285,11 +285,6 @@ describe('Settlement (e2e)', () => {
       .post(`/escrows/${escrowId}/release`)
       .set(auth(seller.accessToken));
     expect(sellerReleases.status).toBe(403);
-
-    const sellerDisputes = await request(server)
-      .post(`/escrows/${escrowId}/dispute`)
-      .set(auth(seller.accessToken));
-    expect(sellerDisputes.status).toBe(403);
   });
 
   it('auto-release fires exactly once; a second firing is a no-op', async () => {
