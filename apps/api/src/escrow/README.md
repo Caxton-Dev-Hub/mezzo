@@ -55,8 +55,8 @@ too (Milestones 6 and 7):
 | `FUNDED -> SHIPPED` | Milestone 7 — `SettlementService.ship()` |
 | `SHIPPED -> DELIVERED` | Milestone 7 — `SettlementService.confirmDelivery()` |
 | `DELIVERED -> RELEASED` | Milestone 7 — `SettlementService.release()` (manual) or `.autoRelease()` (BullMQ) |
-| `DELIVERED -> DISPUTED` | Milestone 7 provides a minimal `SettlementService.dispute()`; Milestone 8 will add reason codes, evidence windows, and a rebuttal flow on top |
-| `DISPUTED -> RESOLVED_RELEASE` / `RESOLVED_REFUND` | Milestone 8/9 (disputes / arbitration) — not yet implemented |
+| `DELIVERED -> DISPUTED` | Milestone 7's minimal `SettlementService.dispute()` is superseded by Milestone 8's `DisputeService.raise()` (`disputes` module) — reason codes, required evidence, and the evidence window |
+| `DISPUTED -> RESOLVED_RELEASE` / `RESOLVED_REFUND` | Milestone 8 — `DisputeService.resolve()` (`disputes` module); Milestone 9 will feed it an AI recommendation but never call it directly |
 | `RESOLVED_RELEASE -> RELEASED` | Milestone 7 — `SettlementService.release()` (state-agnostic; legal from either `DELIVERED` or `RESOLVED_RELEASE`) |
 | `RESOLVED_REFUND -> REFUNDED` | Milestone 7 — `SettlementService.refund()` |
 
