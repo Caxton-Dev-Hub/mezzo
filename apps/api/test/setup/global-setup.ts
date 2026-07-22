@@ -44,6 +44,13 @@ export default async function globalSetup(): Promise<void> {
   process.env.S3_FORCE_PATH_STYLE = 'true';
   process.env.PAYSTACK_PROVIDER ??= 'fake';
   process.env.PAYSTACK_SECRET_KEY ??= 'test-paystack-secret-key';
+  process.env.ARBITRATION_PROVIDER ??= 'fake';
+  process.env.ARBITRATION_CONFIDENCE_THRESHOLD ??= '0.75';
+  process.env.NOTIFICATION_EMAIL_PROVIDER ??= 'fake';
+  process.env.NOTIFICATION_SMS_PROVIDER ??= 'fake';
+  process.env.NOTIFICATION_QUEUE_ATTEMPTS ??= '5';
+  process.env.NOTIFICATION_QUEUE_BACKOFF_MS ??= '1000';
+  process.env.INSPECTION_ENDING_SOON_LEAD_HOURS ??= '6';
 
   execSync('pnpm typeorm migration:run', {
     cwd: join(__dirname, '..', '..'),
