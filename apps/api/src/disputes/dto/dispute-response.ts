@@ -6,6 +6,7 @@ import { DisputeState } from '../entities/dispute-state.enum';
 import { DisputeResolutionOutcome } from '../entities/dispute-resolution-outcome.enum';
 import { EscrowTermsResponse } from '../../escrow/dto/escrow-response';
 import { EvidenceItemResponse } from '../../evidence/dto/evidence-response';
+import { ChatMessageResponse } from '../../chat/dto/chat-response';
 import { Currency } from '../../common/money/currency';
 
 export interface DisputeResponse {
@@ -98,5 +99,5 @@ export interface DisputePacketResponse {
   buyerEvidence: EvidenceItemResponse[];
   sellerEvidence: EvidenceItemResponse[];
   submissionFlags: SubmissionFlags;
-  chatTranscript: never[];
+  chatTranscript: ChatMessageResponse[];
 }

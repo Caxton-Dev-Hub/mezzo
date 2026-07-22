@@ -8,6 +8,7 @@ import { EscrowTerms } from '../database/entities/escrow-terms.entity';
 import { EscrowParty } from '../database/entities/escrow-party.entity';
 import { Invite } from '../database/entities/invite.entity';
 import { EvidenceItem } from '../database/entities/evidence-item.entity';
+import { EscrowEvent } from '../database/entities/escrow-event.entity';
 import { EscrowState } from './entities/escrow-state.enum';
 import { opposite } from './entities/escrow-role.enum';
 import { EscrowStateMachine } from './escrow-state-machine';
@@ -40,6 +41,8 @@ export class EscrowService {
     private readonly invites: Repository<Invite>,
     @InjectRepository(EvidenceItem)
     private readonly evidenceItems: Repository<EvidenceItem>,
+    @InjectRepository(EscrowEvent)
+    private readonly escrowEvents: Repository<EscrowEvent>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly stateMachine: EscrowStateMachine,
@@ -244,5 +247,12 @@ export class EscrowService {
     if (!party) {
       throw new NotEscrowPartyError();
     }
+  }
+
+  async hasEverBeenDisputed(escrowId: string): Promise<boolean> {
+    const count = await this.escrowEvents.count({
+      where: { escrowId, toState: EscrowState.DISPUTED },
+    });
+    return count > 0;
   }
 }
