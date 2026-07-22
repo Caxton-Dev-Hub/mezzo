@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ArbitrationRecord } from '../database/entities/arbitration-record.entity';
 import { DisputeModule } from '../disputes/dispute.module';
+import { ObservabilityModule } from '../observability/observability.module';
 import { ArbitrationController } from './arbitration.controller';
 import { ArbitrationService } from './arbitration.service';
 import { ArbitrationPromptBuilder } from './prompt-builder';
@@ -18,7 +19,7 @@ import { FakePrimaryLlmProvider } from './providers/fake-primary-llm.provider';
 import { FakeFallbackLlmProvider } from './providers/fake-fallback-llm.provider';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ArbitrationRecord]), DisputeModule],
+  imports: [TypeOrmModule.forFeature([ArbitrationRecord]), DisputeModule, ObservabilityModule],
   controllers: [ArbitrationController],
   providers: [
     ArbitrationService,

@@ -24,6 +24,7 @@ export interface DisputeResponse {
   resolvedBuyerAmount: number | null;
   resolvedFeeAmount: number | null;
   resolvedCurrency: Currency | null;
+  resolvedArbitrationRecordId: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -44,6 +45,7 @@ export function toDisputeResponse(dispute: Dispute): DisputeResponse {
     resolvedBuyerAmount: dispute.resolvedBuyerAmount,
     resolvedFeeAmount: dispute.resolvedFeeAmount,
     resolvedCurrency: dispute.resolvedCurrency,
+    resolvedArbitrationRecordId: dispute.resolvedArbitrationRecordId,
     createdAt: dispute.createdAt,
     updatedAt: dispute.updatedAt,
   };

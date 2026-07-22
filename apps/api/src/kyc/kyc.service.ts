@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -140,6 +141,44 @@ export class KycService {
       where: { userId },
       order: { createdAt: 'DESC' },
     });
+  }
+
+  async listVerifications(status?: KycVerificationStatus): Promise<KycVerification[]> {
+    return this.verifications.find({
+      where: status ? { status } : {},
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async overrideTier(userId: string, tier: KycTier): Promise<{ before: KycTier; after: KycTier }> {
+    const user = await this.getUserOrThrow(userId);
+    const previousTier = user.kycTier;
+
+    const verification = await this.verifications.save(
+      this.verifications.create({
+        userId,
+        requestedTier: tier,
+        status: KycVerificationStatus.APPROVED,
+        provider: 'manual',
+        providerReference: `manual-override:${randomUUID()}`,
+      }),
+    );
+
+    user.kycTier = tier;
+    await this.users.save(user);
+
+    await this.events.save(
+      this.events.create({
+        userId,
+        verificationId: verification.id,
+        type: KycEventType.APPROVED,
+        previousTier,
+        newTier: tier,
+        providerReference: verification.providerReference,
+      }),
+    );
+
+    return { before: previousTier, after: tier };
   }
 
   private async getUserOrThrow(userId: string): Promise<User> {

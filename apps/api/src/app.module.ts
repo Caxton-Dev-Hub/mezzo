@@ -15,6 +15,9 @@ import { ArbitrationModule } from './arbitration/arbitration.module';
 import { QueueModule } from './queue/queue.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ChatModule } from './chat/chat.module';
+import { ObservabilityModule } from './observability/observability.module';
+import { AuditModule } from './audit/audit.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -22,6 +25,8 @@ import { ChatModule } from './chat/chat.module';
     DatabaseModule,
     HealthModule,
     CommonModule,
+    ObservabilityModule,
+    AuditModule,
     QueueModule,
     UsersModule,
     AuthModule,
@@ -34,6 +39,7 @@ import { ChatModule } from './chat/chat.module';
     PaymentsModule,
     DisputeModule,
     ArbitrationModule,
+    AdminModule,
   ],
 })
 export class AppModule {}

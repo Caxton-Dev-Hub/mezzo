@@ -19,6 +19,7 @@ export interface NotifyInput {
   sourceEventId: string;
   eventType: NotificationEventType;
   recipientUserIds: readonly string[];
+  correlationId?: string;
 }
 
 @Injectable()
@@ -41,7 +42,14 @@ export class NotificationsService {
         const dedupeKey = notificationDedupeKey(input.sourceEventId, channel, userId);
         await this.queue.add(
           NOTIFICATION_DELIVERY_JOB,
-          { escrowId: input.escrowId, userId, channel, eventType: input.eventType, dedupeKey },
+          {
+            escrowId: input.escrowId,
+            userId,
+            channel,
+            eventType: input.eventType,
+            dedupeKey,
+            correlationId: input.correlationId,
+          },
           { jobId: dedupeKey, attempts, backoff: { type: 'exponential', delay: backoffMs } },
         );
       }

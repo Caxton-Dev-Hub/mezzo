@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { ConfigService } from '@nestjs/config';
@@ -9,6 +10,10 @@ import { DisputeEvent } from '../database/entities/dispute-event.entity';
 import { EscrowEvent } from '../database/entities/escrow-event.entity';
 import { EvidenceItem } from '../database/entities/evidence-item.entity';
 import { EvidenceFlag } from '../database/entities/evidence-flag.entity';
+import { ArbitrationRecord } from '../database/entities/arbitration-record.entity';
+import { RequestContextService } from '../common/context/request-context';
+import { AuditService } from '../audit/audit.service';
+import { MetricsService } from '../observability/metrics.service';
 import { EscrowState } from '../escrow/entities/escrow-state.enum';
 import { EscrowRole } from '../escrow/entities/escrow-role.enum';
 import { EscrowService } from '../escrow/escrow.service';
@@ -40,6 +45,7 @@ import {
 } from './dispute-evidence-window-queue.constants';
 import { IllegalDisputeTransitionError } from './errors/illegal-dispute-transition.error';
 import { StaleDisputeVersionError } from './errors/stale-dispute-version.error';
+import { UnknownArbitrationRecordError } from './errors/unknown-arbitration-record.error';
 
 @Injectable()
 export class DisputeService {
@@ -54,6 +60,8 @@ export class DisputeService {
     private readonly evidenceItems: Repository<EvidenceItem>,
     @InjectRepository(EvidenceFlag)
     private readonly evidenceFlags: Repository<EvidenceFlag>,
+    @InjectRepository(ArbitrationRecord)
+    private readonly arbitrationRecords: Repository<ArbitrationRecord>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly escrowService: EscrowService,
@@ -63,6 +71,9 @@ export class DisputeService {
     private readonly configService: ConfigService,
     private readonly chatService: ChatService,
     private readonly notificationsService: NotificationsService,
+    private readonly requestContext: RequestContextService,
+    private readonly auditService: AuditService,
+    private readonly metricsService: MetricsService,
     @InjectQueue(DISPUTE_EVIDENCE_WINDOW_QUEUE)
     private readonly evidenceWindowQueue: Queue,
   ) {}
@@ -127,7 +138,16 @@ export class DisputeService {
       recipientUserIds: parties.map((party) => party.userId),
     });
 
+    this.metricsService.incrementDisputeRaised();
+
     return dispute;
+  }
+
+  async listByState(state?: DisputeState): Promise<Dispute[]> {
+    return this.disputes.find({
+      where: state ? { state } : {},
+      order: { createdAt: 'DESC' },
+    });
   }
 
   async closeEvidenceWindow(disputeId: string, actorId: string | null): Promise<Dispute> {
@@ -166,6 +186,15 @@ export class DisputeService {
     if (!buyer || !seller) {
       throw new NotFoundException('Escrow parties not found');
     }
+
+    if (dto.arbitrationRecordId) {
+      const record = await this.arbitrationRecords.findOne({ where: { id: dto.arbitrationRecordId } });
+      if (!record || record.disputeId !== disputeId) {
+        throw new UnknownArbitrationRecordError();
+      }
+    }
+
+    const correlationId = this.requestContext.correlationId() ?? randomUUID();
 
     const price = Money.of(terms.priceAmount, terms.priceCurrency);
     const sellerShareBps =
@@ -220,26 +249,26 @@ export class DisputeService {
       const resolved = await this.disputeStateMachine.transition(
         dispute.id,
         DisputeState.RESOLVED,
-        { actorId, reason: `Dispute resolved: ${dto.outcome}` },
+        { actorId, reason: `Dispute resolved: ${dto.outcome}`, correlationId },
         manager,
       );
 
       await this.escrowStateMachine.transition(
         dispute.escrowId,
         intermediateState,
-        { actorId, reason: `Dispute resolved: ${dto.outcome}` },
+        { actorId, reason: `Dispute resolved: ${dto.outcome}`, correlationId },
         manager,
       );
       await this.escrowStateMachine.transition(
         dispute.escrowId,
         terminalState,
-        { actorId, reason: `Dispute resolved: ${dto.outcome}` },
+        { actorId, reason: `Dispute resolved: ${dto.outcome}`, correlationId },
         manager,
       );
 
       await this.ledgerService.postTransaction(
         lines,
-        { idempotencyKey: `dispute-resolve:${dispute.id}`, correlationId: dispute.escrowId },
+        { idempotencyKey: `dispute-resolve:${dispute.id}`, correlationId },
         manager,
       );
 
@@ -252,6 +281,7 @@ export class DisputeService {
         resolvedBuyerAmount: buyerAmount.amount,
         resolvedFeeAmount: feeAmount.amount,
         resolvedCurrency: price.currency,
+        resolvedArbitrationRecordId: dto.arbitrationRecordId ?? null,
       });
 
       resolved.resolvedOutcome = dto.outcome;
@@ -261,6 +291,7 @@ export class DisputeService {
       resolved.resolvedBuyerAmount = buyerAmount.amount;
       resolved.resolvedFeeAmount = feeAmount.amount;
       resolved.resolvedCurrency = price.currency;
+      resolved.resolvedArbitrationRecordId = dto.arbitrationRecordId ?? null;
 
       return resolved;
     });
@@ -270,6 +301,26 @@ export class DisputeService {
       sourceEventId: `${dispute.id}_${DisputeState.RESOLVED}_${resolved.version}`,
       eventType: NotificationEventType.RESOLVED,
       recipientUserIds: [buyer.userId, seller.userId],
+      correlationId,
+    });
+
+    await this.auditService.record({
+      actorId,
+      action: 'DISPUTE_RESOLUTION_EXECUTED',
+      entityType: 'dispute',
+      entityId: dispute.id,
+      reason: dto.arbitrationRecordId
+        ? `Executed per ArbitrationRecord ${dto.arbitrationRecordId}`
+        : 'Manual resolution without an AI recommendation',
+      before: { state: DisputeState.UNDER_REVIEW },
+      after: {
+        outcome: dto.outcome,
+        sellerAmount: sellerAmount.amount,
+        buyerAmount: buyerAmount.amount,
+        feeAmount: feeAmount.amount,
+        arbitrationRecordId: dto.arbitrationRecordId ?? null,
+      },
+      correlationId,
     });
 
     return resolved;

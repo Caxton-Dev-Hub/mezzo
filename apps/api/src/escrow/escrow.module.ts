@@ -9,6 +9,7 @@ import { Invite } from '../database/entities/invite.entity';
 import { EvidenceItem } from '../database/entities/evidence-item.entity';
 import { LedgerModule } from '../ledger/ledger.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { ObservabilityModule } from '../observability/observability.module';
 import { EscrowStateMachine } from './escrow-state-machine';
 import { EscrowService } from './escrow.service';
 import { SettlementService } from './settlement.service';
@@ -26,6 +27,7 @@ import { INSPECTION_ENDING_SOON_QUEUE } from './inspection-ending-soon-queue.con
     BullModule.registerQueue({ name: AUTO_RELEASE_QUEUE }, { name: INSPECTION_ENDING_SOON_QUEUE }),
     LedgerModule,
     NotificationsModule,
+    ObservabilityModule,
   ],
   controllers: [EscrowController, InviteController, SettlementController],
   providers: [

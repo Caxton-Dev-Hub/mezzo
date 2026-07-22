@@ -9,6 +9,7 @@ import { LedgerModule } from '../ledger/ledger.module';
 import { KycModule } from '../kyc/kyc.module';
 import { UsersModule } from '../users/users.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { ObservabilityModule } from '../observability/observability.module';
 import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
 import { PaymentsReconciliationService } from './payments-reconciliation.service';
@@ -27,6 +28,7 @@ import { PaystackHttpProvider } from './providers/paystack-http.provider';
     KycModule,
     UsersModule,
     NotificationsModule,
+    ObservabilityModule,
   ],
   controllers: [PaymentsController, PayoutController],
   providers: [

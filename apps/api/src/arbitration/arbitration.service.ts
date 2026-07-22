@@ -6,6 +6,8 @@ import { ArbitrationRecord } from '../database/entities/arbitration-record.entit
 import { DisputeService } from '../disputes/dispute.service';
 import { AuthenticatedUser } from '../common/types/authenticated-user';
 import { DisputePacketResponse } from '../disputes/dto/dispute-response';
+import { MetricsService } from '../observability/metrics.service';
+import { ArbitrationStatus } from './entities/arbitration-status.enum';
 import {
   FALLBACK_LLM_PROVIDER,
   LlmProvider,
@@ -30,6 +32,7 @@ export class ArbitrationService {
     private readonly promptBuilder: ArbitrationPromptBuilder,
     private readonly recommendationEngine: RecommendationEngine,
     private readonly configService: ConfigService,
+    private readonly metricsService: MetricsService,
     @Inject(PRIMARY_LLM_PROVIDER) private readonly primaryProvider: LlmProvider,
     @Inject(FALLBACK_LLM_PROVIDER) private readonly fallbackProvider: LlmProvider,
   ) {}
@@ -53,6 +56,10 @@ export class ArbitrationService {
             hasUnresolvedIntegrityFlags: hasUnresolvedIntegrityFlags(packet),
             confidenceThreshold,
           });
+
+    if (result.status === ArbitrationStatus.NEEDS_HUMAN) {
+      this.metricsService.incrementArbitrationAbstention();
+    }
 
     return this.records.save(
       this.records.create({

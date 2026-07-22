@@ -49,6 +49,12 @@ export const envSchema = z.object({
   TERMII_API_KEY: z.string().min(1).optional(),
   TERMII_BASE_URL: z.string().url().default('https://api.ng.termii.com'),
   TERMII_SENDER_ID: z.string().min(1).default('Mezzo'),
+  LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']).default('info'),
+  OTEL_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  OTEL_SERVICE_NAME: z.string().min(1).default('mezzo-api'),
 });
 
 export type Env = z.infer<typeof envSchema>;

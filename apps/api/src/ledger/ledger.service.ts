@@ -126,6 +126,26 @@ export class LedgerService {
     return posting;
   }
 
+  async listPostingsByCorrelationId(correlationId: string): Promise<LedgerPosting[]> {
+    return this.postings.find({ where: { correlationId }, order: { createdAt: 'ASC' } });
+  }
+
+  async listEntriesForPosting(postingId: string): Promise<LedgerEntry[]> {
+    return this.entries.find({ where: { postingId }, order: { createdAt: 'ASC' } });
+  }
+
+  async listEntriesByAccountRef(ref: string, limit = 100): Promise<LedgerEntry[]> {
+    const account = await this.accounts.findOne({ where: { ref } });
+    if (!account) {
+      throw new NotFoundException('Ledger account not found');
+    }
+    return this.entries.find({
+      where: { accountId: account.id },
+      order: { createdAt: 'DESC' },
+      take: limit,
+    });
+  }
+
   async getBalance(ref: string): Promise<AccountBalance> {
     const account = await this.accounts.findOne({ where: { ref } });
     if (!account) {

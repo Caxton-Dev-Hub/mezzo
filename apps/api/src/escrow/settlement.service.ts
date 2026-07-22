@@ -28,6 +28,8 @@ import {
 } from './inspection-ending-soon-queue.constants';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationEventType } from '../notifications/entities/notification-event-type.enum';
+import { MetricsService } from '../observability/metrics.service';
+import { TracingService } from '../observability/tracing.service';
 
 @Injectable()
 export class SettlementService {
@@ -41,6 +43,8 @@ export class SettlementService {
     private readonly ledgerService: LedgerService,
     private readonly configService: ConfigService,
     private readonly notificationsService: NotificationsService,
+    private readonly metricsService: MetricsService,
+    private readonly tracingService: TracingService,
     @InjectQueue(AUTO_RELEASE_QUEUE)
     private readonly autoReleaseQueue: Queue,
     @InjectQueue(INSPECTION_ENDING_SOON_QUEUE)
@@ -145,6 +149,7 @@ export class SettlementService {
   async autoRelease(escrowId: string): Promise<void> {
     try {
       await this.executeRelease(escrowId, null);
+      this.metricsService.incrementAutoRelease();
     } catch (error) {
       if (error instanceof IllegalTransitionError || error instanceof StaleEscrowVersionError) {
         return;
@@ -178,25 +183,27 @@ export class SettlementService {
 
     const price = Money.of(terms.priceAmount, terms.priceCurrency);
 
-    return this.dataSource.transaction(async (manager) => {
-      const escrow = await this.stateMachine.transition(
-        escrowId,
-        EscrowState.REFUNDED,
-        { actorId, reason: 'Escrow refunded' },
-        manager,
-      );
+    return this.tracingService.withSpan('settlement.refund', () =>
+      this.dataSource.transaction(async (manager) => {
+        const escrow = await this.stateMachine.transition(
+          escrowId,
+          EscrowState.REFUNDED,
+          { actorId, reason: 'Escrow refunded' },
+          manager,
+        );
 
-      await this.ledgerService.postTransaction(
-        [
-          { accountRef: escrowHoldingRef(escrowId), direction: EntryDirection.DEBIT, money: price },
-          { accountRef: userWalletRef(buyer.userId), direction: EntryDirection.CREDIT, money: price },
-        ],
-        { idempotencyKey: `refund:${escrowId}`, correlationId: escrowId },
-        manager,
-      );
+        await this.ledgerService.postTransaction(
+          [
+            { accountRef: escrowHoldingRef(escrowId), direction: EntryDirection.DEBIT, money: price },
+            { accountRef: userWalletRef(buyer.userId), direction: EntryDirection.CREDIT, money: price },
+          ],
+          { idempotencyKey: `refund:${escrowId}`, correlationId: escrowId },
+          manager,
+        );
 
-      return escrow;
-    });
+        return escrow;
+      }),
+    );
   }
 
   private async executeRelease(escrowId: string, actorId: string | null): Promise<Escrow> {
@@ -211,34 +218,36 @@ export class SettlementService {
 
     const { price, sellerAmount, feeAmount } = this.computeReleaseSplit(terms);
 
-    const escrow = await this.dataSource.transaction(async (manager) => {
-      const releasedEscrow = await this.stateMachine.transition(
-        escrowId,
-        EscrowState.RELEASED,
-        { actorId, reason: 'Escrow released' },
-        manager,
-      );
+    const escrow = await this.tracingService.withSpan('settlement.release', () =>
+      this.dataSource.transaction(async (manager) => {
+        const releasedEscrow = await this.stateMachine.transition(
+          escrowId,
+          EscrowState.RELEASED,
+          { actorId, reason: 'Escrow released' },
+          manager,
+        );
 
-      await this.ledgerService.postTransaction(
-        [
-          { accountRef: escrowHoldingRef(escrowId), direction: EntryDirection.DEBIT, money: price },
-          {
-            accountRef: userWalletRef(seller.userId),
-            direction: EntryDirection.CREDIT,
-            money: sellerAmount,
-          },
-          {
-            accountRef: platformFeeRevenueRef(),
-            direction: EntryDirection.CREDIT,
-            money: feeAmount,
-          },
-        ],
-        { idempotencyKey: `release:${escrowId}`, correlationId: escrowId },
-        manager,
-      );
+        await this.ledgerService.postTransaction(
+          [
+            { accountRef: escrowHoldingRef(escrowId), direction: EntryDirection.DEBIT, money: price },
+            {
+              accountRef: userWalletRef(seller.userId),
+              direction: EntryDirection.CREDIT,
+              money: sellerAmount,
+            },
+            {
+              accountRef: platformFeeRevenueRef(),
+              direction: EntryDirection.CREDIT,
+              money: feeAmount,
+            },
+          ],
+          { idempotencyKey: `release:${escrowId}`, correlationId: escrowId },
+          manager,
+        );
 
-      return releasedEscrow;
-    });
+        return releasedEscrow;
+      }),
+    );
 
     await this.notificationsService.notify({
       escrowId,

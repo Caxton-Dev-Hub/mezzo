@@ -1,10 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { LedgerAccount } from '../database/entities/ledger-account.entity';
 import { LedgerEntry } from '../database/entities/ledger-entry.entity';
 import { EntryDirection } from './entities/entry-direction.enum';
 import { LedgerService } from './ledger.service';
+import { MetricsService } from '../observability/metrics.service';
+import { ALERTS_SERVICE, AlertsService } from '../observability/alerts.interface';
 
 export interface ReconciliationReport {
   globalBalanced: boolean;
@@ -21,6 +23,8 @@ export class ReconciliationService {
     @InjectRepository(LedgerEntry)
     private readonly entries: Repository<LedgerEntry>,
     private readonly ledgerService: LedgerService,
+    private readonly metricsService: MetricsService,
+    @Inject(ALERTS_SERVICE) private readonly alertsService: AlertsService,
   ) {}
 
   async reconcile(): Promise<ReconciliationReport> {
@@ -44,11 +48,23 @@ export class ReconciliationService {
       }
     }
 
-    return {
+    const report: ReconciliationReport = {
       globalBalanced: totalDebits === totalCredits,
       totalDebits,
       totalCredits,
       driftedAccountRefs,
     };
+
+    if (!report.globalBalanced || driftedAccountRefs.length > 0) {
+      this.metricsService.incrementLedgerDrift(Math.max(driftedAccountRefs.length, 1));
+      this.alertsService.fire({
+        name: 'LEDGER_DRIFT',
+        severity: 'critical',
+        message: 'Ledger reconciliation detected a drift between derived and cached balances',
+        context: { ...report },
+      });
+    }
+
+    return report;
   }
 }

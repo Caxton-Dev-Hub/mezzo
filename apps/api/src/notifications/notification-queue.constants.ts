@@ -10,6 +10,7 @@ export interface NotificationDeliveryJobData {
   channel: NotificationChannelType;
   eventType: NotificationEventType;
   dedupeKey: string;
+  correlationId?: string;
 }
 
 export function notificationDedupeKey(

@@ -18,6 +18,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationEventType } from '../notifications/entities/notification-event-type.enum';
 import { Money } from '../common/money/money';
 import { PAYSTACK_PROVIDER, PaystackProvider } from './providers/paystack-provider.interface';
+import { TracingService } from '../observability/tracing.service';
 import { PayoutService } from './payout.service';
 import { WebhookSignatureService } from './webhook-signature.service';
 import { PaystackWebhookDto } from './dto/payments.schemas';
@@ -41,6 +42,7 @@ export class PaymentsService {
     private readonly usersService: UsersService,
     private readonly payoutService: PayoutService,
     private readonly notificationsService: NotificationsService,
+    private readonly tracingService: TracingService,
     @Inject(PAYSTACK_PROVIDER)
     private readonly paystackProvider: PaystackProvider,
     private readonly webhookSignature: WebhookSignatureService,
@@ -103,6 +105,16 @@ export class PaymentsService {
   }
 
   async handleWebhook(
+    rawBody: Buffer,
+    signatureHeader: string | undefined,
+    dto: PaystackWebhookDto,
+  ): Promise<void> {
+    return this.tracingService.withSpan('payments.handleWebhook', () =>
+      this.processWebhook(rawBody, signatureHeader, dto),
+    );
+  }
+
+  private async processWebhook(
     rawBody: Buffer,
     signatureHeader: string | undefined,
     dto: PaystackWebhookDto,

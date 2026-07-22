@@ -66,6 +66,9 @@ export class Dispute {
   @Column({ name: 'resolved_currency', type: 'varchar', length: 8, nullable: true })
   resolvedCurrency!: Currency | null;
 
+  @Column({ name: 'resolved_arbitration_record_id', type: 'uuid', nullable: true })
+  resolvedArbitrationRecordId!: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 
