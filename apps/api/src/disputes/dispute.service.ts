@@ -17,6 +17,9 @@ import { computeFeeSplit } from '../escrow/fee-split';
 import { OnlyBuyerMayActError } from '../escrow/errors/only-buyer-may-act.error';
 import { EvidencePhase } from '../evidence/entities/evidence-phase.enum';
 import { toEvidenceItemResponse } from '../evidence/dto/evidence-response';
+import { ChatService } from '../chat/chat.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationEventType } from '../notifications/entities/notification-event-type.enum';
 import { LedgerService, PostingLine } from '../ledger/ledger.service';
 import { escrowHoldingRef, platformFeeRevenueRef, userWalletRef } from '../ledger/account-refs';
 import { EntryDirection } from '../ledger/entities/entry-direction.enum';
@@ -58,6 +61,8 @@ export class DisputeService {
     private readonly disputeStateMachine: DisputeStateMachine,
     private readonly ledgerService: LedgerService,
     private readonly configService: ConfigService,
+    private readonly chatService: ChatService,
+    private readonly notificationsService: NotificationsService,
     @InjectQueue(DISPUTE_EVIDENCE_WINDOW_QUEUE)
     private readonly evidenceWindowQueue: Queue,
   ) {}
@@ -80,13 +85,15 @@ export class DisputeService {
     const windowMs = windowHours * 60 * 60 * 1000;
     const evidenceWindowExpiresAt = new Date(Date.now() + windowMs);
 
+    let disputedEscrowVersion = 0;
     const dispute = await this.dataSource.transaction(async (manager) => {
-      await this.escrowStateMachine.transition(
+      const disputedEscrow = await this.escrowStateMachine.transition(
         escrowId,
         EscrowState.DISPUTED,
         { actorId, reason: `Buyer raised a dispute: ${dto.reasonCode}` },
         manager,
       );
+      disputedEscrowVersion = disputedEscrow.version;
 
       const saved = await manager.save(
         Dispute,
@@ -112,6 +119,13 @@ export class DisputeService {
       { disputeId: dispute.id },
       { jobId: disputeEvidenceWindowJobId(dispute.id), delay: windowMs },
     );
+
+    await this.notificationsService.notify({
+      escrowId,
+      sourceEventId: `${escrowId}_${EscrowState.DISPUTED}_${disputedEscrowVersion}`,
+      eventType: NotificationEventType.DISPUTED,
+      recipientUserIds: parties.map((party) => party.userId),
+    });
 
     return dispute;
   }
@@ -202,7 +216,7 @@ export class DisputeService {
       });
     }
 
-    return this.dataSource.transaction(async (manager) => {
+    const resolved = await this.dataSource.transaction(async (manager) => {
       const resolved = await this.disputeStateMachine.transition(
         dispute.id,
         DisputeState.RESOLVED,
@@ -250,6 +264,15 @@ export class DisputeService {
 
       return resolved;
     });
+
+    await this.notificationsService.notify({
+      escrowId: dispute.escrowId,
+      sourceEventId: `${dispute.id}_${DisputeState.RESOLVED}_${resolved.version}`,
+      eventType: NotificationEventType.RESOLVED,
+      recipientUserIds: [buyer.userId, seller.userId],
+    });
+
+    return resolved;
   }
 
   async getPacket(disputeId: string, currentUser: AuthenticatedUser): Promise<DisputePacketResponse> {
@@ -271,7 +294,7 @@ export class DisputeService {
       throw new NotEscrowPartyError();
     }
 
-    const [escrowEvents, disputeEvents, evidenceItems] = await Promise.all([
+    const [escrowEvents, disputeEvents, evidenceItems, chatTranscript] = await Promise.all([
       this.escrowEvents.find({
         where: { escrowId: dispute.escrowId },
         order: { createdAt: 'ASC', id: 'ASC' },
@@ -284,6 +307,7 @@ export class DisputeService {
         where: { escrowId: dispute.escrowId },
         order: { createdAt: 'ASC', id: 'ASC' },
       }),
+      this.chatService.getTranscript(dispute.escrowId),
     ]);
 
     const evidenceItemIds = evidenceItems.map((item) => item.id);
@@ -315,7 +339,7 @@ export class DisputeService {
         sellerSubmitted: sellerEvidence.length > 0,
         evidenceWindowElapsed: Date.now() >= dispute.evidenceWindowExpiresAt.getTime(),
       },
-      chatTranscript: [],
+      chatTranscript,
     };
   }
 }

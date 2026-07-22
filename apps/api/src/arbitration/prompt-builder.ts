@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { DisputePacketResponse } from '../disputes/dto/dispute-response';
 import { EvidenceItemResponse } from '../evidence/dto/evidence-response';
+import { ChatMessageResponse } from '../chat/dto/chat-response';
 
 const SYSTEM_PROMPT = `You are a dispute analyst for an escrow marketplace. You review the evidence and
 timeline of a buyer/seller dispute and produce a recommendation. You never move money and you never
@@ -36,6 +37,11 @@ function formatEvidenceItem(item: EvidenceItemResponse): string {
     `    gps: ${item.gpsLatitude ?? 'n/a'},${item.gpsLongitude ?? 'n/a'}`,
     `    integrityFlags: ${flags}`,
   ].join('\n');
+}
+
+function formatChatMessage(message: ChatMessageResponse): string {
+  const attachment = message.attachment ? ` [attachment evidenceId: ${message.attachment.id}]` : '';
+  return `  - [${message.createdAt.toISOString()}] senderId ${message.senderId}: ${message.body}${attachment}`;
 }
 
 @Injectable()
@@ -90,7 +96,7 @@ export class ArbitrationPromptBuilder {
     );
 
     sections.push('## Chat transcript');
-    sections.push(packet.chatTranscript.length > 0 ? JSON.stringify(packet.chatTranscript) : '  (none)');
+    sections.push(packet.chatTranscript.map(formatChatMessage).join('\n') || '  (none)');
 
     return sections.join('\n\n');
   }
