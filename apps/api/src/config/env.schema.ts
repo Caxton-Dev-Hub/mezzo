@@ -33,6 +33,22 @@ export const envSchema = z.object({
   PAYSTACK_PROVIDER: z.enum(['fake', 'paystack']).default('fake'),
   PAYSTACK_SECRET_KEY: z.string().min(1),
   PAYSTACK_BASE_URL: z.string().url().default('https://api.paystack.co'),
+  ARBITRATION_PROVIDER: z.enum(['fake', 'live']).default('fake'),
+  ARBITRATION_CONFIDENCE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.75),
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  ANTHROPIC_MODEL: z.string().min(1).default('claude-sonnet-5'),
+  OPENAI_API_KEY: z.string().min(1).optional(),
+  OPENAI_MODEL: z.string().min(1).default('gpt-4o-mini'),
+  NOTIFICATION_EMAIL_PROVIDER: z.enum(['fake', 'resend']).default('fake'),
+  NOTIFICATION_SMS_PROVIDER: z.enum(['fake', 'termii']).default('fake'),
+  NOTIFICATION_QUEUE_ATTEMPTS: z.coerce.number().int().positive().default(5),
+  NOTIFICATION_QUEUE_BACKOFF_MS: z.coerce.number().int().positive().default(30_000),
+  INSPECTION_ENDING_SOON_LEAD_HOURS: z.coerce.number().int().positive().default(6),
+  RESEND_API_KEY: z.string().min(1).optional(),
+  RESEND_FROM_EMAIL: z.string().min(1).default('notifications@mezzo.app'),
+  TERMII_API_KEY: z.string().min(1).optional(),
+  TERMII_BASE_URL: z.string().url().default('https://api.ng.termii.com'),
+  TERMII_SENDER_ID: z.string().min(1).default('Mezzo'),
 });
 
 export type Env = z.infer<typeof envSchema>;

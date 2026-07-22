@@ -11,6 +11,7 @@ import { EvidenceModule } from './evidence/evidence.module';
 import { LedgerModule } from './ledger/ledger.module';
 import { PaymentsModule } from './payments/payments.module';
 import { DisputeModule } from './disputes/dispute.module';
+import { ArbitrationModule } from './arbitration/arbitration.module';
 import { QueueModule } from './queue/queue.module';
 
 @Module({
@@ -28,6 +29,7 @@ import { QueueModule } from './queue/queue.module';
     LedgerModule,
     PaymentsModule,
     DisputeModule,
+    ArbitrationModule,
   ],
 })
 export class AppModule {}
