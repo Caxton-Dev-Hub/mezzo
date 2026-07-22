@@ -17,5 +17,5 @@ export function notificationDedupeKey(
   channel: NotificationChannelType,
   userId: string,
 ): string {
-  return `${sourceEventId}:${channel}:${userId}`;
+  return `${sourceEventId}_${channel}_${userId}`;
 }

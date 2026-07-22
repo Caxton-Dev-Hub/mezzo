@@ -1,6 +1,6 @@
-import { Inject } from '@nestjs/common';
+import { Inject, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { Repository } from 'typeorm';
 import { Notification } from '../database/entities/notification.entity';
@@ -22,6 +22,8 @@ function isUniqueViolation(error: unknown): boolean {
 
 @Processor(NOTIFICATION_QUEUE)
 export class NotificationDeliveryProcessor extends WorkerHost {
+  private readonly logger = new Logger(NotificationDeliveryProcessor.name);
+
   constructor(
     @InjectRepository(Notification)
     private readonly notifications: Repository<Notification>,
@@ -92,5 +94,10 @@ export class NotificationDeliveryProcessor extends WorkerHost {
       await this.notifications.save(record);
       throw error;
     }
+  }
+
+  @OnWorkerEvent('error')
+  onWorkerError(error: Error): void {
+    this.logger.warn(`Notification worker error: ${error.message}`);
   }
 }
