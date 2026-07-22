@@ -128,9 +128,12 @@ merged and time-ordered timeline of both `EscrowEvent`s and
 `DisputeEvent`s, the `AT_CREATION` bundle, the buyer's and seller's
 `AT_DELIVERY` bundles kept separate (so a reader — human or model — can
 tell rebuttal from original claim without inferring it), the submission
-flags above, and an empty `chatTranscript` placeholder (Milestone 10
-hasn't been built yet; the field exists now so the packet's shape doesn't
-change out from under Milestone 9 later). Access is a party of the escrow
+flags above, and the escrow's full `chatTranscript` (Milestone 10's
+`chat` module, chronological, each message carrying its optional
+evidence attachment) — the field was added to the packet's shape back in
+Milestone 8 as an empty placeholder specifically so it wouldn't change
+out from under Milestone 9's arbiter once Milestone 10 filled it in.
+Access is a party of the escrow
 or `ARBITER`/`ADMIN` — enforced in the service, not `@Roles()`, since
 regular parties (plain `USER`) legitimately need to read their own
 dispute's packet too.

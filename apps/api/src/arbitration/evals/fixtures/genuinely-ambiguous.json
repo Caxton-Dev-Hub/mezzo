@@ -1,0 +1,7 @@
+{
+  "id": "genuinely-ambiguous",
+  "description": "Buyer says the item arrived damaged; seller's rebuttal photos show the item intact at handoff to the carrier, but neither side's photos clearly show the packaging in transit, so causation cannot be determined.",
+  "hasUnresolvedIntegrityFlags": false,
+  "expectedLabel": "NEEDS_HUMAN",
+  "rawModelResponse": "{\n  \"recommendedOutcome\": \"SPLIT\",\n  \"splitRatio\": 5000,\n  \"confidence\": 0.42,\n  \"rationale\": \"The seller's evidence shows the item intact before shipment, and the buyer's evidence shows damage on arrival, but neither party has evidence of the item's condition in transit, so I cannot confidently attribute fault to either side.\",\n  \"citedEvidenceIds\": [\"evidence-creation-1\", \"evidence-buyer-1\"],\n  \"contradictions\": [],\n  \"missingEvidence\": []\n}"
+}

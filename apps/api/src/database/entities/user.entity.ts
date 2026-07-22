@@ -21,6 +21,9 @@ export class User {
   @Column({ name: 'password_hash', type: 'text' })
   passwordHash!: string;
 
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  phone!: string | null;
+
   @Column({ type: 'enum', enum: UserRole, default: UserRole.USER })
   role!: UserRole;
 

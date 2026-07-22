@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
+import { ConfigService } from '@nestjs/config';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Queue } from 'bullmq';
@@ -20,6 +21,13 @@ import { OnlyBuyerMayActError } from './errors/only-buyer-may-act.error';
 import { IllegalTransitionError } from './errors/illegal-transition.error';
 import { StaleEscrowVersionError } from './errors/stale-escrow-version.error';
 import { AUTO_RELEASE_JOB, AUTO_RELEASE_QUEUE, autoReleaseJobId } from './auto-release-queue.constants';
+import {
+  INSPECTION_ENDING_SOON_JOB,
+  INSPECTION_ENDING_SOON_QUEUE,
+  inspectionEndingSoonJobId,
+} from './inspection-ending-soon-queue.constants';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationEventType } from '../notifications/entities/notification-event-type.enum';
 
 @Injectable()
 export class SettlementService {
@@ -31,8 +39,12 @@ export class SettlementService {
     private readonly escrowService: EscrowService,
     private readonly stateMachine: EscrowStateMachine,
     private readonly ledgerService: LedgerService,
+    private readonly configService: ConfigService,
+    private readonly notificationsService: NotificationsService,
     @InjectQueue(AUTO_RELEASE_QUEUE)
     private readonly autoReleaseQueue: Queue,
+    @InjectQueue(INSPECTION_ENDING_SOON_QUEUE)
+    private readonly inspectionEndingSoonQueue: Queue,
   ) {}
 
   async ship(escrowId: string, actorId: string, dto: ShipEscrowDto): Promise<Escrow> {
@@ -51,6 +63,13 @@ export class SettlementService {
       await this.escrows.update({ id: escrowId }, { trackingReference: dto.trackingReference });
       escrow.trackingReference = dto.trackingReference;
     }
+
+    await this.notificationsService.notify({
+      escrowId,
+      sourceEventId: `${escrowId}_${escrow.state}_${escrow.version}`,
+      eventType: NotificationEventType.SHIPPED,
+      recipientUserIds: parties.map((party) => party.userId),
+    });
 
     return escrow;
   }
@@ -81,7 +100,36 @@ export class SettlementService {
       { jobId: autoReleaseJobId(escrowId), delay: delayMs },
     );
 
+    const leadHours = this.configService.getOrThrow<number>('INSPECTION_ENDING_SOON_LEAD_HOURS');
+    const leadMs = Math.min(leadHours * 60 * 60 * 1000, Math.floor(delayMs / 2));
+    await this.inspectionEndingSoonQueue.add(
+      INSPECTION_ENDING_SOON_JOB,
+      { escrowId },
+      { jobId: inspectionEndingSoonJobId(escrowId), delay: Math.max(delayMs - leadMs, 0) },
+    );
+
+    await this.notificationsService.notify({
+      escrowId,
+      sourceEventId: `${escrowId}_${escrow.state}_${escrow.version}`,
+      eventType: NotificationEventType.DELIVERED,
+      recipientUserIds: parties.map((party) => party.userId),
+    });
+
     return escrow;
+  }
+
+  async notifyInspectionEndingSoon(escrowId: string): Promise<void> {
+    const { escrow, parties } = await this.escrowService.getDetail(escrowId);
+    if (escrow.state !== EscrowState.DELIVERED) {
+      return;
+    }
+
+    await this.notificationsService.notify({
+      escrowId,
+      sourceEventId: `${escrowId}_${NotificationEventType.INSPECTION_ENDING_SOON}_${escrow.version}`,
+      eventType: NotificationEventType.INSPECTION_ENDING_SOON,
+      recipientUserIds: parties.map((party) => party.userId),
+    });
   }
 
   async release(escrowId: string, actorId: string): Promise<Escrow> {
@@ -163,8 +211,8 @@ export class SettlementService {
 
     const { price, sellerAmount, feeAmount } = this.computeReleaseSplit(terms);
 
-    return this.dataSource.transaction(async (manager) => {
-      const escrow = await this.stateMachine.transition(
+    const escrow = await this.dataSource.transaction(async (manager) => {
+      const releasedEscrow = await this.stateMachine.transition(
         escrowId,
         EscrowState.RELEASED,
         { actorId, reason: 'Escrow released' },
@@ -189,8 +237,17 @@ export class SettlementService {
         manager,
       );
 
-      return escrow;
+      return releasedEscrow;
     });
+
+    await this.notificationsService.notify({
+      escrowId,
+      sourceEventId: `${escrowId}_${escrow.state}_${escrow.version}`,
+      eventType: NotificationEventType.RELEASED,
+      recipientUserIds: parties.map((party) => party.userId),
+    });
+
+    return escrow;
   }
 
   private computeReleaseSplit(terms: EscrowTerms): {

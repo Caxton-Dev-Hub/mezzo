@@ -14,6 +14,8 @@ import { escrowHoldingRef, providerClearingRef } from '../ledger/account-refs';
 import { EntryDirection } from '../ledger/entities/entry-direction.enum';
 import { KycService } from '../kyc/kyc.service';
 import { UsersService } from '../users/users.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationEventType } from '../notifications/entities/notification-event-type.enum';
 import { Money } from '../common/money/money';
 import { PAYSTACK_PROVIDER, PaystackProvider } from './providers/paystack-provider.interface';
 import { PayoutService } from './payout.service';
@@ -38,6 +40,7 @@ export class PaymentsService {
     private readonly kycService: KycService,
     private readonly usersService: UsersService,
     private readonly payoutService: PayoutService,
+    private readonly notificationsService: NotificationsService,
     @Inject(PAYSTACK_PROVIDER)
     private readonly paystackProvider: PaystackProvider,
     private readonly webhookSignature: WebhookSignatureService,
@@ -140,7 +143,7 @@ export class PaymentsService {
       return;
     }
 
-    await this.dataSource.transaction(async (manager) => {
+    const escrow = await this.dataSource.transaction(async (manager) => {
       await this.ledgerService.postTransaction(
         [
           {
@@ -158,7 +161,7 @@ export class PaymentsService {
         manager,
       );
 
-      await this.stateMachine.transition(
+      const fundedEscrow = await this.stateMachine.transition(
         intent.escrowId,
         EscrowState.FUNDED,
         { actorId: null, reason: 'Paystack charge.success webhook verified', correlationId: intent.id },
@@ -176,6 +179,16 @@ export class PaymentsService {
           escrowId: intent.escrowId,
         }),
       );
+
+      return fundedEscrow;
+    });
+
+    const { parties } = await this.escrowService.getDetail(intent.escrowId);
+    await this.notificationsService.notify({
+      escrowId: intent.escrowId,
+      sourceEventId: `${intent.escrowId}_${escrow.state}_${escrow.version}`,
+      eventType: NotificationEventType.FUNDED,
+      recipientUserIds: parties.map((party) => party.userId),
     });
   }
 

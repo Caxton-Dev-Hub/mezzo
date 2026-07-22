@@ -8,6 +8,7 @@ import { EscrowTerms } from '../database/entities/escrow-terms.entity';
 import { EscrowParty } from '../database/entities/escrow-party.entity';
 import { Invite } from '../database/entities/invite.entity';
 import { EvidenceItem } from '../database/entities/evidence-item.entity';
+import { EscrowEvent } from '../database/entities/escrow-event.entity';
 import { EscrowState } from './entities/escrow-state.enum';
 import { opposite } from './entities/escrow-role.enum';
 import { EscrowStateMachine } from './escrow-state-machine';
@@ -21,6 +22,8 @@ import { InviteNotFoundError } from './errors/invite-not-found.error';
 import { InviteNoLongerValidError } from './errors/invite-no-longer-valid.error';
 import { MissingCreationEvidenceError } from './errors/missing-creation-evidence.error';
 import { EvidencePhase } from '../evidence/entities/evidence-phase.enum';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationEventType } from '../notifications/entities/notification-event-type.enum';
 
 const EDITABLE_STATES: ReadonlySet<EscrowState> = new Set([
   EscrowState.DRAFT,
@@ -40,10 +43,13 @@ export class EscrowService {
     private readonly invites: Repository<Invite>,
     @InjectRepository(EvidenceItem)
     private readonly evidenceItems: Repository<EvidenceItem>,
+    @InjectRepository(EscrowEvent)
+    private readonly escrowEvents: Repository<EscrowEvent>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
     private readonly stateMachine: EscrowStateMachine,
     private readonly configService: ConfigService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async createDraft(initiatorId: string, dto: CreateEscrowDto): Promise<Escrow> {
@@ -89,9 +95,16 @@ export class EscrowService {
       throw new MissingCreationEvidenceError();
     }
 
-    await this.stateMachine.transition(escrowId, EscrowState.PENDING_COUNTERPARTY, {
+    const escrow = await this.stateMachine.transition(escrowId, EscrowState.PENDING_COUNTERPARTY, {
       actorId,
       reason: 'Initiator invited a counterparty',
+    });
+
+    await this.notificationsService.notify({
+      escrowId,
+      sourceEventId: `${escrowId}_${escrow.state}_${escrow.version}`,
+      eventType: NotificationEventType.INVITED,
+      recipientUserIds: [actorId],
     });
 
     const expiryHours = this.configService.getOrThrow<number>('ESCROW_INVITE_EXPIRY_HOURS');
@@ -169,10 +182,19 @@ export class EscrowService {
       allParties.length === 2 && allParties.every((current) => current.termsAcceptedAt !== null);
 
     if (bothAccepted) {
-      return this.stateMachine.transition(escrowId, EscrowState.AGREED, {
+      const escrow = await this.stateMachine.transition(escrowId, EscrowState.AGREED, {
         actorId: userId,
         reason: 'Both parties accepted terms',
       });
+
+      await this.notificationsService.notify({
+        escrowId,
+        sourceEventId: `${escrowId}_${escrow.state}_${escrow.version}`,
+        eventType: NotificationEventType.AGREED,
+        recipientUserIds: allParties.map((party) => party.userId),
+      });
+
+      return escrow;
     }
 
     const escrow = await this.escrows.findOne({ where: { id: escrowId } });
@@ -244,5 +266,12 @@ export class EscrowService {
     if (!party) {
       throw new NotEscrowPartyError();
     }
+  }
+
+  async hasEverBeenDisputed(escrowId: string): Promise<boolean> {
+    const count = await this.escrowEvents.count({
+      where: { escrowId, toState: EscrowState.DISPUTED },
+    });
+    return count > 0;
   }
 }
