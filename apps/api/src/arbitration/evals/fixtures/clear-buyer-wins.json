@@ -1,0 +1,7 @@
+{
+  "id": "clear-buyer-wins",
+  "description": "Buyer reports the item never arrived; the seller has no shipping proof at all and the carrier tracking reference on file does not resolve.",
+  "hasUnresolvedIntegrityFlags": false,
+  "expectedLabel": "REFUND_TO_BUYER",
+  "rawModelResponse": "{\n  \"recommendedOutcome\": \"REFUND_TO_BUYER\",\n  \"confidence\": 0.9,\n  \"rationale\": \"The seller submitted no AT_DELIVERY rebuttal evidence and the escrow timeline (dispute-evidence-window) shows no shipping proof was ever provided. The buyer's NOT_RECEIVED claim (evidence-buyer-1, a photo of an empty doorstep with timestamp matching the delivery window) is uncontested.\",\n  \"citedEvidenceIds\": [\"evidence-buyer-1\"],\n  \"contradictions\": [],\n  \"missingEvidence\": []\n}"
+}

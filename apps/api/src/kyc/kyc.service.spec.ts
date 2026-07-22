@@ -17,7 +17,7 @@ import { KycEvent } from '../database/entities/kyc-event.entity';
 import { UserRole } from '../users/entities/user-role.enum';
 
 class InMemoryUserRepository {
-  constructor(readonly users: Map<string, User>) {}
+  constructor(readonly users: Map<string, User>) { }
 
   findOne({ where }: { where: { id: string } }): Promise<User | null> {
     return Promise.resolve(this.users.get(where.id) ?? null);
@@ -95,6 +95,7 @@ function buildUser(tier: KycTier): User {
     id: randomUUID(),
     email: `${randomUUID()}@example.com`,
     passwordHash: 'irrelevant',
+    phone: null,
     role: UserRole.USER,
     kycTier: tier,
     createdAt: new Date(),

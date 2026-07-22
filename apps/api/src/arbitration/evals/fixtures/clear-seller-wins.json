@@ -1,0 +1,7 @@
+{
+  "id": "clear-seller-wins",
+  "description": "Buyer claims item not as described, but buyer's own delivery photos match the seller's creation photos exactly and the seller has valid shipping proof.",
+  "hasUnresolvedIntegrityFlags": false,
+  "expectedLabel": "RELEASE_TO_SELLER",
+  "rawModelResponse": "{\n  \"recommendedOutcome\": \"RELEASE_TO_SELLER\",\n  \"confidence\": 0.93,\n  \"rationale\": \"The buyer's AT_DELIVERY photos (evidence-buyer-1) show the same item, serial number, and condition as the seller's AT_CREATION photos (evidence-creation-1). The seller's shipping proof (evidence-seller-1) matches the tracking reference on file. The buyer's claim of a mismatch is not supported by their own evidence.\",\n  \"citedEvidenceIds\": [\"evidence-creation-1\", \"evidence-buyer-1\", \"evidence-seller-1\"],\n  \"contradictions\": [],\n  \"missingEvidence\": []\n}"
+}

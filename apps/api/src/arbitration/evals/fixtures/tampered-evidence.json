@@ -1,0 +1,7 @@
+{
+  "id": "tampered-evidence",
+  "description": "Buyer's AT_DELIVERY photo hash is a byte-for-byte duplicate of another user's evidence in a different escrow, and EXIF metadata is missing entirely -- the evidence module has already raised DUPLICATE_CONTENT and MISSING_METADATA integrity flags on it, regardless of how confidently the model reasons over the claim.",
+  "hasUnresolvedIntegrityFlags": true,
+  "expectedLabel": "NEEDS_HUMAN",
+  "rawModelResponse": "{\n  \"recommendedOutcome\": \"REFUND_TO_BUYER\",\n  \"confidence\": 0.88,\n  \"rationale\": \"The buyer's photo (evidence-buyer-1) clearly shows a damaged item, supporting a refund.\",\n  \"citedEvidenceIds\": [\"evidence-buyer-1\"],\n  \"contradictions\": [],\n  \"missingEvidence\": []\n}"
+}

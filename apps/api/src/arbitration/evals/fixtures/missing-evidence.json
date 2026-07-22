@@ -1,0 +1,7 @@
+{
+  "id": "missing-evidence",
+  "description": "Buyer claims the wrong item arrived but submitted no AT_DELIVERY photos at all before the evidence window elapsed; the model correctly notices there is nothing to adjudicate on and should not guess.",
+  "hasUnresolvedIntegrityFlags": false,
+  "expectedLabel": "NEEDS_HUMAN",
+  "rawModelResponse": "{\n  \"recommendedOutcome\": \"REFUND_TO_BUYER\",\n  \"confidence\": 0.55,\n  \"rationale\": \"The buyer claims the wrong item arrived but has not submitted any delivery photos, so there is no visual evidence to confirm what actually arrived.\",\n  \"citedEvidenceIds\": [\"evidence-creation-1\"],\n  \"contradictions\": [],\n  \"missingEvidence\": [\"Buyer AT_DELIVERY photos of the item that actually arrived\"]\n}"
+}
