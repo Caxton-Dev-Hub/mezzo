@@ -3,6 +3,8 @@ dist/
 build/
 coverage/
 
+.next
+
 .env
 .env.local
 !.env.example
