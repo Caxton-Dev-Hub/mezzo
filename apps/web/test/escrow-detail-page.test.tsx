@@ -8,6 +8,14 @@ vi.mock('next/navigation', () => ({
   useParams: () => ({ id: 'escrow-1' }),
 }));
 
+vi.mock('socket.io-client', () => ({
+  io: () => ({
+    on: vi.fn(),
+    emit: vi.fn(),
+    close: vi.fn(),
+  }),
+}));
+
 const BUYER_ID = 'buyer-id';
 const SELLER_ID = 'seller-id';
 
@@ -46,6 +54,12 @@ function stubFetch(overrides: { state?: string } = {}) {
       }
       if (url.includes('/evidence/')) {
         return jsonResponse({ escrowId: 'escrow-1', items: [] });
+      }
+      if (url.includes('/chat/read')) {
+        return jsonResponse([]);
+      }
+      if (url.includes('/chat')) {
+        return jsonResponse([]);
       }
       return jsonResponse(escrowBody);
     }),
