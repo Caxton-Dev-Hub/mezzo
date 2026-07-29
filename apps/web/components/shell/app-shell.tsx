@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useAuthStore } from '../../lib/auth-store';
 import { useLogout } from '../../hooks/use-logout';
 import { Wordmark } from './wordmark';
@@ -16,6 +17,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto flex h-16 max-w-4xl items-center justify-between gap-4 px-5 sm:px-8">
           <Wordmark />
           <div className="flex items-center gap-3 sm:gap-4">
+            {status === 'authenticated' ? (
+              <Link href="/wallet" className="text-sm text-fog hover:text-vellum">
+                Wallet
+              </Link>
+            ) : null}
             {status === 'pending' ? (
               <span className="hidden h-4 w-32 animate-pulse rounded bg-surface-2 sm:block" />
             ) : status === 'authenticated' && user ? (
