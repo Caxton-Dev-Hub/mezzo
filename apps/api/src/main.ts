@@ -13,6 +13,10 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, { rawBody: true, bufferLogs: true });
   app.useLogger(app.get(AppLoggerService));
   const configService = app.get(ConfigService);
+  app.enableCors({
+    origin: configService.getOrThrow<string>('CORS_ORIGINS').split(','),
+    credentials: true,
+  });
   const port = configService.get<number>('PORT', 3000);
   await app.listen(port);
 }
