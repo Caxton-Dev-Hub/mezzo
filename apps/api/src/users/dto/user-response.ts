@@ -1,12 +1,7 @@
+import { UserResponse } from '@mezzo/shared-types';
 import { User } from '../../database/entities/user.entity';
-import { UserRole } from '../entities/user-role.enum';
 
-export interface UserResponse {
-  id: string;
-  email: string;
-  role: UserRole;
-  createdAt: Date;
-}
+export type { UserResponse };
 
 export function toUserResponse(user: User): UserResponse {
   return {
