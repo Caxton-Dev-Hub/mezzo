@@ -22,7 +22,12 @@ care about:
   deliberately not 3000/3001, so a running `pnpm dev` is left alone.
 - The web app compiles into `.next-e2e` (via `NEXT_DIST_DIR`), not `.next`.
 
-Because the ports are fixed, only one e2e run can be in flight at a time.
+Two consequences worth knowing:
+
+- Because the ports are fixed, only one e2e run can be in flight at a time.
+- Next rewrites the generated `next-env.d.ts` to point at whichever `distDir`
+  it last ran against, so teardown restores the original file. A finished run
+  leaves the git tree exactly as it found it.
 
 ## Why `next dev` rather than a production build
 

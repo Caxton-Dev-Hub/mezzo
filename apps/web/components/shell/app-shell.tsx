@@ -5,6 +5,7 @@ import { useAuthStore } from '../../lib/auth-store';
 import { useLogout } from '../../hooks/use-logout';
 import { Wordmark } from './wordmark';
 import { Button } from '../ui/button';
+import { NotificationCenter } from '../notifications/notification-center';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const status = useAuthStore((state) => state.status);
@@ -22,6 +23,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 Wallet
               </Link>
             ) : null}
+            {status === 'authenticated' ? <NotificationCenter /> : null}
             {status === 'pending' ? (
               <span className="hidden h-4 w-32 animate-pulse rounded bg-surface-2 sm:block" />
             ) : status === 'authenticated' && user ? (

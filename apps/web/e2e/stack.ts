@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 export const API_PORT = 4000;
@@ -10,10 +9,9 @@ export const DIST_DIR = '.next-e2e';
 
 export const HANDOFF_PATH = join(__dirname, '.stack.json');
 
+export const NEXT_ENV_PATH = join(__dirname, '..', 'next-env.d.ts');
+
 export interface StackHandoff {
   databaseUrl: string;
-}
-
-export function readHandoff(): StackHandoff {
-  return JSON.parse(readFileSync(HANDOFF_PATH, 'utf8')) as StackHandoff;
+  nextEnvBackup: string;
 }

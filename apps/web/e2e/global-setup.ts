@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { spawn, ChildProcess } from 'node:child_process';
-import { existsSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PostgreSqlContainer, StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { RedisContainer, StartedRedisContainer } from '@testcontainers/redis';
@@ -10,6 +10,7 @@ import {
   API_URL,
   DIST_DIR,
   HANDOFF_PATH,
+  NEXT_ENV_PATH,
   PAYSTACK_SECRET,
   WEB_PORT,
   WEB_URL,
@@ -136,6 +137,10 @@ export default async function globalSetup(): Promise<void> {
   // with "Expected clientReferenceManifest to be defined", so always start clean.
   rmSync(join(WEB_DIR, DIST_DIR), { recursive: true, force: true });
 
+  // Next rewrites this generated file to reference whichever distDir it last ran
+  // against; teardown puts it back so an e2e run never leaves the tree dirty.
+  const nextEnvBackup = readFileSync(NEXT_ENV_PATH, 'utf8');
+
   // `next dev` rather than build+start: a production build peaks well above a
   // gigabyte, which is more headroom than a developer machine running the app
   // stack plus browsers reliably has. Dev compiles each route on first request
@@ -147,6 +152,6 @@ export default async function globalSetup(): Promise<void> {
   pipeLogs(web, 'web');
   await waitForHttp(`${WEB_URL}/login`, 'Web', web, 240_000);
 
-  writeFileSync(HANDOFF_PATH, JSON.stringify({ databaseUrl }), 'utf8');
+  writeFileSync(HANDOFF_PATH, JSON.stringify({ databaseUrl, nextEnvBackup }), 'utf8');
   globalThis.__MEZZO_E2E_STACK__ = { postgres, redis, minio, api, web };
 }
