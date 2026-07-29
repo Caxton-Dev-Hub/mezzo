@@ -6,3 +6,5 @@ export * from './evidence';
 export * from './disputes';
 export * from './payments';
 export * from './kyc';
+export * from './chat';
+export * from './notifications';
