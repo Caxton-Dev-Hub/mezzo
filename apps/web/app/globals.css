@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #0b0f14;
+  --color-ink-2: #0e131a;
+  --color-surface: #12171f;
+  --color-surface-2: #171d27;
+  --color-line: #232c39;
+  --color-line-soft: #1a212c;
+
+  --color-vellum: #ede7db;
+  --color-fog: #9aa7b8;
+  --color-mute: #6b7789;
+
+  --color-buyer: #5b8def;
+  --color-buyer-deep: #3d6fd6;
+  --color-seller: #e8935c;
+  --color-seller-deep: #d2743a;
+  --color-mint: #7fe8b0;
+  --color-mint-deep: #43c789;
+  --color-danger: #e8695c;
+  --color-danger-deep: #d2503f;
+
+  --font-display: var(--font-instrument);
+  --font-sans: var(--font-hanken);
+  --font-mono: var(--font-mono);
+
+  --shadow-panel: 0 1px 0 0 rgba(255, 255, 255, 0.02) inset,
+    0 24px 60px -30px rgba(0, 0, 0, 0.75);
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background-color: var(--color-ink);
+  color: var(--color-vellum);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "ss01", "cv01";
+}
+
+::selection {
+  background: color-mix(in oklab, var(--color-mint) 30%, transparent);
+  color: #fff;
+}
+
+.font-display {
+  font-family: var(--font-display), Georgia, serif;
+  font-weight: 400;
+}
+
+.font-mono {
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
