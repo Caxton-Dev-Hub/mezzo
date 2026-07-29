@@ -1,12 +1,23 @@
 import type { Request } from 'express';
-import { Body, Controller, Headers, HttpCode, HttpStatus, Param, Post, RawBodyRequest, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  RawBodyRequest,
+  Req,
+} from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { AuthenticatedUser } from '../common/types/authenticated-user';
 import { paystackWebhookSchema, PaystackWebhookDto } from './dto/payments.schemas';
-import { PaymentIntentResponse } from './dto/payments-response';
+import { LatestPaymentIntentResponse, PaymentIntentResponse } from './dto/payments-response';
 
 @Controller('payments')
 export class PaymentsController {
@@ -19,6 +30,14 @@ export class PaymentsController {
     @Param('escrowId') escrowId: string,
   ): Promise<PaymentIntentResponse> {
     return this.paymentsService.initiateFunding(currentUser.id, escrowId);
+  }
+
+  @Get('escrows/:escrowId/intent')
+  latestIntent(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param('escrowId') escrowId: string,
+  ): Promise<LatestPaymentIntentResponse> {
+    return this.paymentsService.getLatestIntent(currentUser.id, escrowId);
   }
 
   @Public()

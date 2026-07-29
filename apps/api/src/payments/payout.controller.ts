@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { PayoutService } from './payout.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
@@ -17,5 +17,10 @@ export class PayoutController {
     @Body(new ZodValidationPipe(requestPayoutSchema)) dto: RequestPayoutDto,
   ): Promise<PayoutResponse> {
     return this.payoutService.requestPayout(currentUser.id, dto);
+  }
+
+  @Get()
+  list(@CurrentUser() currentUser: AuthenticatedUser): Promise<PayoutResponse[]> {
+    return this.payoutService.listPayouts(currentUser.id);
   }
 }

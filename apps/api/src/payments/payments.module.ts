@@ -15,6 +15,8 @@ import { PaymentsService } from './payments.service';
 import { PaymentsReconciliationService } from './payments-reconciliation.service';
 import { PayoutController } from './payout.controller';
 import { PayoutService } from './payout.service';
+import { WalletController } from './wallet.controller';
+import { WalletService } from './wallet.service';
 import { WebhookSignatureService } from './webhook-signature.service';
 import { PAYSTACK_PROVIDER, PaystackProvider } from './providers/paystack-provider.interface';
 import { FakePaystackProvider } from './providers/fake-paystack.provider';
@@ -30,11 +32,12 @@ import { PaystackHttpProvider } from './providers/paystack-http.provider';
     NotificationsModule,
     ObservabilityModule,
   ],
-  controllers: [PaymentsController, PayoutController],
+  controllers: [PaymentsController, PayoutController, WalletController],
   providers: [
     PaymentsService,
     PaymentsReconciliationService,
     PayoutService,
+    WalletService,
     WebhookSignatureService,
     FakePaystackProvider,
     PaystackHttpProvider,
@@ -49,6 +52,12 @@ import { PaystackHttpProvider } from './providers/paystack-http.provider';
         configService.get<string>('PAYSTACK_PROVIDER') === 'paystack' ? httpProvider : fakeProvider,
     },
   ],
-  exports: [PaymentsService, PaymentsReconciliationService, PayoutService, FakePaystackProvider],
+  exports: [
+    PaymentsService,
+    PaymentsReconciliationService,
+    PayoutService,
+    WalletService,
+    FakePaystackProvider,
+  ],
 })
 export class PaymentsModule {}

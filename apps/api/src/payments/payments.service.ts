@@ -22,7 +22,11 @@ import { TracingService } from '../observability/tracing.service';
 import { PayoutService } from './payout.service';
 import { WebhookSignatureService } from './webhook-signature.service';
 import { PaystackWebhookDto } from './dto/payments.schemas';
-import { PaymentIntentResponse, toPaymentIntentResponse } from './dto/payments-response';
+import {
+  LatestPaymentIntentResponse,
+  PaymentIntentResponse,
+  toPaymentIntentResponse,
+} from './dto/payments-response';
 import { EscrowNotAgreedError } from './errors/escrow-not-agreed.error';
 import { OnlyBuyerMayFundError } from './errors/only-buyer-may-fund.error';
 
@@ -102,6 +106,17 @@ export class PaymentsService {
     );
 
     return toPaymentIntentResponse(intent, authorizationUrl);
+  }
+
+  async getLatestIntent(userId: string, escrowId: string): Promise<LatestPaymentIntentResponse> {
+    await this.escrowService.assertIsParty(escrowId, userId);
+
+    const intent = await this.intents.findOne({
+      where: { escrowId },
+      order: { createdAt: 'DESC' },
+    });
+
+    return { intent: intent ? toPaymentIntentResponse(intent) : null };
   }
 
   async handleWebhook(

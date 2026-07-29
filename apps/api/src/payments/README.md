@@ -134,3 +134,37 @@ a Paystack transfer.
   funding's minimum tier; unlike funding there's no per-tier amount cap
   here (the milestone doesn't specify one for payouts), only the wallet
   balance check (`InsufficientWalletBalanceError`).
+
+## Read surface for the money screens (Frontend Milestone F4)
+
+Three read-only endpoints exist purely so the web client can render the
+money surfaces. They compute, never mutate.
+
+- `GET /wallet` — the three balances, each carrying its own currency and
+  deliberately never collapsed into one number:
+  - `available` — the derived balance of `user:{id}:wallet`.
+  - `pending` — the sum of the user's `PENDING` payouts. This is money
+    already debited from the wallet and sitting in provider clearing
+    until the transfer webhook confirms, so it is genuinely neither
+    available nor held.
+  - `heldInEscrow` — the summed holding balances of every escrow the user
+    is a party to. Settled escrows contribute zero, so no state filter is
+    needed.
+- `GET /wallet/activity` — recent money movement in human terms. It is a
+  union of two sources, because no single one tells the whole story: the
+  ledger entries on the user's own wallet account (release, refund,
+  dispute settlement, payout, payout reversal — the kind is read off the
+  posting's idempotency key prefix) plus the user's `FUNDED` payment
+  intents, since funding an escrow debits the provider and credits the
+  escrow holding account and so never touches the buyer's wallet account
+  at all.
+- `GET /payments/escrows/{id}/intent` — the latest payment intent for an
+  escrow, party-gated. The funding screen polls this to distinguish
+  "checkout not started" from "waiting on the webhook" from "quarantined",
+  none of which are visible in the escrow state alone.
+
+`WalletService` lives in this module rather than in `ledger` because two
+of the three balances come from `Payout` and `PaymentIntent`, which this
+module owns; it reads ledger balances only through `LedgerService`'s
+public API. `PLATFORM_CURRENCY` is `NGN`: the wallet reports one currency
+at a time, and there is no second-currency product surface yet.

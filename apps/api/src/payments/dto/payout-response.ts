@@ -1,15 +1,7 @@
+import { PayoutResponse } from '@mezzo/shared-types';
 import { Payout } from '../../database/entities/payout.entity';
-import { PayoutStatus } from '../entities/payout-status.enum';
-import { Currency } from '../../common/money/currency';
 
-export interface PayoutResponse {
-  id: string;
-  sellerId: string;
-  amount: number;
-  currency: Currency;
-  status: PayoutStatus;
-  reference: string;
-}
+export type { PayoutResponse };
 
 export function toPayoutResponse(payout: Payout): PayoutResponse {
   return {
@@ -19,5 +11,6 @@ export function toPayoutResponse(payout: Payout): PayoutResponse {
     currency: payout.currency,
     status: payout.status,
     reference: payout.providerReference,
+    createdAt: payout.createdAt,
   };
 }
