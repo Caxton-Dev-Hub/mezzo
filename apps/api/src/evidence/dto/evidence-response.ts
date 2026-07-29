@@ -11,6 +11,7 @@ export type { EvidenceBundleResponse, EvidenceItemResponse, PresignEvidenceRespo
 export function toEvidenceItemResponse(
   item: EvidenceItem,
   flags: EvidenceFlag[],
+  url?: string,
 ): EvidenceItemResponse {
   return {
     id: item.id,
@@ -29,6 +30,7 @@ export function toEvidenceItemResponse(
     gpsLatitude: item.gpsLatitude,
     gpsLongitude: item.gpsLongitude,
     flags: flags.filter((flag) => flag.evidenceItemId === item.id).map((flag) => flag.type),
+    url,
     createdAt: item.createdAt,
   };
 }

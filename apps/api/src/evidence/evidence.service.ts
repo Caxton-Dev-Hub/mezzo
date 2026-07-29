@@ -95,7 +95,8 @@ export class EvidenceService {
     const persistedFlags = flagTypes.map(
       (type) => ({ evidenceItemId: item.id, type }) as EvidenceFlag,
     );
-    return toEvidenceItemResponse(item, persistedFlags);
+    const url = await this.storage.getPresignedDownloadUrl(item.storageKey);
+    return toEvidenceItemResponse(item, persistedFlags, url);
   }
 
   async getBundle(actorId: string, escrowId: string): Promise<EvidenceBundleResponse> {
@@ -109,10 +110,14 @@ export class EvidenceService {
     const itemIds = items.map((item) => item.id);
     const flags = itemIds.length > 0 ? await this.flags.find({ where: { evidenceItemId: In(itemIds) } }) : [];
 
-    return {
-      escrowId,
-      items: items.map((item) => toEvidenceItemResponse(item, flags)),
-    };
+    const responses = await Promise.all(
+      items.map(async (item) => {
+        const url = await this.storage.getPresignedDownloadUrl(item.storageKey);
+        return toEvidenceItemResponse(item, flags, url);
+      }),
+    );
+
+    return { escrowId, items: responses };
   }
 
   async hasAtLeastOne(escrowId: string, phase: EvidencePhase): Promise<boolean> {

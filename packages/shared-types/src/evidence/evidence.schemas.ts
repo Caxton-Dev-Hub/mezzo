@@ -72,6 +72,7 @@ export const evidenceItemResponseSchema = z.object({
   gpsLatitude: z.number().nullable(),
   gpsLongitude: z.number().nullable(),
   flags: z.array(evidenceFlagTypeSchema),
+  url: z.string().url().optional(),
   createdAt: z.coerce.date(),
 });
 

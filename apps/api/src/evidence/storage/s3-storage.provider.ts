@@ -54,6 +54,11 @@ export class S3StorageProvider implements StorageProvider, OnModuleInit {
     return getSignedUrl(this.client, command, { expiresIn: this.presignExpirySeconds });
   }
 
+  getPresignedDownloadUrl(key: string): Promise<string> {
+    const command = new GetObjectCommand({ Bucket: this.bucket, Key: key });
+    return getSignedUrl(this.client, command, { expiresIn: this.presignExpirySeconds });
+  }
+
   async getObject(key: string): Promise<Buffer> {
     try {
       const response = await this.client.send(

@@ -6,17 +6,12 @@ import { EscrowModule } from '../escrow/escrow.module';
 import { EvidenceController } from './evidence.controller';
 import { EvidenceService } from './evidence.service';
 import { MediaAnalysisService } from './media-analysis.service';
-import { S3StorageProvider } from './storage/s3-storage.provider';
-import { STORAGE_PROVIDER } from './storage/storage-provider.interface';
+import { StorageModule } from './storage/storage.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([EvidenceItem, EvidenceFlag]), EscrowModule],
+  imports: [TypeOrmModule.forFeature([EvidenceItem, EvidenceFlag]), EscrowModule, StorageModule],
   controllers: [EvidenceController],
-  providers: [
-    EvidenceService,
-    MediaAnalysisService,
-    { provide: STORAGE_PROVIDER, useClass: S3StorageProvider },
-  ],
+  providers: [EvidenceService, MediaAnalysisService],
   exports: [EvidenceService],
 })
 export class EvidenceModule {}

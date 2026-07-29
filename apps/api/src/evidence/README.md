@@ -80,6 +80,20 @@ S3 in production; only the endpoint config differs. It ensures its bucket
 exists on module init and maps a missing object to the typed
 `EvidenceObjectNotFoundError`.
 
+The provider lives in its own `StorageModule` rather than being bound
+inline in `EvidenceModule`. `EscrowModule` needs presigned URLs too (for
+the public invite preview) and importing `EvidenceModule` there would
+cycle — `EvidenceModule` already imports `EscrowModule` for
+`assertIsParty`. A leaf module holding just the `STORAGE_PROVIDER` binding
+lets both import it without a cycle.
+
+**Reads are presigned, never proxied.** `EvidenceItemResponse.url` is a
+short-lived presigned GET URL (`S3_PRESIGN_EXPIRY_SECONDS`), minted per
+response rather than stored. The bucket stays private and the API never
+streams bytes it doesn't have to. The field is optional on the schema:
+paths that return evidence as nested context (chat attachments, the
+arbiter's `DisputePacket`) omit it rather than mint URLs nobody asked for.
+
 ## Immutability
 
 There is no update or delete endpoint anywhere in `EvidenceController`. That
