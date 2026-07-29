@@ -4,6 +4,11 @@ build/
 coverage/
 
 .next
+.next-e2e
+
+playwright-report/
+test-results/
+apps/web/e2e/.stack.json
 
 .env
 .env.local
