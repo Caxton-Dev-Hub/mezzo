@@ -47,6 +47,23 @@ interface ErrorBody {
   details?: Record<string, unknown>;
 }
 
+interface EscrowEventBody {
+  id: string;
+  fromState: EscrowState;
+  toState: EscrowState;
+  actorId: string | null;
+  reason: string | null;
+  createdAt: string;
+}
+
+interface InvitePreviewBody {
+  escrowId: string;
+  initiatorRole: EscrowRole;
+  terms: { itemDescription: string };
+  evidence: { id: string; url?: string }[];
+  expiresAt: string;
+}
+
 describe('Escrow (e2e)', () => {
   let app: INestApplication;
   let server: Server;
@@ -291,6 +308,72 @@ describe('Escrow (e2e)', () => {
           termsAcceptedAt: null,
         }),
       ).rejects.toThrow();
+    });
+  });
+
+  describe('event timeline', () => {
+    it('returns events in chronological order for a party', async () => {
+      const { escrowId, buyer } = await createAgreedEscrow();
+
+      const response = await request(server)
+        .get(`/escrows/${escrowId}/events`)
+        .set(auth(buyer.accessToken));
+
+      expect(response.status).toBe(200);
+      const events = response.body as EscrowEventBody[];
+      expect(events.length).toBeGreaterThanOrEqual(2);
+      const timestamps = events.map((event) => new Date(event.createdAt).getTime());
+      expect(timestamps).toEqual([...timestamps].sort((a, b) => a - b));
+      expect(events[events.length - 1].toState).toBe(EscrowState.AGREED);
+    });
+
+    it('denies a non-party', async () => {
+      const { escrowId } = await createAgreedEscrow();
+      const stranger = await registerAndLogin();
+
+      const response = await request(server)
+        .get(`/escrows/${escrowId}/events`)
+        .set(auth(stranger.accessToken));
+
+      expect(response.status).toBe(403);
+      expect((response.body as ErrorBody).code).toBe('NOT_ESCROW_PARTY');
+    });
+  });
+
+  describe('invite preview', () => {
+    it('shows terms and creation evidence for a valid token without requiring party membership', async () => {
+      const buyer = await registerAndLogin();
+      const draft = await createDraft(buyer.accessToken);
+      const inviteResponse = await request(server)
+        .post(`/escrows/${draft.id}/invite`)
+        .set(auth(buyer.accessToken));
+      const invite = inviteResponse.body as InviteBody;
+
+      const preview = await request(server).get(`/invites/${invite.token}`);
+
+      expect(preview.status).toBe(200);
+      const body = preview.body as InvitePreviewBody;
+      expect(body.escrowId).toBe(draft.id);
+      expect(body.initiatorRole).toBe(EscrowRole.BUYER);
+      expect(body.terms.itemDescription).toBe(validTerms.itemDescription);
+      expect(body.evidence).toHaveLength(1);
+      expect(body.evidence[0].url).toEqual(expect.any(String));
+    });
+
+    it('returns 404 for an unknown token', async () => {
+      const response = await request(server).get('/invites/does-not-exist');
+      expect(response.status).toBe(404);
+      expect((response.body as ErrorBody).code).toBe('INVITE_NOT_FOUND');
+    });
+
+    it('returns 410 for an already-used token', async () => {
+      const { escrowId } = await createAgreedEscrow();
+      const invite = await invites.findOne({ where: { escrowId } });
+
+      const response = await request(server).get(`/invites/${invite?.token}`);
+
+      expect(response.status).toBe(410);
+      expect((response.body as ErrorBody).code).toBe('INVITE_NO_LONGER_VALID');
     });
   });
 
