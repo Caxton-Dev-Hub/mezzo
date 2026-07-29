@@ -11,9 +11,11 @@ import {
 } from './dto/escrow.schemas';
 import {
   EscrowDetailResponse,
+  EscrowEventResponse,
   EscrowTermsResponse,
   InviteResponse,
   toEscrowDetailResponse,
+  toEscrowEventResponse,
   toEscrowTermsResponse,
   toInviteResponse,
 } from './dto/escrow-response';
@@ -41,6 +43,16 @@ export class EscrowController {
     await this.escrowService.assertIsParty(id, currentUser.id);
     const detail = await this.escrowService.getDetail(id);
     return toEscrowDetailResponse(detail.escrow, detail.terms, detail.parties);
+  }
+
+  @Get(':id/events')
+  async getEvents(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param('id') id: string,
+  ): Promise<EscrowEventResponse[]> {
+    await this.escrowService.assertIsParty(id, currentUser.id);
+    const events = await this.escrowService.getEvents(id);
+    return events.map(toEscrowEventResponse);
   }
 
   @Post(':id/invite')

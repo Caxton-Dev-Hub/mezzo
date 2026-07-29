@@ -154,12 +154,34 @@ CLAUDE.md doesn't name a separate payouts module either. See
   call is a clean no-op instead of an error — the "idempotent at the API
   boundary, hard error at the domain boundary" rule.
 - **`EscrowService`** — the business flows: `createDraft`, `invite`,
-  `acceptInvite`, `acceptTerms`, `updateTerms`, `cancel`. Everything that
-  isn't a raw state transition lives here, on top of the state machine.
+  `acceptInvite`, `previewInvite`, `acceptTerms`, `updateTerms`, `cancel`,
+  `getEvents`. Everything that isn't a raw state transition lives here, on
+  top of the state machine.
 - **`EscrowController` / `InviteController`** — the HTTP surface for the
   above. Invites are addressed by token at a top-level `/invites/:token`
   route since the accepting user only ever has the token, not the escrow
   id.
+
+## Reading the escrow (Frontend Milestone F3)
+
+Two read endpoints exist purely so the shared escrow screen can render
+what the state machine already recorded — neither one can move an escrow.
+
+- **`GET /escrows/:id/events`** returns the `EscrowEvent` log in
+  chronological order, party-only (`assertIsParty`). The client renders
+  the state machine's actual history rather than inferring a timeline
+  from the current state — an escrow in `RELEASED` has a materially
+  different story depending on whether it passed through `DISPUTED`.
+- **`GET /invites/:token`** is the one `@Public()` route in this module.
+  An invited user has a token and nothing else — no account yet, so no
+  bearer token, so no party membership to check. It returns the frozen
+  terms plus the `AT_CREATION` evidence bundle (with integrity flags and
+  presigned URLs) so they can see what they're agreeing to *before*
+  registering. It reuses `acceptInvite`'s validity checks via the shared
+  `validInviteOrThrow()` helper, so a used, expired, or moved-on token
+  fails the preview with exactly the error it would fail acceptance
+  with — the accept path can never be reached through a token the
+  preview accepted. It deliberately exposes no user identities.
 
 ## Invariants
 

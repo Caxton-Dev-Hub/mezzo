@@ -1,13 +1,15 @@
 import { randomUUID } from 'node:crypto';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
+import type { InvitePreviewResponse } from '@mezzo/shared-types';
 import { Escrow } from '../database/entities/escrow.entity';
 import { EscrowTerms } from '../database/entities/escrow-terms.entity';
 import { EscrowParty } from '../database/entities/escrow-party.entity';
 import { Invite } from '../database/entities/invite.entity';
 import { EvidenceItem } from '../database/entities/evidence-item.entity';
+import { EvidenceFlag } from '../database/entities/evidence-flag.entity';
 import { EscrowEvent } from '../database/entities/escrow-event.entity';
 import { EscrowState } from './entities/escrow-state.enum';
 import { EscrowRole, opposite } from './entities/escrow-role.enum';
@@ -22,8 +24,11 @@ import { InviteNotFoundError } from './errors/invite-not-found.error';
 import { InviteNoLongerValidError } from './errors/invite-no-longer-valid.error';
 import { MissingCreationEvidenceError } from './errors/missing-creation-evidence.error';
 import { EvidencePhase } from '../evidence/entities/evidence-phase.enum';
+import { toEvidenceItemResponse } from '../evidence/dto/evidence-response';
+import { STORAGE_PROVIDER, StorageProvider } from '../evidence/storage/storage-provider.interface';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationEventType } from '../notifications/entities/notification-event-type.enum';
+import { toEscrowTermsResponse } from './dto/escrow-response';
 
 const EDITABLE_STATES: ReadonlySet<EscrowState> = new Set([
   EscrowState.DRAFT,
@@ -43,6 +48,8 @@ export class EscrowService {
     private readonly invites: Repository<Invite>,
     @InjectRepository(EvidenceItem)
     private readonly evidenceItems: Repository<EvidenceItem>,
+    @InjectRepository(EvidenceFlag)
+    private readonly evidenceFlags: Repository<EvidenceFlag>,
     @InjectRepository(EscrowEvent)
     private readonly escrowEvents: Repository<EscrowEvent>,
     @InjectDataSource()
@@ -50,6 +57,8 @@ export class EscrowService {
     private readonly stateMachine: EscrowStateMachine,
     private readonly configService: ConfigService,
     private readonly notificationsService: NotificationsService,
+    @Inject(STORAGE_PROVIDER)
+    private readonly storage: StorageProvider,
   ) {}
 
   async createDraft(initiatorId: string, dto: CreateEscrowDto): Promise<Escrow> {
@@ -119,7 +128,7 @@ export class EscrowService {
     return this.invites.save(invite);
   }
 
-  async acceptInvite(token: string, userId: string): Promise<Escrow> {
+  private async validInviteOrThrow(token: string): Promise<{ invite: Invite; escrow: Escrow }> {
     const invite = await this.invites.findOne({ where: { token } });
     if (!invite) {
       throw new InviteNotFoundError();
@@ -138,6 +147,55 @@ export class EscrowService {
     if (escrow.state !== EscrowState.PENDING_COUNTERPARTY) {
       throw new InviteNoLongerValidError('escrow_unavailable');
     }
+
+    return { invite, escrow };
+  }
+
+  async previewInvite(token: string): Promise<InvitePreviewResponse> {
+    const { invite, escrow } = await this.validInviteOrThrow(token);
+
+    const [existingParties, terms, evidenceItems] = await Promise.all([
+      this.parties.find({ where: { escrowId: escrow.id } }),
+      this.terms.findOne({ where: { escrowId: escrow.id } }),
+      this.evidenceItems.find({
+        where: { escrowId: escrow.id, phase: EvidencePhase.AT_CREATION },
+        order: { createdAt: 'ASC', id: 'ASC' },
+      }),
+    ]);
+
+    if (!terms || existingParties.length === 0) {
+      throw new NotFoundException('Escrow terms not found');
+    }
+
+    const itemIds = evidenceItems.map((item) => item.id);
+    const flags =
+      itemIds.length > 0 ? await this.evidenceFlags.find({ where: { evidenceItemId: In(itemIds) } }) : [];
+
+    const evidence = await Promise.all(
+      evidenceItems.map(async (item) => {
+        const url = await this.storage.getPresignedDownloadUrl(item.storageKey);
+        return toEvidenceItemResponse(item, flags, url);
+      }),
+    );
+
+    return {
+      escrowId: escrow.id,
+      initiatorRole: existingParties[0].role,
+      terms: toEscrowTermsResponse(terms),
+      evidence,
+      expiresAt: invite.expiresAt,
+    };
+  }
+
+  async getEvents(escrowId: string): Promise<EscrowEvent[]> {
+    return this.escrowEvents.find({
+      where: { escrowId },
+      order: { createdAt: 'ASC', id: 'ASC' },
+    });
+  }
+
+  async acceptInvite(token: string, userId: string): Promise<Escrow> {
+    const { invite, escrow } = await this.validInviteOrThrow(token);
 
     const existingParties = await this.parties.find({ where: { escrowId: invite.escrowId } });
     if (existingParties.length >= 2) {
@@ -259,6 +317,11 @@ export class EscrowService {
     ]);
 
     return { escrow, terms, parties };
+  }
+
+  async listEscrowIdsForUser(userId: string): Promise<string[]> {
+    const parties = await this.parties.find({ where: { userId }, select: { escrowId: true } });
+    return parties.map((party) => party.escrowId);
   }
 
   async assertIsParty(escrowId: string, userId: string): Promise<void> {
