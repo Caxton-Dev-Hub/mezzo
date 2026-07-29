@@ -16,6 +16,7 @@ import { AuditService } from '../audit/audit.service';
 import { MetricsService } from '../observability/metrics.service';
 import { EscrowState } from '../escrow/entities/escrow-state.enum';
 import { EscrowRole } from '../escrow/entities/escrow-role.enum';
+import { DisputeReasonCode } from './entities/dispute-reason-code.enum';
 import { EscrowService } from '../escrow/escrow.service';
 import { EscrowStateMachine } from '../escrow/escrow-state-machine';
 import { computeFeeSplit } from '../escrow/fee-split';
@@ -111,7 +112,7 @@ export class DisputeService {
         manager.create(Dispute, {
           escrowId,
           raisedByUserId: actorId,
-          reasonCode: dto.reasonCode,
+          reasonCode: dto.reasonCode as DisputeReasonCode,
           statement: dto.statement,
           evidenceWindowExpiresAt,
         }),
