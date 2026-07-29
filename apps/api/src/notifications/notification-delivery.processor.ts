@@ -13,6 +13,8 @@ import {
   SMS_CHANNEL,
 } from './channels/notification-channel.interface';
 import { NOTIFICATION_QUEUE, NotificationDeliveryJobData } from './notification-queue.constants';
+import { NotificationsGateway } from './notifications.gateway';
+import { toNotificationResponse } from './dto/notification-response';
 
 const POSTGRES_UNIQUE_VIOLATION = '23505';
 
@@ -33,6 +35,7 @@ export class NotificationDeliveryProcessor extends WorkerHost {
     private readonly emailChannel: NotificationChannel,
     @Inject(SMS_CHANNEL)
     private readonly smsChannel: NotificationChannel,
+    private readonly notificationsGateway: NotificationsGateway,
   ) {
     super();
   }
@@ -57,6 +60,9 @@ export class NotificationDeliveryProcessor extends WorkerHost {
             status: NotificationStatus.PENDING,
           }),
         );
+        if (channel === NotificationChannelType.EMAIL) {
+          this.notificationsGateway.emitNotification(userId, toNotificationResponse(record));
+        }
       } catch (error) {
         if (!isUniqueViolation(error)) {
           throw error;

@@ -9,6 +9,8 @@ export interface NotificationResponse {
   eventType: NotificationEventType;
   channel: NotificationChannelType;
   status: NotificationStatus;
+  isRead: boolean;
+  readAt: Date | null;
   createdAt: Date;
   sentAt: Date | null;
 }
@@ -20,6 +22,8 @@ export function toNotificationResponse(notification: Notification): Notification
     eventType: notification.eventType,
     channel: notification.channel,
     status: notification.status,
+    isRead: notification.isRead,
+    readAt: notification.readAt,
     createdAt: notification.createdAt,
     sentAt: notification.sentAt,
   };
