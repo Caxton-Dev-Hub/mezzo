@@ -29,6 +29,16 @@ export interface AccountBalance {
   currency: Currency;
 }
 
+export interface AccountActivity {
+  entryId: string;
+  direction: EntryDirection;
+  amount: number;
+  currency: Currency;
+  idempotencyKey: string;
+  correlationId: string | null;
+  createdAt: Date;
+}
+
 @Injectable()
 export class LedgerService {
   constructor(
@@ -154,6 +164,82 @@ export class LedgerService {
 
     const amount = await this.computeDerivedBalance(account.id, account.normalBalance);
     return { amount, currency: account.currency };
+  }
+
+  async getBalanceOrZero(ref: string, currency: Currency): Promise<AccountBalance> {
+    const account = await this.accounts.findOne({ where: { ref } });
+    if (!account || account.currency !== currency) {
+      return { amount: 0, currency };
+    }
+
+    const amount = await this.computeDerivedBalance(account.id, account.normalBalance);
+    return { amount, currency };
+  }
+
+  async sumBalances(refs: string[], currency: Currency): Promise<AccountBalance> {
+    if (refs.length === 0) {
+      return { amount: 0, currency };
+    }
+
+    const rows = await this.entries
+      .createQueryBuilder('entry')
+      .innerJoin('entry.account', 'account')
+      .select('account.normalBalance', 'normalBalance')
+      .addSelect('entry.direction', 'direction')
+      .addSelect('COALESCE(SUM(entry.amount), 0)', 'total')
+      .where('account.ref IN (:...refs)', { refs })
+      .andWhere('account.currency = :currency', { currency })
+      .groupBy('account.normalBalance')
+      .addGroupBy('entry.direction')
+      .getRawMany<{ normalBalance: EntryDirection; direction: EntryDirection; total: string }>();
+
+    const amount = rows.reduce(
+      (total, row) =>
+        row.normalBalance === row.direction ? total + Number(row.total) : total - Number(row.total),
+      0,
+    );
+
+    return { amount, currency };
+  }
+
+  async listActivity(ref: string, limit = 20): Promise<AccountActivity[]> {
+    const account = await this.accounts.findOne({ where: { ref } });
+    if (!account) {
+      return [];
+    }
+
+    const rows = await this.entries
+      .createQueryBuilder('entry')
+      .innerJoin('entry.posting', 'posting')
+      .select('entry.id', 'entryId')
+      .addSelect('entry.direction', 'direction')
+      .addSelect('entry.amount', 'amount')
+      .addSelect('entry.currency', 'currency')
+      .addSelect('posting.idempotencyKey', 'idempotencyKey')
+      .addSelect('posting.correlationId', 'correlationId')
+      .addSelect('entry.createdAt', 'createdAt')
+      .where('entry.accountId = :accountId', { accountId: account.id })
+      .orderBy('entry.createdAt', 'DESC')
+      .limit(limit)
+      .getRawMany<{
+        entryId: string;
+        direction: EntryDirection;
+        amount: string;
+        currency: Currency;
+        idempotencyKey: string;
+        correlationId: string | null;
+        createdAt: Date;
+      }>();
+
+    return rows.map((row) => ({
+      entryId: row.entryId,
+      direction: row.direction,
+      amount: Number(row.amount),
+      currency: row.currency,
+      idempotencyKey: row.idempotencyKey,
+      correlationId: row.correlationId,
+      createdAt: row.createdAt,
+    }));
   }
 
   async rebuildBalance(ref: string): Promise<AccountBalance> {
