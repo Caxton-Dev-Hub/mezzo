@@ -1,28 +1,8 @@
 import { useAuthStore } from './auth-store';
-import { refreshRequest } from './auth-client';
+import { ensureFreshSession } from './auth-client';
 import { ApiError } from './api-error';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
-
-let refreshInFlight: Promise<string | null> | null = null;
-
-async function silentRefresh(): Promise<string | null> {
-  if (!refreshInFlight) {
-    refreshInFlight = refreshRequest()
-      .then((result) => {
-        useAuthStore.getState().setSession(result.accessToken, result.user);
-        return result.accessToken;
-      })
-      .catch(() => {
-        useAuthStore.getState().clearSession();
-        return null;
-      })
-      .finally(() => {
-        refreshInFlight = null;
-      });
-  }
-  return refreshInFlight;
-}
 
 interface RequestOptions extends Omit<RequestInit, 'body'> {
   body?: unknown;
@@ -48,7 +28,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   let response = await performFetch(path, options, token);
 
   if (response.status === 401 && !options.skipAuth) {
-    const newToken = await silentRefresh();
+    const newToken = await ensureFreshSession();
     if (newToken) {
       response = await performFetch(path, options, newToken);
     }

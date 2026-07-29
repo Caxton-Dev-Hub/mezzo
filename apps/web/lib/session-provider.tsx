@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useAuthStore } from './auth-store';
-import { refreshRequest } from './auth-client';
+import { ensureFreshSession } from './auth-client';
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const attempted = useRef(false);
@@ -13,13 +12,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
     attempted.current = true;
 
-    refreshRequest()
-      .then((result) => {
-        useAuthStore.getState().setSession(result.accessToken, result.user);
-      })
-      .catch(() => {
-        useAuthStore.getState().clearSession();
-      });
+    void ensureFreshSession();
   }, []);
 
   return children;

@@ -1,5 +1,6 @@
 import type { LoginDto, RegisterDto, UserResponse } from '@mezzo/shared-types';
 import { ApiError } from './api-error';
+import { useAuthStore } from './auth-store';
 
 export interface LoginResult {
   accessToken: string;
@@ -44,4 +45,24 @@ export function refreshRequest(): Promise<RefreshResult> {
 
 export function logoutRequest(): Promise<void> {
   return postJson<void>('/api/auth/logout');
+}
+
+let refreshInFlight: Promise<string | null> | null = null;
+
+export function ensureFreshSession(): Promise<string | null> {
+  if (!refreshInFlight) {
+    refreshInFlight = refreshRequest()
+      .then((result) => {
+        useAuthStore.getState().setSession(result.accessToken, result.user);
+        return result.accessToken;
+      })
+      .catch(() => {
+        useAuthStore.getState().clearSession();
+        return null;
+      })
+      .finally(() => {
+        refreshInFlight = null;
+      });
+  }
+  return refreshInFlight;
 }

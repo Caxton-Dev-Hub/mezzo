@@ -1,6 +1,7 @@
 import type {
   CreateEscrowDto,
   EscrowDetailResponse,
+  EscrowEventResponse,
   EscrowTermsResponse,
   InviteResponse,
   UpdateEscrowTermsDto,
@@ -15,6 +16,10 @@ export function getEscrow(escrowId: string): Promise<EscrowDetailResponse> {
   return apiRequest<EscrowDetailResponse>(`/escrows/${escrowId}`);
 }
 
+export function getEscrowEvents(escrowId: string): Promise<EscrowEventResponse[]> {
+  return apiRequest<EscrowEventResponse[]>(`/escrows/${escrowId}/events`);
+}
+
 export function updateEscrowTerms(
   escrowId: string,
   dto: UpdateEscrowTermsDto,
@@ -27,4 +32,32 @@ export function updateEscrowTerms(
 
 export function inviteToEscrow(escrowId: string): Promise<InviteResponse> {
   return apiRequest<InviteResponse>(`/escrows/${escrowId}/invite`, { method: 'POST' });
+}
+
+export function acceptEscrowTerms(escrowId: string): Promise<EscrowDetailResponse> {
+  return apiRequest<EscrowDetailResponse>(`/escrows/${escrowId}/accept-terms`, { method: 'POST' });
+}
+
+export function cancelEscrow(escrowId: string): Promise<EscrowDetailResponse> {
+  return apiRequest<EscrowDetailResponse>(`/escrows/${escrowId}/cancel`, { method: 'POST' });
+}
+
+export function shipEscrow(
+  escrowId: string,
+  trackingReference?: string,
+): Promise<EscrowDetailResponse> {
+  return apiRequest<EscrowDetailResponse>(`/escrows/${escrowId}/ship`, {
+    method: 'POST',
+    body: { trackingReference },
+  });
+}
+
+export function confirmEscrowDelivery(escrowId: string): Promise<EscrowDetailResponse> {
+  return apiRequest<EscrowDetailResponse>(`/escrows/${escrowId}/confirm-delivery`, {
+    method: 'POST',
+  });
+}
+
+export function releaseEscrow(escrowId: string): Promise<EscrowDetailResponse> {
+  return apiRequest<EscrowDetailResponse>(`/escrows/${escrowId}/release`, { method: 'POST' });
 }

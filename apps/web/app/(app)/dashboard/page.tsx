@@ -18,7 +18,14 @@ export default function DashboardPage() {
           <h1 className="font-display text-[1.75rem] leading-tight text-vellum sm:text-[2rem]">
             {status === 'authenticated' && user ? `Welcome, ${user.email}` : 'Welcome'}
           </h1>
-          <p className="mt-2 text-sm text-fog">Your escrows will show up here once you start one.</p>
+          <p className="mt-2 text-sm text-fog">
+            Your escrows will show up here once you start one. Money you&apos;ve received lives in
+            your{' '}
+            <Link href="/wallet" className="text-mint underline underline-offset-4">
+              wallet
+            </Link>
+            .
+          </p>
         </div>
         <Link
           href="/escrow/new"
