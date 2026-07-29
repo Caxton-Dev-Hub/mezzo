@@ -10,7 +10,7 @@ import { Invite } from '../database/entities/invite.entity';
 import { EvidenceItem } from '../database/entities/evidence-item.entity';
 import { EscrowEvent } from '../database/entities/escrow-event.entity';
 import { EscrowState } from './entities/escrow-state.enum';
-import { opposite } from './entities/escrow-role.enum';
+import { EscrowRole, opposite } from './entities/escrow-role.enum';
 import { EscrowStateMachine } from './escrow-state-machine';
 import { CreateEscrowDto, UpdateEscrowTermsDto } from './dto/escrow.schemas';
 import { Money } from '../common/money/money';
@@ -76,7 +76,7 @@ export class EscrowService {
         manager.create(EscrowParty, {
           escrowId: escrow.id,
           userId: initiatorId,
-          role: dto.role,
+          role: dto.role as EscrowRole,
           termsAcceptedAt: null,
         }),
       );
