@@ -1,7 +1,14 @@
 import Link from 'next/link';
 import { RegisterForm } from '../../../components/auth/register-form';
 
-export default function RegisterPage() {
+export default async function RegisterPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ redirectTo?: string }>;
+}) {
+  const { redirectTo } = await searchParams;
+  const loginHref = redirectTo ? `/login?redirectTo=${encodeURIComponent(redirectTo)}` : '/login';
+
   return (
     <div>
       <h1 className="font-display text-[1.75rem] leading-tight text-vellum sm:text-[2rem]">
@@ -11,11 +18,11 @@ export default function RegisterPage() {
         Escrow that documents the item before money moves.
       </p>
       <div className="mt-7">
-        <RegisterForm />
+        <RegisterForm redirectTo={redirectTo} />
       </div>
       <p className="mt-6 text-center text-sm text-fog">
         Already have an account?{' '}
-        <Link href="/login" className="text-vellum underline underline-offset-4">
+        <Link href={loginHref} className="text-vellum underline underline-offset-4">
           Sign in
         </Link>
       </p>

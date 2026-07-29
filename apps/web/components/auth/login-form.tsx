@@ -11,7 +11,11 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { FieldError } from '../ui/field-error';
 
-export function LoginForm() {
+interface LoginFormProps {
+  redirectTo?: string;
+}
+
+export function LoginForm({ redirectTo }: LoginFormProps) {
   const router = useRouter();
   const mutation = useLogin();
   const {
@@ -23,7 +27,7 @@ export function LoginForm() {
   const onSubmit = handleSubmit((dto) => {
     mutation.mutate(dto, {
       onSuccess: () => {
-        router.push('/dashboard');
+        router.push(redirectTo || '/dashboard');
       },
     });
   });

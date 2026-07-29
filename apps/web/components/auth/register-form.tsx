@@ -11,7 +11,11 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { FieldError } from '../ui/field-error';
 
-export function RegisterForm() {
+interface RegisterFormProps {
+  redirectTo?: string;
+}
+
+export function RegisterForm({ redirectTo }: RegisterFormProps) {
   const router = useRouter();
   const mutation = useRegister();
   const {
@@ -23,7 +27,11 @@ export function RegisterForm() {
   const onSubmit = handleSubmit((dto) => {
     mutation.mutate(dto, {
       onSuccess: () => {
-        router.push('/login?registered=1');
+        const query = new URLSearchParams({ registered: '1' });
+        if (redirectTo) {
+          query.set('redirectTo', redirectTo);
+        }
+        router.push(`/login?${query.toString()}`);
       },
     });
   });

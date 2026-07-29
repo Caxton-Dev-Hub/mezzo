@@ -4,9 +4,12 @@ import { LoginForm } from '../../../components/auth/login-form';
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ registered?: string }>;
+  searchParams: Promise<{ registered?: string; redirectTo?: string }>;
 }) {
-  const { registered } = await searchParams;
+  const { registered, redirectTo } = await searchParams;
+  const registerHref = redirectTo
+    ? `/register?redirectTo=${encodeURIComponent(redirectTo)}`
+    : '/register';
 
   return (
     <div>
@@ -20,11 +23,11 @@ export default async function LoginPage({
         </p>
       ) : null}
       <div className="mt-7">
-        <LoginForm />
+        <LoginForm redirectTo={redirectTo} />
       </div>
       <p className="mt-6 text-center text-sm text-fog">
         New to Mezzo?{' '}
-        <Link href="/register" className="text-vellum underline underline-offset-4">
+        <Link href={registerHref} className="text-vellum underline underline-offset-4">
           Create an account
         </Link>
       </p>
