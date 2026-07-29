@@ -4,6 +4,7 @@ import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { AuthenticatedUser } from '../common/types/authenticated-user';
+import { KycTier } from './entities/kyc-tier.enum';
 import { kycWebhookSchema, KycWebhookDto, submitKycSchema, SubmitKycDto } from './dto/kyc.schemas';
 import {
   KycStatusResponse,
@@ -21,7 +22,7 @@ export class KycController {
     @CurrentUser() currentUser: AuthenticatedUser,
     @Body(new ZodValidationPipe(submitKycSchema)) dto: SubmitKycDto,
   ): Promise<KycVerificationResponse> {
-    const verification = await this.kycService.submit(currentUser.id, dto.tier);
+    const verification = await this.kycService.submit(currentUser.id, KycTier[dto.tier]);
     return toKycVerificationResponse(verification);
   }
 

@@ -1,14 +1,7 @@
+import { KycStatusResponse, KycVerificationResponse } from '@mezzo/shared-types';
 import { KycVerification } from '../../database/entities/kyc-verification.entity';
-import { KycTier } from '../entities/kyc-tier.enum';
-import { KycVerificationStatus } from '../entities/kyc-verification-status.enum';
 
-export interface KycVerificationResponse {
-  id: string;
-  status: KycVerificationStatus;
-  requestedTier: KycTier;
-  providerReference: string;
-  createdAt: Date;
-}
+export type { KycStatusResponse, KycVerificationResponse };
 
 export function toKycVerificationResponse(verification: KycVerification): KycVerificationResponse {
   return {
@@ -18,9 +11,4 @@ export function toKycVerificationResponse(verification: KycVerification): KycVer
     providerReference: verification.providerReference,
     createdAt: verification.createdAt,
   };
-}
-
-export interface KycStatusResponse {
-  tier: KycTier;
-  latestVerification: KycVerificationResponse | null;
 }
