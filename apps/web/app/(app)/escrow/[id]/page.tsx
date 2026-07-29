@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ShieldAlert } from 'lucide-react';
 import { useAuthStore } from '../../../../lib/auth-store';
 import { getEscrow, getEscrowEvents } from '../../../../lib/escrow-client';
@@ -12,6 +12,9 @@ import { StatusTimeline } from '../../../../components/escrow/status-timeline';
 import { TermsPanel } from '../../../../components/escrow/terms-panel';
 import { ActionBar } from '../../../../components/escrow/action-bar';
 import { EvidenceViewer } from '../../../../components/evidence/evidence-viewer';
+import { InspectionCountdown } from '../../../../components/escrow/inspection-countdown';
+import { ChatPanel } from '../../../../components/chat/chat-panel';
+import { useChatSocket } from '../../../../hooks/use-chat-socket';
 
 const NON_EDITABLE_STATES = new Set(['DRAFT', 'PENDING_COUNTERPARTY']);
 
@@ -20,6 +23,14 @@ export default function EscrowDetailPage() {
   const escrowId = params.id;
   const sessionStatus = useAuthStore((state) => state.status);
   const currentUserId = useAuthStore((state) => state.user?.id);
+  const queryClient = useQueryClient();
+
+  useChatSocket(escrowId, {
+    onEscrowUpdated: () => {
+      void queryClient.invalidateQueries({ queryKey: ['escrow', escrowId] });
+      void queryClient.invalidateQueries({ queryKey: ['escrow-events', escrowId] });
+    },
+  });
 
   const escrowQuery = useQuery({
     queryKey: ['escrow', escrowId],
@@ -92,6 +103,14 @@ export default function EscrowDetailPage() {
                 events={eventsQuery.data ?? []}
               />
             </div>
+            {escrow.state === 'DELIVERED' && escrow.deliveredAt && escrow.terms ? (
+              <div className="mt-4">
+                <InspectionCountdown
+                  deliveredAt={escrow.deliveredAt}
+                  inspectionWindowHours={escrow.terms.inspectionWindowHours}
+                />
+              </div>
+            ) : null}
           </section>
 
           <section>
@@ -101,6 +120,11 @@ export default function EscrowDetailPage() {
             ) : (
               <EvidenceViewer items={creationEvidence} emptyLabel="No creation evidence on file" />
             )}
+          </section>
+
+          <section>
+            <h2 className="mb-3 text-sm font-medium text-vellum">Chat</h2>
+            <ChatPanel escrow={escrow} />
           </section>
         </div>
 
