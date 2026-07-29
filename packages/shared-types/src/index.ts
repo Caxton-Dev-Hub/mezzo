@@ -3,3 +3,6 @@ export * from './users';
 export * from './money';
 export * from './escrow';
 export * from './evidence';
+export * from './disputes';
+export * from './payments';
+export * from './kyc';

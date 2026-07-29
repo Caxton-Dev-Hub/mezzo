@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { moneySchema } from '../money/money.schemas';
+import { evidenceItemResponseSchema } from '../evidence/evidence.schemas';
 
 export const escrowRoleSchema = z.enum(['BUYER', 'SELLER']);
 
@@ -74,3 +75,24 @@ export const inviteResponseSchema = z.object({
 });
 
 export type InviteResponse = z.infer<typeof inviteResponseSchema>;
+
+export const escrowEventResponseSchema = z.object({
+  id: z.string().uuid(),
+  fromState: escrowStateSchema,
+  toState: escrowStateSchema,
+  actorId: z.string().uuid().nullable(),
+  reason: z.string().nullable(),
+  createdAt: z.coerce.date(),
+});
+
+export type EscrowEventResponse = z.infer<typeof escrowEventResponseSchema>;
+
+export const invitePreviewResponseSchema = z.object({
+  escrowId: z.string().uuid(),
+  initiatorRole: escrowRoleSchema,
+  terms: escrowTermsResponseSchema,
+  evidence: z.array(evidenceItemResponseSchema),
+  expiresAt: z.coerce.date(),
+});
+
+export type InvitePreviewResponse = z.infer<typeof invitePreviewResponseSchema>;
