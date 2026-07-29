@@ -69,7 +69,7 @@ export class EvidenceService {
         manager.create(EvidenceItem, {
           escrowId: dto.escrowId,
           uploaderId: actorId,
-          phase: dto.phase,
+          phase: dto.phase as EvidencePhase,
           storageKey: dto.key,
           contentHash: analysis.contentHash,
           declaredMime: dto.declaredMime,
