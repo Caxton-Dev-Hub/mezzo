@@ -46,6 +46,17 @@ interface ChatMessageBody {
   createdAt: string;
 }
 
+interface ChatReadStateBody {
+  userId: string;
+  lastReadAt: string;
+}
+
+interface EscrowUpdatedBody {
+  escrowId: string;
+  eventType: string;
+  occurredAt: string;
+}
+
 interface ErrorBody {
   statusCode: number;
   code: string;
@@ -460,6 +471,58 @@ describe('Chat (e2e)', () => {
     } finally {
       buyerSocket.close();
       sellerSocket.close();
+    }
+  });
+
+  it('records read state via REST and broadcasts message:read over the socket', async () => {
+    const { escrowId, buyer, seller } = await createAgreedEscrow();
+    await request(server).post(`/escrows/${escrowId}/chat`).set(auth(buyer.accessToken)).send({ body: 'hi' });
+
+    const buyerSocket = await connectSocket({ token: buyer.accessToken, escrowId });
+    const sellerSocket = await connectSocket({ token: seller.accessToken, escrowId });
+
+    try {
+      const received = waitForEvent<ChatReadStateBody>(sellerSocket, 'message:read');
+      buyerSocket.emit('message:read');
+      const readState = await received;
+      expect(readState.userId).toBe(buyer.userId);
+
+      const restRead = await request(server)
+        .post(`/escrows/${escrowId}/chat/read`)
+        .set(auth(seller.accessToken));
+      expect(restRead.status).toBe(200);
+      expect((restRead.body as ChatReadStateBody).userId).toBe(seller.userId);
+
+      const readStateResponse = await request(server)
+        .get(`/escrows/${escrowId}/chat/read`)
+        .set(auth(buyer.accessToken));
+      const states = readStateResponse.body as ChatReadStateBody[];
+      expect(states.map((s) => s.userId).sort()).toEqual([buyer.userId, seller.userId].sort());
+    } finally {
+      buyerSocket.close();
+      sellerSocket.close();
+    }
+  });
+
+  it('broadcasts escrow:updated into the chat room on a state transition', async () => {
+    const { escrowId, buyer, seller } = await createAgreedEscrow();
+    await users.update({ id: buyer.userId }, { kycTier: KycTier.TIER_1 });
+
+    const buyerSocket = await connectSocket({ token: buyer.accessToken, escrowId });
+
+    try {
+      const received = waitForEvent<EscrowUpdatedBody>(buyerSocket, 'escrow:updated');
+      const fundResponse = await request(server)
+        .post(`/payments/escrows/${escrowId}/fund`)
+        .set(auth(buyer.accessToken));
+      const intent = fundResponse.body as PaymentIntentBody;
+      await postSignedWebhook(chargeSuccessPayload(intent.reference, 100_000));
+
+      const event = await received;
+      expect(event.escrowId).toBe(escrowId);
+      void seller;
+    } finally {
+      buyerSocket.close();
     }
   });
 });

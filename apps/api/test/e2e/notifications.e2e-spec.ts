@@ -222,7 +222,66 @@ describe('Notifications (e2e)', () => {
 
     const response = await request(server).get('/notifications').set(auth(buyer.accessToken));
     expect(response.status).toBe(200);
-    const body = response.body as { eventType: NotificationEventType }[];
+    const body = response.body as { eventType: NotificationEventType; isRead: boolean }[];
     expect(body.length).toBeGreaterThan(0);
+    expect(body.every((row) => row.isRead === false)).toBe(true);
+  });
+
+  it('marks a single notification as read and reflects it in isRead/readAt', async () => {
+    const { buyer } = await agreeEscrow();
+
+    await waitFor(async () => {
+      const count = await notifications.count({ where: { userId: buyer.userId } });
+      return count > 0;
+    });
+
+    const listResponse = await request(server).get('/notifications').set(auth(buyer.accessToken));
+    const [first] = listResponse.body as { id: string }[];
+
+    const markResponse = await request(server)
+      .patch(`/notifications/${first.id}/read`)
+      .set(auth(buyer.accessToken));
+    expect(markResponse.status).toBe(200);
+    const marked = markResponse.body as { isRead: boolean; readAt: string | null };
+    expect(marked.isRead).toBe(true);
+    expect(marked.readAt).not.toBeNull();
+  });
+
+  it('marks all notifications as read for the current user', async () => {
+    const { buyer } = await agreeEscrow();
+
+    await waitFor(async () => {
+      const count = await notifications.count({
+        where: { userId: buyer.userId, status: NotificationStatus.SENT },
+      });
+      return count >= 2;
+    });
+
+    const markAllResponse = await request(server)
+      .patch('/notifications/read-all')
+      .set(auth(buyer.accessToken));
+    expect(markAllResponse.status).toBe(200);
+
+    const listResponse = await request(server).get('/notifications').set(auth(buyer.accessToken));
+    const rows = listResponse.body as { isRead: boolean }[];
+    expect(rows.every((row) => row.isRead)).toBe(true);
+  });
+
+  it('rejects marking read a notification owned by another user', async () => {
+    const { buyer } = await agreeEscrow();
+    const stranger = await registerAndLogin();
+
+    await waitFor(async () => {
+      const count = await notifications.count({ where: { userId: buyer.userId } });
+      return count > 0;
+    });
+
+    const listResponse = await request(server).get('/notifications').set(auth(buyer.accessToken));
+    const [first] = listResponse.body as { id: string }[];
+
+    const markResponse = await request(server)
+      .patch(`/notifications/${first.id}/read`)
+      .set(auth(stranger.accessToken));
+    expect(markResponse.status).toBe(404);
   });
 });
