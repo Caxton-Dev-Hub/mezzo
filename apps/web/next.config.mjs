@@ -7,6 +7,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const nextConfig = {
   reactStrictMode: true,
   outputFileTracingRoot: resolve(here, "../.."),
+  distDir: process.env.NEXT_DIST_DIR ?? ".next",
 };
 
 export default nextConfig;
