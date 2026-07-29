@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { ChatMessage } from '../database/entities/chat-message.entity';
+import { ChatRead } from '../database/entities/chat-read.entity';
 import { EvidenceItem } from '../database/entities/evidence-item.entity';
 import { EvidenceFlag } from '../database/entities/evidence-flag.entity';
 import { EscrowService } from '../escrow/escrow.service';
@@ -10,7 +11,7 @@ import { AuthenticatedUser } from '../common/types/authenticated-user';
 import { UserRole } from '../users/entities/user-role.enum';
 import { EvidenceItemResponse, toEvidenceItemResponse } from '../evidence/dto/evidence-response';
 import { SendMessageDto } from './dto/chat.schemas';
-import { ChatMessageResponse, toChatMessageResponse } from './dto/chat-response';
+import { ChatMessageResponse, ChatReadState, toChatMessageResponse } from './dto/chat-response';
 import { EvidenceAttachmentNotFoundError } from './errors/evidence-attachment-not-found.error';
 
 @Injectable()
@@ -22,6 +23,8 @@ export class ChatService {
     private readonly evidenceItems: Repository<EvidenceItem>,
     @InjectRepository(EvidenceFlag)
     private readonly evidenceFlags: Repository<EvidenceFlag>,
+    @InjectRepository(ChatRead)
+    private readonly chatReads: Repository<ChatRead>,
     private readonly escrowService: EscrowService,
   ) {}
 
@@ -76,6 +79,26 @@ export class ChatService {
 
   async getTranscript(escrowId: string): Promise<ChatMessageResponse[]> {
     return this.fetchAll(escrowId);
+  }
+
+  async markRead(escrowId: string, actor: AuthenticatedUser): Promise<ChatReadState> {
+    await this.assertCanAccess(escrowId, actor);
+
+    const lastReadAt = new Date();
+    await this.chatReads
+      .createQueryBuilder()
+      .insert()
+      .values({ escrowId, userId: actor.id, lastReadAt })
+      .orUpdate(['last_read_at'], ['escrow_id', 'user_id'])
+      .execute();
+
+    return { userId: actor.id, lastReadAt };
+  }
+
+  async getReadState(escrowId: string, actor: AuthenticatedUser): Promise<ChatReadState[]> {
+    await this.assertCanAccess(escrowId, actor);
+    const rows = await this.chatReads.find({ where: { escrowId } });
+    return rows.map((row) => ({ userId: row.userId, lastReadAt: row.lastReadAt }));
   }
 
   private async fetchAll(escrowId: string): Promise<ChatMessageResponse[]> {

@@ -10,6 +10,11 @@ export interface ChatMessageResponse {
   createdAt: Date;
 }
 
+export interface ChatReadState {
+  userId: string;
+  lastReadAt: Date;
+}
+
 export function toChatMessageResponse(
   message: ChatMessage,
   attachment: EvidenceItemResponse | null,

@@ -4,7 +4,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { AuthenticatedUser } from '../common/types/authenticated-user';
 import { SendMessageDto, sendMessageSchema } from './dto/chat.schemas';
-import { ChatMessageResponse } from './dto/chat-response';
+import { ChatMessageResponse, ChatReadState } from './dto/chat-response';
 
 @Controller('escrows/:escrowId/chat')
 export class ChatController {
@@ -26,5 +26,22 @@ export class ChatController {
     @Body(new ZodValidationPipe(sendMessageSchema)) dto: SendMessageDto,
   ): Promise<ChatMessageResponse> {
     return this.chatService.send(escrowId, currentUser, dto);
+  }
+
+  @Get('read')
+  getReadState(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param('escrowId') escrowId: string,
+  ): Promise<ChatReadState[]> {
+    return this.chatService.getReadState(escrowId, currentUser);
+  }
+
+  @Post('read')
+  @HttpCode(HttpStatus.OK)
+  markRead(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param('escrowId') escrowId: string,
+  ): Promise<ChatReadState> {
+    return this.chatService.markRead(escrowId, currentUser);
   }
 }

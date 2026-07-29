@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { OnEvent } from '@nestjs/event-emitter';
 import {
   ConnectedSocket,
   MessageBody,
@@ -16,6 +17,7 @@ import { AuthenticatedUser } from '../common/types/authenticated-user';
 import { ChatService } from './chat.service';
 import { sendMessageSchema } from './dto/chat.schemas';
 import { chatRoomName } from './chat-room';
+import { EscrowUpdatedEvent } from './events/escrow-updated.event';
 
 interface AccessTokenPayload {
   sub: string;
@@ -83,6 +85,23 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     const message = await this.chatService.send(data.escrowId, data.user, result.data);
     this.server.to(chatRoomName(data.escrowId)).emit('message:new', message);
+  }
+
+  @SubscribeMessage('message:read')
+  async onMessageRead(@ConnectedSocket() client: Socket): Promise<void> {
+    const data = client.data as Partial<SocketData>;
+    if (!data.user || !data.escrowId) {
+      client.disconnect(true);
+      return;
+    }
+
+    const readState = await this.chatService.markRead(data.escrowId, data.user);
+    client.to(chatRoomName(data.escrowId)).emit('message:read', readState);
+  }
+
+  @OnEvent('escrow.updated')
+  onEscrowUpdated(event: EscrowUpdatedEvent): void {
+    this.server.to(chatRoomName(event.escrowId)).emit('escrow:updated', event);
   }
 
   private extractToken(client: Socket): string | undefined {
