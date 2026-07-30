@@ -9,6 +9,7 @@ import { listEscrows } from '../../../lib/escrow-client';
 import { ApiError } from '../../../lib/api-error';
 import { buttonVariants } from '../../../components/ui/button';
 import { EscrowList } from '../../../components/escrow/escrow-list';
+import { DraftList } from '../../../components/escrow/draft-list';
 
 export default function DashboardPage() {
   const status = useAuthStore((state) => state.status);
@@ -22,6 +23,8 @@ export default function DashboardPage() {
   });
 
   const escrows = escrowsQuery.data ?? [];
+  const drafts = escrows.filter((escrow) => escrow.state === 'DRAFT');
+  const started = escrows.filter((escrow) => escrow.state !== 'DRAFT');
 
   return (
     <div>
@@ -86,7 +89,12 @@ export default function DashboardPage() {
             </Link>
           </div>
         ) : (
-          <EscrowList escrows={escrows} currentUserId={user?.id ?? ''} />
+          <div className="space-y-8">
+            {drafts.length > 0 ? <DraftList drafts={drafts} /> : null}
+            {started.length > 0 ? (
+              <EscrowList escrows={started} currentUserId={user?.id ?? ''} />
+            ) : null}
+          </div>
         )}
       </div>
     </div>

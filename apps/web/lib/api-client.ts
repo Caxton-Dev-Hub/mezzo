@@ -44,3 +44,21 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
   return (await response.json()) as T;
 }
+
+export async function apiRequestBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
+  const token = useAuthStore.getState().accessToken;
+  let response = await performFetch(path, options, token);
+
+  if (response.status === 401 && !options.skipAuth) {
+    const newToken = await ensureFreshSession();
+    if (newToken) {
+      response = await performFetch(path, options, newToken);
+    }
+  }
+
+  if (!response.ok) {
+    throw await ApiError.fromResponse(response);
+  }
+
+  return response.blob();
+}

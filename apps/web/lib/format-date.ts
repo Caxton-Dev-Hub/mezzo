@@ -5,3 +5,8 @@ export function formatDateTime(value: Date | string): string {
     timeStyle: 'short',
   }).format(date);
 }
+
+export function formatTime(value: Date | string): string {
+  const date = typeof value === 'string' ? new Date(value) : value;
+  return new Intl.DateTimeFormat('en-NG', { timeStyle: 'short' }).format(date);
+}
