@@ -1,13 +1,16 @@
 'use client';
 
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ShieldAlert } from 'lucide-react';
 import { useAuthStore } from '../../../../lib/auth-store';
 import { getEscrow, getEscrowEvents } from '../../../../lib/escrow-client';
+import { listEscrowDisputes } from '../../../../lib/dispute-client';
 import { getEvidenceBundle } from '../../../../lib/evidence-client';
 import { ApiError } from '../../../../lib/api-error';
 import { ESCROW_STATE_LABELS } from '../../../../lib/escrow-state-labels';
+import { DISPUTE_REASON_LABELS, DISPUTE_STATE_LABELS } from '../../../../lib/dispute-labels';
 import { StatusTimeline } from '../../../../components/escrow/status-timeline';
 import { TermsPanel } from '../../../../components/escrow/terms-panel';
 import { ActionBar } from '../../../../components/escrow/action-bar';
@@ -17,6 +20,14 @@ import { ChatPanel } from '../../../../components/chat/chat-panel';
 import { useChatSocket } from '../../../../hooks/use-chat-socket';
 
 const NON_EDITABLE_STATES = new Set(['DRAFT', 'PENDING_COUNTERPARTY']);
+
+const DISPUTE_LINK_STATES = new Set([
+  'DISPUTED',
+  'RESOLVED_RELEASE',
+  'RESOLVED_REFUND',
+  'RELEASED',
+  'REFUNDED',
+]);
 
 export default function EscrowDetailPage() {
   const params = useParams<{ id: string }>();
@@ -50,6 +61,12 @@ export default function EscrowDetailPage() {
     enabled: escrowQuery.isSuccess,
   });
 
+  const disputesQuery = useQuery({
+    queryKey: ['escrow-disputes', escrowId],
+    queryFn: () => listEscrowDisputes(escrowId),
+    enabled: escrowQuery.data !== undefined && DISPUTE_LINK_STATES.has(escrowQuery.data.state),
+  });
+
   if (sessionStatus === 'pending' || escrowQuery.isLoading) {
     return (
       <div className="space-y-4">
@@ -80,6 +97,7 @@ export default function EscrowDetailPage() {
   const termsFrozen = !NON_EDITABLE_STATES.has(escrow.state);
   const creationEvidence =
     evidenceQuery.data?.items.filter((item) => item.phase === 'AT_CREATION') ?? [];
+  const dispute = disputesQuery.data?.[0];
 
   return (
     <div>
@@ -129,6 +147,21 @@ export default function EscrowDetailPage() {
         </div>
 
         <div className="space-y-6">
+          {dispute ? (
+            <div className="rounded-xl border border-danger/30 bg-danger/5 p-4">
+              <h2 className="text-sm font-medium text-vellum">Dispute</h2>
+              <p className="mt-1 text-[13px] text-fog">
+                {DISPUTE_STATE_LABELS[dispute.state]} ·{' '}
+                {DISPUTE_REASON_LABELS[dispute.reasonCode]}
+              </p>
+              <Link
+                href={`/disputes/${dispute.id}`}
+                className="mt-3 inline-flex text-[13px] text-danger hover:underline"
+              >
+                Open the dispute center
+              </Link>
+            </div>
+          ) : null}
           {escrow.terms ? <TermsPanel terms={escrow.terms} frozen={termsFrozen} /> : null}
           {currentUserId ? (
             <div className="rounded-xl border border-line-soft bg-surface p-4">

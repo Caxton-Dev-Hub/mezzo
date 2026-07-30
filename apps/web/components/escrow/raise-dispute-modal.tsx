@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { DisputeReasonCode } from '@mezzo/shared-types';
 import { Modal } from '../ui/modal';
@@ -10,15 +11,8 @@ import { Select } from '../ui/select';
 import { Textarea } from '../ui/textarea';
 import { EvidenceCapture } from '../evidence/evidence-capture';
 import { raiseDispute } from '../../lib/dispute-client';
+import { DISPUTE_REASON_LABELS } from '../../lib/dispute-labels';
 import { ApiError } from '../../lib/api-error';
-
-const REASON_LABELS: Record<DisputeReasonCode, string> = {
-  NOT_RECEIVED: 'Item not received',
-  NOT_AS_DESCRIBED: 'Not as described',
-  DAMAGED: 'Arrived damaged',
-  WRONG_ITEM: 'Wrong item',
-  PARTIAL: 'Partial delivery',
-};
 
 interface RaiseDisputeModalProps {
   escrowId: string;
@@ -28,16 +22,19 @@ interface RaiseDisputeModalProps {
 
 export function RaiseDisputeModal({ escrowId, open, onClose }: RaiseDisputeModalProps) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [reasonCode, setReasonCode] = useState<DisputeReasonCode | ''>('');
   const [statement, setStatement] = useState('');
   const [confirmedEvidenceCount, setConfirmedEvidenceCount] = useState(0);
 
   const mutation = useMutation({
     mutationFn: () => raiseDispute(escrowId, { reasonCode: reasonCode as DisputeReasonCode, statement }),
-    onSuccess: () => {
+    onSuccess: (dispute) => {
       queryClient.invalidateQueries({ queryKey: ['escrow', escrowId] });
       queryClient.invalidateQueries({ queryKey: ['escrow-events', escrowId] });
+      queryClient.invalidateQueries({ queryKey: ['escrow-disputes', escrowId] });
       onClose();
+      router.push(`/disputes/${dispute.id}`);
     },
   });
 
@@ -60,7 +57,7 @@ export function RaiseDisputeModal({ escrowId, open, onClose }: RaiseDisputeModal
           <option value="" disabled>
             Select a reason
           </option>
-          {Object.entries(REASON_LABELS).map(([value, label]) => (
+          {Object.entries(DISPUTE_REASON_LABELS).map(([value, label]) => (
             <option key={value} value={value}>
               {label}
             </option>

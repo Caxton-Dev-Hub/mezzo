@@ -26,7 +26,9 @@ export function TermsPanel({ terms, frozen }: TermsPanelProps) {
         </div>
         <div className="flex justify-between gap-4">
           <dt className="text-fog">Price</dt>
-          <dd className="text-vellum">{formatMoney(terms.price.amount, terms.price.currency)}</dd>
+          <dd className="font-mono tabular text-vellum">
+            {formatMoney(terms.price.amount, terms.price.currency)}
+          </dd>
         </div>
         <div className="flex justify-between gap-4">
           <dt className="text-fog">Delivery</dt>
