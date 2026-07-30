@@ -106,7 +106,7 @@ export default async function globalSetup(): Promise<void> {
     S3_SECRET_ACCESS_KEY: 'mezzo-minio-secret',
     S3_BUCKET: 'mezzo-evidence-e2e',
     S3_FORCE_PATH_STYLE: 'true',
-    PAYSTACK_PROVIDER: 'fake',
+    PAYMENT_PROVIDER: 'fake',
     PAYSTACK_SECRET_KEY: PAYSTACK_SECRET,
     BOOTSTRAP_ADMIN_EMAILS: BOOTSTRAP_ADMIN_EMAIL,
     ARBITRATION_PROVIDER: 'fake',

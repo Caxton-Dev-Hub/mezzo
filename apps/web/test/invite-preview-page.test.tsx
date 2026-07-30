@@ -21,6 +21,8 @@ const previewBody = {
     deliveryMethod: 'courier',
     itemDescription: 'A vintage camera',
     feeBps: 250,
+    requiresVerification: false,
+    agreementText: null,
   },
   evidence: [],
   expiresAt: new Date().toISOString(),

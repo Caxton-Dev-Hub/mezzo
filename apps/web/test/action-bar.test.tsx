@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { EscrowDetailResponse, EscrowRole, EscrowState } from '@mezzo/shared-types';
 import { ActionBar } from '../components/escrow/action-bar';
 import { renderWithProviders } from './render-with-providers';
@@ -42,6 +43,8 @@ function makeEscrow(
       deliveryMethod: 'courier',
       itemDescription: 'A vintage camera',
       feeBps: 250,
+      requiresVerification: false,
+      agreementText: null,
     },
     parties,
     trackingReference: null,
@@ -104,6 +107,22 @@ describe('ActionBar', () => {
     const escrow = makeEscrow('PENDING_COUNTERPARTY', { buyerAccepted: false });
     renderWithProviders(<ActionBar escrow={escrow} currentUserId={BUYER_ID} />);
     expect(screen.getByRole('button', { name: 'Accept terms' })).toBeInTheDocument();
+  });
+
+  it('requires checking the agreement before the accept-terms confirmation can be submitted', async () => {
+    const escrow = makeEscrow('PENDING_COUNTERPARTY', { buyerAccepted: false });
+    escrow.terms = { ...escrow.terms!, agreementText: 'Buyer pays for return shipping.' };
+    renderWithProviders(<ActionBar escrow={escrow} currentUserId={BUYER_ID} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Accept terms' }));
+
+    expect(screen.getByText('Buyer pays for return shipping.')).toBeInTheDocument();
+    const confirmButtons = screen.getAllByRole('button', { name: 'Accept terms' });
+    const confirmButton = confirmButtons[confirmButtons.length - 1];
+    expect(confirmButton).toBeDisabled();
+
+    await userEvent.click(screen.getByRole('checkbox'));
+    expect(confirmButton).not.toBeDisabled();
   });
 
   it('shows a waiting message instead of Accept terms once the viewer already accepted', () => {

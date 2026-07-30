@@ -58,4 +58,24 @@ describe("NotificationCenter", () => {
     expect(await screen.findByText("The item was shipped")).toBeInTheDocument();
     await waitFor(() => expect(markAllRead).toHaveBeenCalled());
   });
+
+  it("closes the dropdown when clicking outside it", async () => {
+    renderWithProviders(
+      <div>
+        <NotificationCenter />
+        <button type="button">Outside</button>
+      </div>,
+    );
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Notifications" }),
+    );
+    expect(await screen.findByText("The item was shipped")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Outside" }));
+
+    await waitFor(() =>
+      expect(screen.queryByText("The item was shipped")).not.toBeInTheDocument(),
+    );
+  });
 });

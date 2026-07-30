@@ -79,6 +79,8 @@ function packet(overrides: Partial<DisputePacketResponse> = {}): DisputePacketRe
       deliveryMethod: 'GIG Logistics',
       itemDescription: 'A vintage camera',
       feeBps: 250,
+      requiresVerification: false,
+      agreementText: null,
     },
     timeline: [],
     creationEvidence: [],

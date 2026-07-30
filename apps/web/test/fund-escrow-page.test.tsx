@@ -50,6 +50,8 @@ function stubFetch(
       deliveryMethod: 'courier',
       itemDescription: 'A vintage camera',
       feeBps: 250,
+      requiresVerification: false,
+      agreementText: null,
     },
     parties: [
       { userId: BUYER_ID, role: 'BUYER', termsAcceptedAt: new Date().toISOString() },

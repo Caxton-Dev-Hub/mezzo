@@ -5,6 +5,10 @@ import DashboardPage from '../app/(app)/dashboard/page';
 import { renderWithProviders } from './render-with-providers';
 import { useAuthStore } from '../lib/auth-store';
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
 const USER_ID = '11111111-1111-4111-8111-111111111111';
 const COUNTERPARTY_ID = '22222222-2222-4222-8222-222222222222';
 
@@ -22,6 +26,8 @@ function makeEscrow(
       deliveryMethod: 'GIG',
       itemDescription: `Item ${id}`,
       feeBps: 250,
+      requiresVerification: false,
+      agreementText: null,
     },
     parties: [{ userId: USER_ID, role: 'BUYER', termsAcceptedAt: null }],
     trackingReference: null,
@@ -89,6 +95,30 @@ describe('DashboardPage', () => {
     expect(link).toHaveAttribute('href', '/escrow/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
     expect(link).toHaveTextContent('Waiting for counterparty');
     expect(link).toHaveTextContent('You are buying');
+  });
+
+  it('keeps an unsent draft in its own section, resumable and deletable', async () => {
+    stubEscrows([
+      makeEscrow('cccccccc-cccc-4ccc-8ccc-cccccccccccc', { state: 'DRAFT' }),
+      makeEscrow('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
+    ]);
+
+    renderWithProviders(<DashboardPage />);
+
+    expect(await screen.findByText('Drafts')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Resume' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: /Delete draft Item cccccccc-cccc-4ccc-8ccc-cccccccccccc/,
+      }),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.queryByRole('link', { name: /Item cccccccc-cccc-4ccc-8ccc-cccccccccccc/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /Item aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/ }),
+    ).toBeInTheDocument();
   });
 
   it('falls back to the empty state only when the user really has no escrows', async () => {
