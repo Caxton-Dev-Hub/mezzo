@@ -8,3 +8,5 @@ export * from './payments';
 export * from './kyc';
 export * from './chat';
 export * from './notifications';
+export * from './arbitration';
+export * from './admin';
