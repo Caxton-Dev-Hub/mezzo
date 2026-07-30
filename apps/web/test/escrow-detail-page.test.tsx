@@ -6,6 +6,7 @@ import { useAuthStore } from '../lib/auth-store';
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ id: 'escrow-1' }),
+  useRouter: () => ({ push: vi.fn() }),
 }));
 
 vi.mock('socket.io-client', () => ({

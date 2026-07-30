@@ -1,8 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import type { EscrowDetailResponse, EscrowRole, EscrowState } from '@mezzo/shared-types';
 import { ActionBar } from '../components/escrow/action-bar';
 import { renderWithProviders } from './render-with-providers';
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
 
 const BUYER_ID = 'buyer-id';
 const SELLER_ID = 'seller-id';
