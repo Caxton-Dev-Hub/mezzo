@@ -16,7 +16,12 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { AuthenticatedUser } from '../common/types/authenticated-user';
-import { paystackWebhookSchema, PaystackWebhookDto } from './dto/payments.schemas';
+import {
+  flutterwaveWebhookSchema,
+  FlutterwaveWebhookDto,
+  paystackWebhookSchema,
+  PaystackWebhookDto,
+} from './dto/payments.schemas';
 import { LatestPaymentIntentResponse, PaymentIntentResponse } from './dto/payments-response';
 
 @Controller('payments')
@@ -43,12 +48,27 @@ export class PaymentsController {
   @Public()
   @Post('webhook/paystack')
   @HttpCode(HttpStatus.OK)
-  async webhook(
+  async paystackWebhook(
     @Req() request: RawBodyRequest<Request>,
     @Headers('x-paystack-signature') signature: string | undefined,
     @Body(new ZodValidationPipe(paystackWebhookSchema)) dto: PaystackWebhookDto,
   ): Promise<{ received: true }> {
-    await this.paymentsService.handleWebhook(request.rawBody ?? Buffer.alloc(0), signature, dto);
+    await this.paymentsService.handlePaystackWebhook(
+      request.rawBody ?? Buffer.alloc(0),
+      signature,
+      dto,
+    );
+    return { received: true };
+  }
+
+  @Public()
+  @Post('webhook/flutterwave')
+  @HttpCode(HttpStatus.OK)
+  async flutterwaveWebhook(
+    @Headers('verif-hash') signature: string | undefined,
+    @Body(new ZodValidationPipe(flutterwaveWebhookSchema)) dto: FlutterwaveWebhookDto,
+  ): Promise<{ received: true }> {
+    await this.paymentsService.handleFlutterwaveWebhook(signature, dto);
     return { received: true };
   }
 }

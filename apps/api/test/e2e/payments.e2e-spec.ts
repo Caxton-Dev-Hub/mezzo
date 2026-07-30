@@ -23,6 +23,7 @@ import { escrowHoldingRef } from '../../src/ledger/account-refs';
 import { RedisService } from '../../src/redis/redis.service';
 
 const PAYSTACK_SECRET = 'test-paystack-secret-key';
+const FLUTTERWAVE_SECRET_HASH = 'test-flutterwave-secret-hash';
 
 interface AuthTokensBody {
   accessToken: string;
@@ -130,26 +131,33 @@ describe('Payments (e2e)', () => {
   async function createDraft(
     accessToken: string,
     price = validTerms.price,
+    requiresVerification = false,
   ): Promise<EscrowDetailBody> {
     const response = await request(server)
       .post('/escrows')
       .set(auth(accessToken))
-      .send({ ...validTerms, price, role: EscrowRole.BUYER });
+      .send({ ...validTerms, price, requiresVerification, role: EscrowRole.BUYER });
     const draft = response.body as EscrowDetailBody;
     await seedCreationEvidence(draft.id, draft.parties[0].userId);
     return draft;
   }
 
-  async function createAgreedEscrow(price = validTerms.price): Promise<{
+  async function createAgreedEscrow(
+    price = validTerms.price,
+    options: { grantTier?: boolean; requiresVerification?: boolean } = {},
+  ): Promise<{
     escrowId: string;
     buyer: { userId: string; accessToken: string };
     seller: { userId: string; accessToken: string };
   }> {
+    const { grantTier = true, requiresVerification = false } = options;
     const buyer = await registerAndLogin();
     const seller = await registerAndLogin();
-    await grantTier1(buyer.userId);
+    if (grantTier) {
+      await grantTier1(buyer.userId);
+    }
 
-    const draft = await createDraft(buyer.accessToken, price);
+    const draft = await createDraft(buyer.accessToken, price, requiresVerification);
     const inviteResponse = await request(server)
       .post(`/escrows/${draft.id}/invite`)
       .set(auth(buyer.accessToken));
@@ -191,6 +199,22 @@ describe('Payments (e2e)', () => {
   async function postSignedWebhook(payload: unknown): Promise<{ status: number; body: unknown }> {
     const rawBody = JSON.stringify(payload);
     return postWebhook(payload, sign(rawBody));
+  }
+
+  async function postFlutterwaveWebhook(
+    payload: unknown,
+    signature: string | undefined = FLUTTERWAVE_SECRET_HASH,
+  ): Promise<{ status: number; body: unknown }> {
+    const req = request(server)
+      .post('/payments/webhook/flutterwave')
+      .set('Content-Type', 'application/json');
+
+    if (signature !== undefined) {
+      req.set('verif-hash', signature);
+    }
+
+    const response = await req.send(JSON.stringify(payload));
+    return { status: response.status, body: response.body as unknown };
   }
 
   function chargeSuccessPayload(reference: string, amount: number, currency = 'NGN'): unknown {
@@ -247,6 +271,92 @@ describe('Payments (e2e)', () => {
       amount: 120_000,
       currency: 'NGN',
     });
+  });
+
+  it('funds the escrow from a Flutterwave webhook, converting its major-unit amount', async () => {
+    const { escrowId, buyer } = await createAgreedEscrow({ amount: 120_050, currency: 'NGN' });
+
+    const fundResponse = await request(server)
+      .post(`/payments/escrows/${escrowId}/fund`)
+      .set(auth(buyer.accessToken));
+    const intent = fundResponse.body as PaymentIntentBody;
+
+    const { status } = await postFlutterwaveWebhook({
+      event: 'charge.completed',
+      data: {
+        id: uniqueEventId(),
+        tx_ref: intent.reference,
+        amount: 1200.5,
+        currency: 'NGN',
+        status: 'successful',
+      },
+    });
+    expect(status).toBe(200);
+
+    const escrow = await getEscrow(escrowId, buyer.accessToken);
+    expect(escrow.state).toBe(EscrowState.FUNDED);
+
+    expect(await ledger.getBalance(escrowHoldingRef(escrowId))).toEqual({
+      amount: 120_050,
+      currency: 'NGN',
+    });
+  });
+
+  it('rejects a Flutterwave webhook whose verif-hash does not match and posts nothing', async () => {
+    const { escrowId, buyer } = await createAgreedEscrow({ amount: 45_000, currency: 'NGN' });
+    const fundResponse = await request(server)
+      .post(`/payments/escrows/${escrowId}/fund`)
+      .set(auth(buyer.accessToken));
+    const intent = fundResponse.body as PaymentIntentBody;
+
+    const { status, body } = await postFlutterwaveWebhook(
+      {
+        event: 'charge.completed',
+        data: {
+          id: uniqueEventId(),
+          tx_ref: intent.reference,
+          amount: 450,
+          currency: 'NGN',
+          status: 'successful',
+        },
+      },
+      'the-wrong-hash',
+    );
+
+    expect(status).toBe(401);
+    expect((body as ErrorBody).code).toBe('INVALID_WEBHOOK_SIGNATURE');
+
+    const escrow = await getEscrow(escrowId, buyer.accessToken);
+    expect(escrow.state).toBe(EscrowState.AGREED);
+
+    const untouched = await paymentIntents.findOneOrFail({ where: { id: intent.id } });
+    expect(untouched.status).toBe(PaymentIntentStatus.PENDING);
+  });
+
+  it('quarantines a Flutterwave charge whose amount does not match the intent', async () => {
+    const { escrowId, buyer } = await createAgreedEscrow({ amount: 90_000, currency: 'NGN' });
+    const fundResponse = await request(server)
+      .post(`/payments/escrows/${escrowId}/fund`)
+      .set(auth(buyer.accessToken));
+    const intent = fundResponse.body as PaymentIntentBody;
+
+    const { status } = await postFlutterwaveWebhook({
+      event: 'charge.completed',
+      data: {
+        id: uniqueEventId(),
+        tx_ref: intent.reference,
+        amount: 500,
+        currency: 'NGN',
+        status: 'successful',
+      },
+    });
+    expect(status).toBe(200);
+
+    const quarantined = await paymentIntents.findOneOrFail({ where: { id: intent.id } });
+    expect(quarantined.status).toBe(PaymentIntentStatus.QUARANTINED);
+
+    const escrow = await getEscrow(escrowId, buyer.accessToken);
+    expect(escrow.state).toBe(EscrowState.AGREED);
   });
 
   it('does not double-fund when the same webhook event id is replayed', async () => {
@@ -345,6 +455,48 @@ describe('Payments (e2e)', () => {
 
     expect(response.status).toBe(409);
     expect((response.body as ErrorBody).code).toBe('ESCROW_NOT_AGREED');
+  });
+
+  it('funds a small, unflagged escrow without requiring KYC verification', async () => {
+    const { escrowId, buyer } = await createAgreedEscrow(
+      { amount: 50_000, currency: 'NGN' },
+      { grantTier: false },
+    );
+
+    const fundResponse = await request(server)
+      .post(`/payments/escrows/${escrowId}/fund`)
+      .set(auth(buyer.accessToken));
+
+    expect(fundResponse.status).toBe(201);
+    expect((fundResponse.body as PaymentIntentBody).status).toBe(PaymentIntentStatus.PENDING);
+  });
+
+  it('blocks funding when the buyer flagged the escrow as requiring verification, even below the exempt threshold', async () => {
+    const { escrowId, buyer } = await createAgreedEscrow(
+      { amount: 50_000, currency: 'NGN' },
+      { grantTier: false, requiresVerification: true },
+    );
+
+    const fundResponse = await request(server)
+      .post(`/payments/escrows/${escrowId}/fund`)
+      .set(auth(buyer.accessToken));
+
+    expect(fundResponse.status).toBe(403);
+    expect((fundResponse.body as ErrorBody).code).toBe('KYC_TIER_REQUIRED');
+  });
+
+  it('requires KYC verification once the price reaches the exempt threshold, regardless of the flag', async () => {
+    const { escrowId, buyer } = await createAgreedEscrow(
+      { amount: 10_000_000, currency: 'NGN' },
+      { grantTier: false },
+    );
+
+    const fundResponse = await request(server)
+      .post(`/payments/escrows/${escrowId}/fund`)
+      .set(auth(buyer.accessToken));
+
+    expect(fundResponse.status).toBe(403);
+    expect((fundResponse.body as ErrorBody).code).toBe('KYC_TIER_REQUIRED');
   });
 
   it('leaves the escrow unfunded when only a client-side success is reported and no webhook ever arrives', async () => {

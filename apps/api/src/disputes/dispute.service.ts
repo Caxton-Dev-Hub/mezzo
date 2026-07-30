@@ -382,6 +382,8 @@ export class DisputeService {
         deliveryMethod: terms.deliveryMethod,
         itemDescription: terms.itemDescription,
         feeBps: terms.feeBps,
+        requiresVerification: terms.requiresVerification,
+        agreementText: terms.agreementText,
       },
       timeline: toTimeline(escrowEvents, disputeEvents),
       creationEvidence: creationEvidence.map((item) => toEvidenceItemResponse(item, flags)),

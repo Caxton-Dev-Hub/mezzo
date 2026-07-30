@@ -40,6 +40,12 @@ export class EscrowTerms {
   @Column({ name: 'fee_bps', type: 'int' })
   feeBps!: number;
 
+  @Column({ name: 'requires_verification', type: 'boolean', default: false })
+  requiresVerification!: boolean;
+
+  @Column({ name: 'agreement_text', type: 'text', nullable: true })
+  agreementText!: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 

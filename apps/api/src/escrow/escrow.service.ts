@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
 import type { InvitePreviewResponse } from '@mezzo/shared-types';
@@ -30,6 +31,8 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationEventType } from '../notifications/entities/notification-event-type.enum';
 import { toEscrowTermsResponse } from './dto/escrow-response';
 
+const COUNTERPARTY_JOINED_EVENT = 'COUNTERPARTY_JOINED';
+
 const EDITABLE_STATES: ReadonlySet<EscrowState> = new Set([
   EscrowState.DRAFT,
   EscrowState.PENDING_COUNTERPARTY,
@@ -57,6 +60,7 @@ export class EscrowService {
     private readonly stateMachine: EscrowStateMachine,
     private readonly configService: ConfigService,
     private readonly notificationsService: NotificationsService,
+    private readonly eventEmitter: EventEmitter2,
     @Inject(STORAGE_PROVIDER)
     private readonly storage: StorageProvider,
   ) {}
@@ -77,6 +81,8 @@ export class EscrowService {
           deliveryMethod: dto.deliveryMethod,
           itemDescription: dto.itemDescription,
           feeBps: dto.feeBps,
+          requiresVerification: dto.requiresVerification,
+          agreementText: dto.agreementText ?? null,
         }),
       );
 
@@ -223,6 +229,12 @@ export class EscrowService {
       await manager.save(Invite, invite);
     });
 
+    this.eventEmitter.emit('escrow.updated', {
+      escrowId: invite.escrowId,
+      eventType: COUNTERPARTY_JOINED_EVENT,
+      occurredAt: new Date(),
+    });
+
     return escrow;
   }
 
@@ -292,6 +304,8 @@ export class EscrowService {
     terms.deliveryMethod = dto.deliveryMethod;
     terms.itemDescription = dto.itemDescription;
     terms.feeBps = dto.feeBps;
+    terms.requiresVerification = dto.requiresVerification;
+    terms.agreementText = dto.agreementText ?? null;
 
     return this.terms.save(terms);
   }

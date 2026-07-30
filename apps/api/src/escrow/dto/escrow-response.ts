@@ -30,6 +30,8 @@ export function toEscrowTermsResponse(terms: EscrowTerms): EscrowTermsResponse {
     deliveryMethod: terms.deliveryMethod,
     itemDescription: terms.itemDescription,
     feeBps: terms.feeBps,
+    requiresVerification: terms.requiresVerification,
+    agreementText: terms.agreementText,
   };
 }
 

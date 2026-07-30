@@ -18,9 +18,10 @@ import { PayoutService } from './payout.service';
 import { WalletController } from './wallet.controller';
 import { WalletService } from './wallet.service';
 import { WebhookSignatureService } from './webhook-signature.service';
-import { PAYSTACK_PROVIDER, PaystackProvider } from './providers/paystack-provider.interface';
+import { PAYMENT_PROVIDER, PaymentProvider } from './providers/payment-provider.interface';
 import { FakePaystackProvider } from './providers/fake-paystack.provider';
 import { PaystackHttpProvider } from './providers/paystack-http.provider';
+import { FlutterwaveHttpProvider } from './providers/flutterwave-http.provider';
 
 @Module({
   imports: [
@@ -41,15 +42,25 @@ import { PaystackHttpProvider } from './providers/paystack-http.provider';
     WebhookSignatureService,
     FakePaystackProvider,
     PaystackHttpProvider,
+    FlutterwaveHttpProvider,
     {
-      provide: PAYSTACK_PROVIDER,
-      inject: [ConfigService, FakePaystackProvider, PaystackHttpProvider],
+      provide: PAYMENT_PROVIDER,
+      inject: [ConfigService, FakePaystackProvider, PaystackHttpProvider, FlutterwaveHttpProvider],
       useFactory: (
         configService: ConfigService,
         fakeProvider: FakePaystackProvider,
-        httpProvider: PaystackHttpProvider,
-      ): PaystackProvider =>
-        configService.get<string>('PAYSTACK_PROVIDER') === 'paystack' ? httpProvider : fakeProvider,
+        paystackProvider: PaystackHttpProvider,
+        flutterwaveProvider: FlutterwaveHttpProvider,
+      ): PaymentProvider => {
+        switch (configService.get<string>('PAYMENT_PROVIDER')) {
+          case 'paystack':
+            return paystackProvider;
+          case 'flutterwave':
+            return flutterwaveProvider;
+          default:
+            return fakeProvider;
+        }
+      },
     },
   ],
   exports: [

@@ -33,6 +33,7 @@ describe('ESCROW_TRANSITION_TABLE', () => {
   });
 
   it.each([
+    [EscrowState.DRAFT, EscrowState.CANCELLED],
     [EscrowState.PENDING_COUNTERPARTY, EscrowState.CANCELLED],
     [EscrowState.AGREED, EscrowState.CANCELLED],
     [EscrowState.DELIVERED, EscrowState.DISPUTED],

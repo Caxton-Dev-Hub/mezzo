@@ -25,4 +25,20 @@ export class WebhookSignatureService {
       throw new InvalidWebhookSignatureError();
     }
   }
+
+  verifyFlutterwave(signatureHeader: string | undefined): void {
+    if (!signatureHeader) {
+      throw new InvalidWebhookSignatureError();
+    }
+
+    const expected = Buffer.from(
+      this.configService.getOrThrow<string>('FLUTTERWAVE_SECRET_HASH'),
+      'utf8',
+    );
+    const received = Buffer.from(signatureHeader, 'utf8');
+
+    if (expected.length !== received.length || !timingSafeEqual(expected, received)) {
+      throw new InvalidWebhookSignatureError();
+    }
+  }
 }

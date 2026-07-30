@@ -3,7 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Between, Repository } from 'typeorm';
 import { PaymentIntent } from '../database/entities/payment-intent.entity';
 import { PaymentIntentStatus } from './entities/payment-intent-status.enum';
-import { PAYSTACK_PROVIDER, PaystackProvider, TransactionWindow } from './providers/paystack-provider.interface';
+import {
+  PAYMENT_PROVIDER,
+  PaymentProvider,
+  TransactionWindow,
+} from './providers/payment-provider.interface';
 
 export interface FundingReconciliationReport {
   orphanProviderReferences: string[];
@@ -15,12 +19,12 @@ export class PaymentsReconciliationService {
   constructor(
     @InjectRepository(PaymentIntent)
     private readonly intents: Repository<PaymentIntent>,
-    @Inject(PAYSTACK_PROVIDER)
-    private readonly paystackProvider: PaystackProvider,
+    @Inject(PAYMENT_PROVIDER)
+    private readonly paymentProvider: PaymentProvider,
   ) {}
 
   async reconcile(window: TransactionWindow): Promise<FundingReconciliationReport> {
-    const transactions = await this.paystackProvider.listTransactions(window);
+    const transactions = await this.paymentProvider.listTransactions(window);
     const successfulTransactions = transactions.filter((transaction) => transaction.status === 'success');
     const transactionsByReference = new Map(
       successfulTransactions.map((transaction) => [transaction.reference, transaction]),

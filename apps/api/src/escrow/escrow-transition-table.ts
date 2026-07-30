@@ -22,6 +22,7 @@ export const mustBeParty: TransitionGuard = ({ actorId, partyUserIds }) => {
 export const ESCROW_TRANSITION_TABLE: Readonly<Record<EscrowState, readonly TransitionRule[]>> = {
   [EscrowState.DRAFT]: [
     { to: EscrowState.PENDING_COUNTERPARTY, guard: mustBeParty },
+    { to: EscrowState.CANCELLED, guard: mustBeParty },
     { to: EscrowState.EXPIRED },
   ],
   [EscrowState.PENDING_COUNTERPARTY]: [

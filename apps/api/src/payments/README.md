@@ -80,13 +80,44 @@ hashes that buffer, never the reconstructed object.
 
 ## Provider abstraction
 
-`PaystackProvider` mirrors the `KycProvider` split from Milestone 2:
-`PaystackHttpProvider` calls the real Paystack REST API, `FakePaystackProvider`
-is an in-memory double selected via `PAYSTACK_PROVIDER=fake` for local dev and
-tests. `FakePaystackProvider.seedTransaction()` is test-only surface for
+`PaymentProvider` mirrors the `KycProvider` split from Milestone 2. One
+implementation is active at a time, chosen at boot by `PAYMENT_PROVIDER`:
+
+| `PAYMENT_PROVIDER` | Implementation | Required config |
+| --- | --- | --- |
+| `fake` (default) | `FakePaystackProvider` | `PAYSTACK_SECRET_KEY` |
+| `paystack` | `PaystackHttpProvider` | `PAYSTACK_SECRET_KEY` |
+| `flutterwave` | `FlutterwaveHttpProvider` | `FLUTTERWAVE_SECRET_KEY`, `FLUTTERWAVE_SECRET_HASH`, `FLUTTERWAVE_REDIRECT_URL` |
+
+The env schema fails the boot if the selected provider's credentials are
+missing, so a half-configured gateway can never serve a funding request.
+`FakePaystackProvider` is an in-memory double for local dev and tests; it
+speaks Paystack's shapes, which is why it reports `name: 'paystack'` and why
+`fake` needs the Paystack secret (the webhook signature check uses it).
+`FakePaystackProvider.seedTransaction()` is test-only surface for
 `PaymentsReconciliationService` scenarios — it does not fabricate a
 transaction on `initializeTransaction()`, since initializing a checkout
 doesn't mean it succeeded.
+
+### Why both webhook endpoints stay mounted
+
+`/payments/webhook/paystack` and `/payments/webhook/flutterwave` are always
+routed, regardless of which provider is active, because switching providers
+does not retire the intents already in flight with the old one. Each endpoint
+verifies with its own scheme — Paystack an HMAC-SHA512 over the raw body,
+Flutterwave a constant-time compare of the `verif-hash` header against
+`FLUTTERWAVE_SECRET_HASH` — then normalizes into one
+`PaymentWebhookEventInput` (`webhook-event.ts`) that the rest of the pipeline
+consumes. The clearing account a funding posts against comes from
+`PaymentIntent.provider` (and a payout reversal from `Payout.provider`), never
+from whichever provider happens to be active now, so money always settles
+against the gateway that actually took it.
+
+Flutterwave quotes amounts in **major** units where Paystack quotes minor
+ones. The normalizer converts via `majorToMinorUnits()`, which parses the
+decimal string rather than multiplying a float, and yields `null` when it
+cannot parse the amount exactly — an unverifiable amount quarantines the
+intent instead of funding on a guess.
 
 ## Reconciliation
 
@@ -123,13 +154,13 @@ a Paystack transfer.
   network retry on the *client* side (button double-click, a timed-out
   request that actually succeeded) replays the same key and gets back the
   original payout instead of a second transfer.
-- **Same webhook endpoint as funding.** Paystack posts both `charge.*` and
-  `transfer.*` events to one configured URL in real life, so
-  `PaymentsController`'s `/payments/webhook/paystack` stays the single
-  entry point; `PaymentsService.handleWebhook()` branches on the `event`
-  prefix and delegates `transfer.*` to `PayoutService.handleTransferWebhook()`
-  after the same signature-verification and provider-event-id dedupe every
-  other webhook goes through.
+- **Same webhook endpoint as funding.** Both gateways post `charge.*` and
+  `transfer.*` events to one configured URL in real life, so a provider's
+  webhook endpoint stays the single entry point for both;
+  `PaymentsService.processWebhook()` branches on the normalized event `kind`
+  and delegates transfers to `PayoutService.handleTransferWebhook()` after
+  the same signature-verification and provider-event-id dedupe every other
+  webhook goes through.
 - **KYC-gated, not capped.** `requireTier(sellerId, TIER_1)` mirrors
   funding's minimum tier; unlike funding there's no per-tier amount cap
   here (the milestone doesn't specify one for payouts), only the wallet

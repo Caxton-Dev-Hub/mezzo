@@ -5,16 +5,17 @@ import {
   InitializeTransactionResult,
   InitiateTransferInput,
   InitiateTransferResult,
-  PaystackProvider,
-  PaystackTransaction,
+  PaymentProvider,
+  PaymentProviderName,
+  ProviderTransaction,
   TransactionWindow,
-} from './paystack-provider.interface';
+} from './payment-provider.interface';
 
 @Injectable()
-export class FakePaystackProvider implements PaystackProvider {
-  readonly name = 'paystack';
+export class FakePaystackProvider implements PaymentProvider {
+  readonly name: PaymentProviderName = 'paystack';
 
-  private readonly transactions: PaystackTransaction[] = [];
+  private readonly transactions: ProviderTransaction[] = [];
 
   initializeTransaction(input: InitializeTransactionInput): Promise<InitializeTransactionResult> {
     return Promise.resolve({
@@ -23,7 +24,7 @@ export class FakePaystackProvider implements PaystackProvider {
     });
   }
 
-  listTransactions(window: TransactionWindow): Promise<PaystackTransaction[]> {
+  listTransactions(window: TransactionWindow): Promise<ProviderTransaction[]> {
     return Promise.resolve(
       this.transactions.filter(
         (transaction) =>
@@ -41,7 +42,7 @@ export class FakePaystackProvider implements PaystackProvider {
     });
   }
 
-  seedTransaction(transaction: PaystackTransaction): void {
+  seedTransaction(transaction: ProviderTransaction): void {
     this.transactions.push(transaction);
   }
 

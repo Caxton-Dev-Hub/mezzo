@@ -1,15 +1,16 @@
-import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   InitializeTransactionInput,
   InitializeTransactionResult,
   InitiateTransferInput,
   InitiateTransferResult,
-  PaystackProvider,
-  PaystackTransaction,
-  PaystackTransactionStatus,
+  PaymentProvider,
+  PaymentProviderName,
+  ProviderTransaction,
+  ProviderTransactionStatus,
   TransactionWindow,
-} from './paystack-provider.interface';
+} from './payment-provider.interface';
 import { Currency } from '../../common/money/currency';
 
 interface PaystackInitializeResponse {
@@ -39,8 +40,10 @@ interface PaystackListTransactionsResponse {
 }
 
 @Injectable()
-export class PaystackHttpProvider implements PaystackProvider {
-  readonly name = 'paystack';
+export class PaystackHttpProvider implements PaymentProvider {
+  readonly name: PaymentProviderName = 'paystack';
+
+  private readonly logger = new Logger(PaystackHttpProvider.name);
 
   constructor(private readonly configService: ConfigService) {}
 
@@ -58,14 +61,14 @@ export class PaystackHttpProvider implements PaystackProvider {
     });
 
     if (!response.ok) {
-      throw new ServiceUnavailableException('Paystack transaction initialization failed');
+      throw await this.failure(response, 'Paystack transaction initialization failed');
     }
 
     const body = (await response.json()) as PaystackInitializeResponse;
     return { authorizationUrl: body.data.authorization_url, reference: body.data.reference };
   }
 
-  async listTransactions(window: TransactionWindow): Promise<PaystackTransaction[]> {
+  async listTransactions(window: TransactionWindow): Promise<ProviderTransaction[]> {
     const params = new URLSearchParams({
       from: window.from.toISOString(),
       to: window.to.toISOString(),
@@ -78,7 +81,7 @@ export class PaystackHttpProvider implements PaystackProvider {
     });
 
     if (!response.ok) {
-      throw new ServiceUnavailableException('Paystack transaction listing failed');
+      throw await this.failure(response, 'Paystack transaction listing failed');
     }
 
     const body = (await response.json()) as PaystackListTransactionsResponse;
@@ -130,7 +133,7 @@ export class PaystackHttpProvider implements PaystackProvider {
     return { transferCode: transfer.data.transfer_code, reference: transfer.data.reference };
   }
 
-  private mapStatus(status: string): PaystackTransactionStatus {
+  private mapStatus(status: string): ProviderTransactionStatus {
     return status === 'success' || status === 'abandoned' ? status : 'failed';
   }
 

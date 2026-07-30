@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { PaymentIntent } from '../database/entities/payment-intent.entity';
@@ -17,11 +18,16 @@ import { UsersService } from '../users/users.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationEventType } from '../notifications/entities/notification-event-type.enum';
 import { Money } from '../common/money/money';
-import { PAYSTACK_PROVIDER, PaystackProvider } from './providers/paystack-provider.interface';
+import { PAYMENT_PROVIDER, PaymentProvider } from './providers/payment-provider.interface';
 import { TracingService } from '../observability/tracing.service';
 import { PayoutService } from './payout.service';
 import { WebhookSignatureService } from './webhook-signature.service';
-import { PaystackWebhookDto } from './dto/payments.schemas';
+import { FlutterwaveWebhookDto, PaystackWebhookDto } from './dto/payments.schemas';
+import {
+  PaymentWebhookEventInput,
+  normalizeFlutterwaveWebhook,
+  normalizePaystackWebhook,
+} from './webhook-event';
 import {
   LatestPaymentIntentResponse,
   PaymentIntentResponse,
@@ -44,11 +50,12 @@ export class PaymentsService {
     private readonly ledgerService: LedgerService,
     private readonly kycService: KycService,
     private readonly usersService: UsersService,
+    private readonly configService: ConfigService,
     private readonly payoutService: PayoutService,
     private readonly notificationsService: NotificationsService,
     private readonly tracingService: TracingService,
-    @Inject(PAYSTACK_PROVIDER)
-    private readonly paystackProvider: PaystackProvider,
+    @Inject(PAYMENT_PROVIDER)
+    private readonly paymentProvider: PaymentProvider,
     private readonly webhookSignature: WebhookSignatureService,
   ) {}
 
@@ -69,7 +76,11 @@ export class PaymentsService {
     }
 
     const price = Money.of(terms.priceAmount, terms.priceCurrency);
-    await this.kycService.assertCanFund(buyerId, price);
+    const exemptThresholdKobo = this.configService.getOrThrow<number>(
+      'KYC_VERIFICATION_EXEMPT_THRESHOLD_KOBO',
+    );
+    const requiresVerification = terms.requiresVerification || price.amount >= exemptThresholdKobo;
+    await this.kycService.assertCanFund(buyerId, price, requiresVerification);
 
     const existing = await this.intents.findOne({
       where: { escrowId },
@@ -85,7 +96,7 @@ export class PaymentsService {
     }
 
     const reference = randomUUID();
-    const { authorizationUrl } = await this.paystackProvider.initializeTransaction({
+    const { authorizationUrl } = await this.paymentProvider.initializeTransaction({
       email: buyer.email,
       amountKobo: price.amount,
       currency: price.currency,
@@ -99,7 +110,7 @@ export class PaymentsService {
         buyerId,
         amount: price.amount,
         currency: price.currency,
-        provider: this.paystackProvider.name,
+        provider: this.paymentProvider.name,
         providerReference: reference,
         status: PaymentIntentStatus.PENDING,
       }),
@@ -119,54 +130,58 @@ export class PaymentsService {
     return { intent: intent ? toPaymentIntentResponse(intent) : null };
   }
 
-  async handleWebhook(
+  async handlePaystackWebhook(
     rawBody: Buffer,
     signatureHeader: string | undefined,
     dto: PaystackWebhookDto,
   ): Promise<void> {
-    return this.tracingService.withSpan('payments.handleWebhook', () =>
-      this.processWebhook(rawBody, signatureHeader, dto),
-    );
+    return this.tracingService.withSpan('payments.handleWebhook', () => {
+      this.webhookSignature.verifyPaystack(rawBody, signatureHeader);
+      return this.processWebhook(normalizePaystackWebhook(dto));
+    });
   }
 
-  private async processWebhook(
-    rawBody: Buffer,
+  async handleFlutterwaveWebhook(
     signatureHeader: string | undefined,
-    dto: PaystackWebhookDto,
+    dto: FlutterwaveWebhookDto,
   ): Promise<void> {
-    this.webhookSignature.verifyPaystack(rawBody, signatureHeader);
+    return this.tracingService.withSpan('payments.handleWebhook', () => {
+      this.webhookSignature.verifyFlutterwave(signatureHeader);
+      return this.processWebhook(normalizeFlutterwaveWebhook(dto));
+    });
+  }
 
-    const providerEventId = String(dto.data.id);
+  private async processWebhook(event: PaymentWebhookEventInput): Promise<void> {
     const alreadyProcessed = await this.webhookEvents.findOne({
-      where: { provider: this.paystackProvider.name, providerEventId },
+      where: { provider: event.provider, providerEventId: event.eventId },
     });
     if (alreadyProcessed) {
       return;
     }
 
-    if (dto.event.startsWith('transfer.')) {
-      await this.payoutService.handleTransferWebhook(dto);
-      await this.recordWebhookEvent(providerEventId, null);
+    if (event.kind === 'transfer') {
+      await this.payoutService.handleTransferWebhook(event);
+      await this.recordWebhookEvent(event, null);
       return;
     }
 
-    if (dto.event !== 'charge.success') {
-      await this.recordWebhookEvent(providerEventId, null);
+    if (event.kind !== 'charge' || !event.succeeded) {
+      await this.recordWebhookEvent(event, null);
       return;
     }
 
-    const intent = await this.intents.findOne({ where: { providerReference: dto.data.reference } });
+    const intent = await this.intents.findOne({ where: { providerReference: event.reference } });
     if (!intent || intent.status !== PaymentIntentStatus.PENDING) {
-      await this.recordWebhookEvent(providerEventId, intent?.escrowId ?? null);
+      await this.recordWebhookEvent(event, intent?.escrowId ?? null);
       return;
     }
 
-    const amountMatches = dto.data.amount === intent.amount && dto.data.currency === intent.currency;
+    const amountMatches = event.amount === intent.amount && event.currency === intent.currency;
 
     if (!amountMatches) {
       intent.status = PaymentIntentStatus.QUARANTINED;
       await this.intents.save(intent);
-      await this.recordWebhookEvent(providerEventId, intent.escrowId);
+      await this.recordWebhookEvent(event, intent.escrowId);
       return;
     }
 
@@ -174,7 +189,7 @@ export class PaymentsService {
       await this.ledgerService.postTransaction(
         [
           {
-            accountRef: providerClearingRef(this.paystackProvider.name),
+            accountRef: providerClearingRef(intent.provider),
             direction: EntryDirection.DEBIT,
             money: Money.of(intent.amount, intent.currency),
           },
@@ -191,7 +206,11 @@ export class PaymentsService {
       const fundedEscrow = await this.stateMachine.transition(
         intent.escrowId,
         EscrowState.FUNDED,
-        { actorId: null, reason: 'Paystack charge.success webhook verified', correlationId: intent.id },
+        {
+          actorId: null,
+          reason: `${event.provider} charge webhook verified`,
+          correlationId: intent.id,
+        },
         manager,
       );
 
@@ -201,8 +220,8 @@ export class PaymentsService {
       await manager.save(
         PaymentWebhookEvent,
         manager.create(PaymentWebhookEvent, {
-          provider: this.paystackProvider.name,
-          providerEventId,
+          provider: event.provider,
+          providerEventId: event.eventId,
           escrowId: intent.escrowId,
         }),
       );
@@ -219,11 +238,14 @@ export class PaymentsService {
     });
   }
 
-  private async recordWebhookEvent(providerEventId: string, escrowId: string | null): Promise<void> {
+  private async recordWebhookEvent(
+    event: PaymentWebhookEventInput,
+    escrowId: string | null,
+  ): Promise<void> {
     await this.webhookEvents.save(
       this.webhookEvents.create({
-        provider: this.paystackProvider.name,
-        providerEventId,
+        provider: event.provider,
+        providerEventId: event.eventId,
         escrowId,
       }),
     );

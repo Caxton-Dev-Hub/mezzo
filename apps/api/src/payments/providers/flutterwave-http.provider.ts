@@ -1,4 +1,4 @@
-import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   InitializeTransactionInput,
@@ -38,6 +38,8 @@ interface FlutterwaveListTransactionsResponse {
 export class FlutterwaveHttpProvider implements PaymentProvider {
   readonly name = 'flutterwave';
 
+  private readonly logger = new Logger(FlutterwaveHttpProvider.name);
+
   constructor(private readonly configService: ConfigService) {}
 
   async initializeTransaction(
@@ -57,7 +59,7 @@ export class FlutterwaveHttpProvider implements PaymentProvider {
     });
 
     if (!response.ok) {
-      throw new ServiceUnavailableException('Flutterwave transaction initialization failed');
+      throw await this.failure(response, 'Flutterwave transaction initialization failed');
     }
 
     const body = (await response.json()) as FlutterwavePaymentResponse;
@@ -76,7 +78,7 @@ export class FlutterwaveHttpProvider implements PaymentProvider {
     });
 
     if (!response.ok) {
-      throw new ServiceUnavailableException('Flutterwave transaction listing failed');
+      throw await this.failure(response, 'Flutterwave transaction listing failed');
     }
 
     const body = (await response.json()) as FlutterwaveListTransactionsResponse;
@@ -104,11 +106,22 @@ export class FlutterwaveHttpProvider implements PaymentProvider {
     });
 
     if (!response.ok) {
-      throw new ServiceUnavailableException('Flutterwave transfer initiation failed');
+      throw await this.failure(response, 'Flutterwave transfer initiation failed');
     }
 
     const body = (await response.json()) as FlutterwaveTransferResponse;
     return { transferCode: String(body.data.id), reference: body.data.reference };
+  }
+
+  private async failure(
+    response: Response,
+    message: string,
+  ): Promise<ServiceUnavailableException> {
+    const body = await response.text().catch(() => '');
+    this.logger.error(
+      `${message} (${response.status} ${response.statusText}): ${body.slice(0, 500)}`,
+    );
+    return new ServiceUnavailableException(message);
   }
 
   private mapStatus(status: string): ProviderTransactionStatus {

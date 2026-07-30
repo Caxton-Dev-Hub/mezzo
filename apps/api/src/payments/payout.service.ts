@@ -10,10 +10,10 @@ import { EntryDirection } from '../ledger/entities/entry-direction.enum';
 import { KycService } from '../kyc/kyc.service';
 import { KycTier } from '../kyc/entities/kyc-tier.enum';
 import { Money } from '../common/money/money';
-import { PAYSTACK_PROVIDER, PaystackProvider } from './providers/paystack-provider.interface';
+import { PAYMENT_PROVIDER, PaymentProvider } from './providers/payment-provider.interface';
 import { RequestPayoutDto } from './dto/payout.schemas';
 import { PayoutResponse, toPayoutResponse } from './dto/payout-response';
-import { PaystackWebhookDto } from './dto/payments.schemas';
+import { PaymentWebhookEventInput } from './webhook-event';
 import { InsufficientWalletBalanceError } from './errors/insufficient-wallet-balance.error';
 
 @Injectable()
@@ -25,8 +25,8 @@ export class PayoutService {
     private readonly dataSource: DataSource,
     private readonly ledgerService: LedgerService,
     private readonly kycService: KycService,
-    @Inject(PAYSTACK_PROVIDER)
-    private readonly paystackProvider: PaystackProvider,
+    @Inject(PAYMENT_PROVIDER)
+    private readonly paymentProvider: PaymentProvider,
   ) {}
 
   async requestPayout(sellerId: string, dto: RequestPayoutDto): Promise<PayoutResponse> {
@@ -44,7 +44,7 @@ export class PayoutService {
     }
 
     const reference = randomUUID();
-    await this.paystackProvider.initiateTransfer({
+    await this.paymentProvider.initiateTransfer({
       amountKobo: requested.amount,
       currency: requested.currency,
       reference,
@@ -62,7 +62,7 @@ export class PayoutService {
           currency: requested.currency,
           bankAccountNumber: dto.bankAccountNumber,
           bankCode: dto.bankCode,
-          provider: this.paystackProvider.name,
+          provider: this.paymentProvider.name,
           providerReference: reference,
           idempotencyKey: dto.idempotencyKey,
           status: PayoutStatus.PENDING,
@@ -73,7 +73,7 @@ export class PayoutService {
         [
           { accountRef: userWalletRef(sellerId), direction: EntryDirection.DEBIT, money: requested },
           {
-            accountRef: providerClearingRef(this.paystackProvider.name),
+            accountRef: providerClearingRef(this.paymentProvider.name),
             direction: EntryDirection.CREDIT,
             money: requested,
           },
@@ -98,13 +98,13 @@ export class PayoutService {
     return payouts.map(toPayoutResponse);
   }
 
-  async handleTransferWebhook(dto: PaystackWebhookDto): Promise<void> {
-    const payout = await this.payouts.findOne({ where: { providerReference: dto.data.reference } });
+  async handleTransferWebhook(event: PaymentWebhookEventInput): Promise<void> {
+    const payout = await this.payouts.findOne({ where: { providerReference: event.reference } });
     if (!payout || payout.status !== PayoutStatus.PENDING) {
       return;
     }
 
-    if (dto.data.status === 'success') {
+    if (event.succeeded) {
       payout.status = PayoutStatus.CONFIRMED;
       await this.payouts.save(payout);
       return;
@@ -114,7 +114,7 @@ export class PayoutService {
       await this.ledgerService.postTransaction(
         [
           {
-            accountRef: providerClearingRef(this.paystackProvider.name),
+            accountRef: providerClearingRef(payout.provider),
             direction: EntryDirection.DEBIT,
             money: Money.of(payout.amount, payout.currency),
           },
