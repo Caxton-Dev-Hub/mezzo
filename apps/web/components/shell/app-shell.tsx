@@ -23,6 +23,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 Wallet
               </Link>
             ) : null}
+            {user?.role === 'ARBITER' || user?.role === 'ADMIN' ? (
+              <Link href="/admin" className="text-sm text-fog hover:text-vellum">
+                Arbiter
+              </Link>
+            ) : null}
             {status === 'authenticated' ? <NotificationCenter /> : null}
             {status === 'pending' ? (
               <span className="hidden h-4 w-32 animate-pulse rounded bg-surface-2 sm:block" />

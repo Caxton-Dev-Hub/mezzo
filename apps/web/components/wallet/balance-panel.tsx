@@ -43,7 +43,7 @@ export function BalancePanel({ balances }: BalancePanelProps) {
             <Icon className={`h-4 w-4 ${accent}`} />
             <h3 className="text-[13px] font-medium text-fog">{label}</h3>
           </div>
-          <p className="tabular mt-3 font-display text-[1.5rem] leading-none text-vellum">
+          <p className="tabular mt-3 font-mono text-[1.35rem] leading-none text-vellum">
             {formatMoney(money.amount, money.currency)}
           </p>
           <p className="mt-2 text-[13px] text-mute">{hint}</p>

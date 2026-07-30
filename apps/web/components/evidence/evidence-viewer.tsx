@@ -5,12 +5,7 @@ import { Film, ImageIcon, TriangleAlert } from 'lucide-react';
 import type { EvidenceItemResponse } from '@mezzo/shared-types';
 import { isImageMime } from '@mezzo/shared-types';
 import { Modal } from '../ui/modal';
-
-const FLAG_LABELS: Record<string, string> = {
-  DUPLICATE_CONTENT: 'Duplicate content',
-  MISSING_METADATA: 'Missing capture metadata',
-  TIMESTAMP_MISMATCH: 'Capture timestamp mismatch',
-};
+import { EVIDENCE_FLAG_LABELS } from '../../lib/evidence-flag-labels';
 
 interface EvidenceViewerProps {
   items: EvidenceItemResponse[];
@@ -50,7 +45,7 @@ export function EvidenceViewer({ items, emptyLabel = 'No evidence submitted' }: 
               )}
               {item.flags.length > 0 ? (
                 <span
-                  title={item.flags.map((flag) => FLAG_LABELS[flag] ?? flag).join(', ')}
+                  title={item.flags.map((flag) => EVIDENCE_FLAG_LABELS[flag] ?? flag).join(', ')}
                   className="absolute left-1.5 top-1.5 rounded-full bg-ink/80 p-1 text-seller"
                 >
                   <TriangleAlert className="h-3 w-3" />
@@ -76,7 +71,7 @@ export function EvidenceViewer({ items, emptyLabel = 'No evidence submitted' }: 
                 {openItem.flags.map((flag) => (
                   <p key={flag} className="flex items-center gap-1.5 text-[13px] text-seller">
                     <TriangleAlert className="h-3.5 w-3.5 shrink-0" />
-                    {FLAG_LABELS[flag] ?? flag}
+                    {EVIDENCE_FLAG_LABELS[flag] ?? flag}
                   </p>
                 ))}
               </div>
