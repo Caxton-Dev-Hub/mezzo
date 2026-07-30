@@ -431,6 +431,19 @@ describe("Arbiter dispute detail", () => {
     ).not.toBeInTheDocument();
   });
 
+  it('asks the arbiter to close the evidence window before any resolution is possible', async () => {
+    const user = userEvent.setup();
+    const calls = stubFetch(packet({ dispute: dispute({ state: 'EVIDENCE' }) }));
+    renderWithProviders(<AdminDisputePage />);
+
+    const panel = await screen.findByRole('region', { name: 'Close evidence window' });
+    expect(screen.queryByRole('region', { name: 'Execute resolution' })).not.toBeInTheDocument();
+
+    await user.click(within(panel).getByRole('button', { name: 'Close evidence window' }));
+
+    expect(calls.some((call) => call.url.includes('/close-evidence-window'))).toBe(true);
+  });
+
   it("tells an arbiter the audit log is admin-only rather than failing", async () => {
     signIn("ARBITER");
     stubFetch(packet());
