@@ -151,4 +151,9 @@ itself (`runEvalSuite`) doesn't care where the text came from.
   visible to either party.
 - **`providers/`** -- `LlmProvider` interface, `AnthropicLlmProvider`,
   `OpenAiLlmProvider`, and the two independently-scriptable fakes.
+- **`dto/arbitration-response.ts`** -- the record shape the F7 console
+  renders, defined once as a zod schema in `packages/shared-types` and
+  imported here. `status` is what the console keys its two visual
+  treatments off: `RECOMMENDED` may pre-fill the arbiter's outcome,
+  `NEEDS_HUMAN` never does.
 - **`evals/`** -- the fixture set and the CI-safe scoring harness.
