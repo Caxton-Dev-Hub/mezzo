@@ -51,6 +51,7 @@ export default async function globalSetup(): Promise<void> {
   process.env.NOTIFICATION_QUEUE_ATTEMPTS ??= '5';
   process.env.NOTIFICATION_QUEUE_BACKOFF_MS ??= '1000';
   process.env.INSPECTION_ENDING_SOON_LEAD_HOURS ??= '6';
+  process.env.BOOTSTRAP_ADMIN_EMAILS ??= 'bootstrap-admin@example.com';
 
   execSync('pnpm typeorm migration:run', {
     cwd: join(__dirname, '..', '..'),

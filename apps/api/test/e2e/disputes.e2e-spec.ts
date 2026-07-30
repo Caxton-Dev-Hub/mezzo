@@ -338,6 +338,32 @@ describe('Disputes (e2e)', () => {
     expect(response.status).toBe(403);
   });
 
+  it('lets both parties find an escrow dispute and keeps it hidden from non-parties', async () => {
+    const { escrowId, buyer, seller } = await createDeliveredEscrow(40_000);
+
+    const beforeRaising = await request(server)
+      .get(`/escrows/${escrowId}/disputes`)
+      .set(auth(seller.accessToken));
+    expect(beforeRaising.status).toBe(200);
+    expect(beforeRaising.body).toEqual([]);
+
+    const dispute = await raiseDispute(escrowId, buyer);
+
+    for (const party of [buyer, seller]) {
+      const response = await request(server)
+        .get(`/escrows/${escrowId}/disputes`)
+        .set(auth(party.accessToken));
+      expect(response.status).toBe(200);
+      expect((response.body as DisputeBody[]).map((entry) => entry.id)).toEqual([dispute.id]);
+    }
+
+    const stranger = await registerAndLogin();
+    const denied = await request(server)
+      .get(`/escrows/${escrowId}/disputes`)
+      .set(auth(stranger.accessToken));
+    expect(denied.status).toBe(403);
+  });
+
   it('records non-submission as a flag once the evidence window has elapsed', async () => {
     const { escrowId, buyer, seller } = await createDeliveredEscrow(40_000);
     const dispute = await raiseDispute(escrowId, buyer);

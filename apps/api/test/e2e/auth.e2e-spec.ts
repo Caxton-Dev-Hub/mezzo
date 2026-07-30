@@ -89,6 +89,15 @@ describe('Auth (e2e)', () => {
       expect(stored?.passwordHash.startsWith('$argon2id$')).toBe(true);
     });
 
+    it('registers a configured bootstrap email as an ADMIN, and everyone else as a USER', async () => {
+      const bootstrapEmail = 'bootstrap-admin@example.com';
+      const admin = await register(bootstrapEmail);
+      expect(admin.role).toBe(UserRole.ADMIN);
+
+      const ordinary = await register(uniqueEmail());
+      expect(ordinary.role).toBe(UserRole.USER);
+    });
+
     it('logs in a registered user and returns access + refresh tokens', async () => {
       const email = uniqueEmail();
       await register(email);
