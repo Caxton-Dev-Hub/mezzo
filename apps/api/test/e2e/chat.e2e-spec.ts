@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHmac } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import request from 'supertest';
@@ -250,16 +252,6 @@ describe('Chat (e2e)', () => {
     });
   }
 
-  function waitForDisconnect(socket: Socket): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error('disconnect timeout')), 4000);
-      socket.on('disconnect', () => {
-        clearTimeout(timeout);
-        resolve();
-      });
-    });
-  }
-
   function waitForEvent<T>(socket: Socket, event: string): Promise<T> {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error(`timeout waiting for ${event}`)), 4000);
@@ -427,32 +419,55 @@ describe('Chat (e2e)', () => {
 
   it('rejects a websocket connection with no token', async () => {
     const { escrowId } = await createAgreedEscrow();
-    const socket = io(`${baseUrl}/ws/chat`, {
-      auth: { escrowId },
-      transports: ['websocket'],
-      reconnection: false,
-      forceNew: true,
+
+    await expect(connectSocket({ escrowId })).rejects.toMatchObject({
+      data: { code: 'UNAUTHORIZED' },
     });
-    try {
-      await expect(waitForDisconnect(socket)).resolves.toBeUndefined();
-    } finally {
-      socket.close();
-    }
   });
 
   it('rejects a websocket subscription from a user who is not a party to the escrow', async () => {
     const { escrowId } = await createAgreedEscrow();
     const stranger = await registerAndLogin();
-    const socket = io(`${baseUrl}/ws/chat`, {
-      auth: { token: stranger.accessToken, escrowId },
+
+    await expect(connectSocket({ token: stranger.accessToken, escrowId })).rejects.toMatchObject({
+      data: { code: 'FORBIDDEN' },
+    });
+  });
+
+  it('tells a party with an expired token to re-authenticate instead of denying access', async () => {
+    const { escrowId, buyer } = await createAgreedEscrow();
+    const jwtService = app.get(JwtService);
+    const configService = app.get(ConfigService);
+    const expiredToken = await jwtService.signAsync(
+      { sub: buyer.userId, role: UserRole.USER },
+      { secret: configService.getOrThrow<string>('JWT_ACCESS_SECRET'), expiresIn: '-1s' },
+    );
+
+    await expect(connectSocket({ token: expiredToken, escrowId })).rejects.toMatchObject({
+      data: { code: 'UNAUTHORIZED' },
+    });
+  });
+
+  it('never dispatches an event before the handshake has authenticated the socket', async () => {
+    const { escrowId, buyer, seller } = await createAgreedEscrow();
+    const sellerSocket = await connectSocket({ token: seller.accessToken, escrowId });
+
+    const buyerSocket = io(`${baseUrl}/ws/chat`, {
+      auth: { token: buyer.accessToken, escrowId },
       transports: ['websocket'],
       reconnection: false,
       forceNew: true,
     });
+    buyerSocket.emit('message:read');
+    buyerSocket.emit('message:send', { body: 'sent the instant the socket opened' });
+
     try {
-      await expect(waitForDisconnect(socket)).resolves.toBeUndefined();
+      const delivered = await waitForEvent<ChatMessageBody>(sellerSocket, 'message:new');
+      expect(delivered.body).toBe('sent the instant the socket opened');
+      expect(buyerSocket.connected).toBe(true);
     } finally {
-      socket.close();
+      buyerSocket.close();
+      sellerSocket.close();
     }
   });
 

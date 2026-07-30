@@ -311,6 +311,51 @@ describe('Escrow (e2e)', () => {
     });
   });
 
+  describe('listing a user’s escrows', () => {
+    it('returns every escrow the caller is a party to, newest activity first', async () => {
+      const buyer = await registerAndLogin();
+      const first = await createDraft(buyer.accessToken);
+      const second = await createDraft(buyer.accessToken);
+
+      const response = await request(server).get('/escrows').set(auth(buyer.accessToken));
+
+      expect(response.status).toBe(200);
+      const list = response.body as EscrowDetailBody[];
+      expect(list.map((escrow) => escrow.id)).toEqual([second.id, first.id]);
+      expect(list[0].terms?.itemDescription).toBe(validTerms.itemDescription);
+      expect(list[0].parties).toHaveLength(1);
+    });
+
+    it('includes an escrow the caller joined as the counterparty', async () => {
+      const { escrowId, seller } = await createAgreedEscrow();
+
+      const response = await request(server).get('/escrows').set(auth(seller.accessToken));
+
+      const list = response.body as EscrowDetailBody[];
+      expect(list.map((escrow) => escrow.id)).toContain(escrowId);
+      expect(list.find((escrow) => escrow.id === escrowId)?.parties).toHaveLength(2);
+    });
+
+    it('never leaks an escrow the caller is not a party to', async () => {
+      const { escrowId } = await createAgreedEscrow();
+      const stranger = await registerAndLogin();
+
+      const response = await request(server).get('/escrows').set(auth(stranger.accessToken));
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual([]);
+      expect((response.body as EscrowDetailBody[]).map((escrow) => escrow.id)).not.toContain(
+        escrowId,
+      );
+    });
+
+    it('requires authentication', async () => {
+      const response = await request(server).get('/escrows');
+
+      expect(response.status).toBe(401);
+    });
+  });
+
   describe('event timeline', () => {
     it('returns events in chronological order for a party', async () => {
       const { escrowId, buyer } = await createAgreedEscrow();
