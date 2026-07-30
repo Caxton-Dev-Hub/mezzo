@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../database/entities/user.entity';
@@ -7,10 +8,20 @@ import { EmailAlreadyRegisteredError } from './errors/email-already-registered.e
 
 @Injectable()
 export class UsersService {
+  private readonly bootstrapAdminEmails: ReadonlySet<string>;
+
   constructor(
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
-  ) {}
+    configService: ConfigService,
+  ) {
+    this.bootstrapAdminEmails = new Set(
+      (configService.get<string>('BOOTSTRAP_ADMIN_EMAILS') ?? '')
+        .split(',')
+        .map((email) => email.trim().toLowerCase())
+        .filter((email) => email.length > 0),
+    );
+  }
 
   async create(email: string, passwordHash: string): Promise<User> {
     const normalizedEmail = email.toLowerCase();
@@ -23,7 +34,7 @@ export class UsersService {
     const user = this.usersRepository.create({
       email: normalizedEmail,
       passwordHash,
-      role: UserRole.USER,
+      role: this.bootstrapAdminEmails.has(normalizedEmail) ? UserRole.ADMIN : UserRole.USER,
     });
 
     return this.usersRepository.save(user);
