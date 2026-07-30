@@ -12,6 +12,10 @@ export function createEscrow(dto: CreateEscrowDto): Promise<EscrowDetailResponse
   return apiRequest<EscrowDetailResponse>('/escrows', { method: 'POST', body: dto });
 }
 
+export function listEscrows(): Promise<EscrowDetailResponse[]> {
+  return apiRequest<EscrowDetailResponse[]>('/escrows');
+}
+
 export function getEscrow(escrowId: string): Promise<EscrowDetailResponse> {
   return apiRequest<EscrowDetailResponse>(`/escrows/${escrowId}`);
 }

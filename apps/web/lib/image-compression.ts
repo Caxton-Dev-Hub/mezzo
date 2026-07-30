@@ -1,3 +1,5 @@
+import { transferExif } from './exif-transfer';
+
 export interface CompressedImage {
   blob: Blob;
   mimeType: string;
@@ -9,7 +11,7 @@ const MAX_DIMENSION = 1920;
 const JPEG_QUALITY = 0.82;
 
 export async function compressImage(file: File): Promise<CompressedImage> {
-  const bitmap = await createImageBitmap(file);
+  const bitmap = await createImageBitmap(file, { imageOrientation: 'none' });
   const originalWidth = bitmap.width;
   const originalHeight = bitmap.height;
   const scale = Math.min(1, MAX_DIMENSION / Math.max(originalWidth, originalHeight));
@@ -28,11 +30,17 @@ export async function compressImage(file: File): Promise<CompressedImage> {
   ctx.drawImage(bitmap, 0, 0, width, height);
   bitmap.close();
 
-  const blob = await new Promise<Blob | null>((resolve) =>
+  const encoded = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob(resolve, 'image/jpeg', JPEG_QUALITY),
   );
 
-  if (!blob || blob.size >= file.size) {
+  if (!encoded) {
+    return { blob: file, mimeType: file.type, width: originalWidth, height: originalHeight };
+  }
+
+  const blob = await transferExif(file, encoded);
+
+  if (blob.size >= file.size) {
     return { blob: file, mimeType: file.type, width: originalWidth, height: originalHeight };
   }
 
