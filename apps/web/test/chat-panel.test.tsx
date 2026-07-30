@@ -31,6 +31,7 @@ vi.mock('socket.io-client', () => ({
       emit: (event: string, payload?: unknown) => {
         emitted.push({ event, payload });
       },
+      io: { on: vi.fn() },
       close: vi.fn(),
     };
     return socket;

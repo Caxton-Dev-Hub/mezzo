@@ -13,6 +13,7 @@ vi.mock('socket.io-client', () => ({
   io: () => ({
     on: vi.fn(),
     emit: vi.fn(),
+    io: { on: vi.fn() },
     close: vi.fn(),
   }),
 }));

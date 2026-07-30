@@ -6,7 +6,7 @@ import { renderWithProviders } from "./render-with-providers";
 import { useAuthStore } from "../lib/auth-store";
 
 vi.mock("socket.io-client", () => ({
-  io: () => ({ on: vi.fn(), emit: vi.fn(), close: vi.fn() }),
+  io: () => ({ on: vi.fn(), emit: vi.fn(), io: { on: vi.fn() }, close: vi.fn() }),
 }));
 
 const markAllRead = vi.fn(async () => undefined);
