@@ -1,3 +1,4 @@
+import { AdminDisputeSummaryResponse, AuditEventResponse } from '@mezzo/shared-types';
 import { User } from '../../database/entities/user.entity';
 import { Dispute } from '../../database/entities/dispute.entity';
 import { KycVerification } from '../../database/entities/kyc-verification.entity';
@@ -5,8 +6,8 @@ import { LedgerPosting } from '../../database/entities/ledger-posting.entity';
 import { LedgerEntry } from '../../database/entities/ledger-entry.entity';
 import { AuditEvent } from '../../database/entities/audit-event.entity';
 import { ArbitrationRecord } from '../../database/entities/arbitration-record.entity';
-import { DisputeResponse, toDisputeResponse } from '../../disputes/dto/dispute-response';
-import { ArbitrationRecordResponse, toArbitrationRecordResponse } from '../../arbitration/dto/arbitration-response';
+import { toDisputeResponse } from '../../disputes/dto/dispute-response';
+import { toArbitrationRecordResponse } from '../../arbitration/dto/arbitration-response';
 import { UserRole } from '../../users/entities/user-role.enum';
 import { KycTier } from '../../kyc/entities/kyc-tier.enum';
 import { KycVerificationStatus } from '../../kyc/entities/kyc-verification-status.enum';
@@ -25,10 +26,7 @@ export function toAdminUserResponse(user: User): AdminUserResponse {
   return { id: user.id, email: user.email, role: user.role, kycTier: user.kycTier, createdAt: user.createdAt };
 }
 
-export interface AdminDisputeSummaryResponse {
-  dispute: DisputeResponse;
-  latestArbitrationRecord: ArbitrationRecordResponse | null;
-}
+export type { AdminDisputeSummaryResponse, AuditEventResponse };
 
 export function toAdminDisputeSummaryResponse(
   dispute: Dispute,
@@ -98,19 +96,6 @@ export function toLedgerPostingResponse(posting: LedgerPosting, entries: LedgerE
     createdAt: posting.createdAt,
     entries: entries.map(toLedgerEntryResponse),
   };
-}
-
-export interface AuditEventResponse {
-  id: string;
-  actorId: string | null;
-  action: string;
-  entityType: string;
-  entityId: string;
-  reason: string | null;
-  beforeState: Record<string, unknown> | null;
-  afterState: Record<string, unknown> | null;
-  correlationId: string | null;
-  createdAt: Date;
 }
 
 export function toAuditEventResponse(event: AuditEvent): AuditEventResponse {

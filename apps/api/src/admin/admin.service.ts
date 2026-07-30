@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { AdminDisputePacketResponse } from '@mezzo/shared-types';
 import { DisputeService } from '../disputes/dispute.service';
 import { DisputeState } from '../disputes/entities/dispute-state.enum';
 import { ArbitrationService } from '../arbitration/arbitration.service';
@@ -12,8 +13,7 @@ import { UsersService } from '../users/users.service';
 import { AuditService } from '../audit/audit.service';
 import { RequestContextService } from '../common/context/request-context';
 import { AuthenticatedUser } from '../common/types/authenticated-user';
-import { DisputePacketResponse } from '../disputes/dto/dispute-response';
-import { ArbitrationRecordResponse, toArbitrationRecordResponse } from '../arbitration/dto/arbitration-response';
+import { toArbitrationRecordResponse } from '../arbitration/dto/arbitration-response';
 import {
   AdminDisputeSummaryResponse,
   AdminKycVerificationResponse,
@@ -30,10 +30,7 @@ import {
 } from './dto/admin-response';
 import { OverrideKycTierDto, PostAdjustmentDto } from './dto/admin.schemas';
 
-export interface DisputePacketWithRecords {
-  packet: DisputePacketResponse;
-  arbitrationRecords: ArbitrationRecordResponse[];
-}
+export type { AdminDisputePacketResponse };
 
 @Injectable()
 export class AdminService {
@@ -58,7 +55,7 @@ export class AdminService {
     );
   }
 
-  async getDisputePacket(disputeId: string, currentUser: AuthenticatedUser): Promise<DisputePacketWithRecords> {
+  async getDisputePacket(disputeId: string, currentUser: AuthenticatedUser): Promise<AdminDisputePacketResponse> {
     const [packet, records] = await Promise.all([
       this.disputeService.getPacket(disputeId, currentUser),
       this.arbitrationService.listForDispute(disputeId),

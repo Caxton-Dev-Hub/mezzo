@@ -1,5 +1,6 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
-import { AdminService, DisputePacketWithRecords } from './admin.service';
+import { AdminService } from './admin.service';
+import { AdminDisputePacketResponse } from '@mezzo/shared-types';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { AuthenticatedUser } from '../common/types/authenticated-user';
@@ -38,7 +39,7 @@ export class AdminController {
   async getDisputePacket(
     @CurrentUser() currentUser: AuthenticatedUser,
     @Param('id') id: string,
-  ): Promise<DisputePacketWithRecords> {
+  ): Promise<AdminDisputePacketResponse> {
     return this.adminService.getDisputePacket(id, currentUser);
   }
 
