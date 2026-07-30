@@ -30,6 +30,8 @@ const termsSchema = {
   deliveryMethod: z.string().trim().min(1).max(255),
   itemDescription: z.string().trim().min(1),
   feeBps: z.number().int().min(0).max(10_000),
+  requiresVerification: z.boolean().default(false),
+  agreementText: z.string().trim().max(20_000).optional(),
 };
 
 export const createEscrowSchema = z.object({
@@ -43,7 +45,10 @@ export const updateEscrowTermsSchema = z.object(termsSchema);
 
 export type UpdateEscrowTermsDto = z.infer<typeof updateEscrowTermsSchema>;
 
-export const escrowTermsResponseSchema = z.object(termsSchema);
+export const escrowTermsResponseSchema = z.object({
+  ...termsSchema,
+  agreementText: z.string().nullable(),
+});
 
 export type EscrowTermsResponse = z.infer<typeof escrowTermsResponseSchema>;
 

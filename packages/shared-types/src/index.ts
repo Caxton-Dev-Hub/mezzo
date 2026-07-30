@@ -10,3 +10,4 @@ export * from './chat';
 export * from './notifications';
 export * from './arbitration';
 export * from './admin';
+export * from './receipts';
