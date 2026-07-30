@@ -138,6 +138,12 @@ or `ARBITER`/`ADMIN` — enforced in the service, not `@Roles()`, since
 regular parties (plain `USER`) legitimately need to read their own
 dispute's packet too.
 
+The packet's shape (and the dispute response, reason codes, states and
+outcomes) is defined once as zod schemas in `packages/shared-types` and
+imported here for the response types, so the web dispute center (F6) and
+the arbiter console (F7) consume exactly the shape this module returns
+rather than a hand-copied client-side interface.
+
 ## Key pieces
 
 - **`dispute-transition-table.ts` / `DisputeStateMachine`** — the sole
@@ -147,8 +153,11 @@ dispute's packet too.
 - **`DisputeEvidenceWindowProcessor`** — the BullMQ worker for the
   evidence-window queue, symmetric with `escrow`'s `AutoReleaseProcessor`.
 - **`DisputeController`** — `POST /escrows/:escrowId/disputes` (raise,
-  buyer-only, checked in the service), `GET /disputes/:id` (packet,
-  party-or-arbiter), `POST /disputes/:id/close-evidence-window` and
+  buyer-only, checked in the service), `GET /escrows/:escrowId/disputes`
+  (how a party finds the dispute on an escrow it can see — the web
+  client's only entry point into the dispute center, since a dispute id
+  is otherwise only known to whoever raised it), `GET /disputes/:id`
+  (packet, party-or-arbiter), `POST /disputes/:id/close-evidence-window` and
   `POST /disputes/:id/resolve` (both `@Roles(ARBITER, ADMIN)` — the
   human-in-the-loop gate Milestone 9/11 will build the actual console
   for).

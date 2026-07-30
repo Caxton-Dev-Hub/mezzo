@@ -28,6 +28,15 @@ export class DisputeController {
     return toDisputeResponse(dispute);
   }
 
+  @Get('escrows/:escrowId/disputes')
+  async listByEscrow(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param('escrowId') escrowId: string,
+  ): Promise<DisputeResponse[]> {
+    const disputes = await this.disputeService.listByEscrow(escrowId, currentUser);
+    return disputes.map(toDisputeResponse);
+  }
+
   @Get('disputes/:id')
   async getPacket(
     @CurrentUser() currentUser: AuthenticatedUser,

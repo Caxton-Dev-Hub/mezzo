@@ -1,33 +1,19 @@
+import {
+  DisputePacketResponse,
+  DisputeResponse,
+  DisputeSubmissionFlags,
+  DisputeTimelineEntry,
+} from '@mezzo/shared-types';
 import { Dispute } from '../../database/entities/dispute.entity';
 import { DisputeEvent } from '../../database/entities/dispute-event.entity';
 import { EscrowEvent } from '../../database/entities/escrow-event.entity';
-import { DisputeReasonCode } from '../entities/dispute-reason-code.enum';
-import { DisputeState } from '../entities/dispute-state.enum';
-import { DisputeResolutionOutcome } from '../entities/dispute-resolution-outcome.enum';
-import { EscrowTermsResponse } from '../../escrow/dto/escrow-response';
-import { EvidenceItemResponse } from '../../evidence/dto/evidence-response';
-import { ChatMessageResponse } from '../../chat/dto/chat-response';
-import { Currency } from '../../common/money/currency';
 
-export interface DisputeResponse {
-  id: string;
-  escrowId: string;
-  raisedByUserId: string;
-  reasonCode: DisputeReasonCode;
-  statement: string;
-  state: DisputeState;
-  evidenceWindowExpiresAt: Date;
-  resolvedOutcome: DisputeResolutionOutcome | null;
-  resolvedByUserId: string | null;
-  resolvedAt: Date | null;
-  resolvedSellerAmount: number | null;
-  resolvedBuyerAmount: number | null;
-  resolvedFeeAmount: number | null;
-  resolvedCurrency: Currency | null;
-  resolvedArbitrationRecordId: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
+export type {
+  DisputePacketResponse,
+  DisputeResponse,
+  DisputeSubmissionFlags as SubmissionFlags,
+  DisputeTimelineEntry as TimelineEntry,
+};
 
 export function toDisputeResponse(dispute: Dispute): DisputeResponse {
   return {
@@ -51,18 +37,11 @@ export function toDisputeResponse(dispute: Dispute): DisputeResponse {
   };
 }
 
-export interface TimelineEntry {
-  source: 'ESCROW' | 'DISPUTE';
-  fromState: string;
-  toState: string;
-  actorId: string | null;
-  reason: string | null;
-  correlationId: string;
-  createdAt: Date;
-}
-
-export function toTimeline(escrowEvents: EscrowEvent[], disputeEvents: DisputeEvent[]): TimelineEntry[] {
-  const escrowEntries: TimelineEntry[] = escrowEvents.map((event) => ({
+export function toTimeline(
+  escrowEvents: EscrowEvent[],
+  disputeEvents: DisputeEvent[],
+): DisputeTimelineEntry[] {
+  const escrowEntries: DisputeTimelineEntry[] = escrowEvents.map((event) => ({
     source: 'ESCROW',
     fromState: event.fromState,
     toState: event.toState,
@@ -72,7 +51,7 @@ export function toTimeline(escrowEvents: EscrowEvent[], disputeEvents: DisputeEv
     createdAt: event.createdAt,
   }));
 
-  const disputeEntries: TimelineEntry[] = disputeEvents.map((event) => ({
+  const disputeEntries: DisputeTimelineEntry[] = disputeEvents.map((event) => ({
     source: 'DISPUTE',
     fromState: event.fromState,
     toState: event.toState,
@@ -85,21 +64,4 @@ export function toTimeline(escrowEvents: EscrowEvent[], disputeEvents: DisputeEv
   return [...escrowEntries, ...disputeEntries].sort(
     (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
   );
-}
-
-export interface SubmissionFlags {
-  buyerSubmitted: boolean;
-  sellerSubmitted: boolean;
-  evidenceWindowElapsed: boolean;
-}
-
-export interface DisputePacketResponse {
-  dispute: DisputeResponse;
-  frozenTerms: EscrowTermsResponse;
-  timeline: TimelineEntry[];
-  creationEvidence: EvidenceItemResponse[];
-  buyerEvidence: EvidenceItemResponse[];
-  sellerEvidence: EvidenceItemResponse[];
-  submissionFlags: SubmissionFlags;
-  chatTranscript: ChatMessageResponse[];
 }

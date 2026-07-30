@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
 import { Queue } from 'bullmq';
+import { computeResolutionSplit } from '@mezzo/shared-types';
 import { Dispute } from '../database/entities/dispute.entity';
 import { DisputeEvent } from '../database/entities/dispute-event.entity';
 import { EscrowEvent } from '../database/entities/escrow-event.entity';
@@ -19,7 +20,6 @@ import { EscrowRole } from '../escrow/entities/escrow-role.enum';
 import { DisputeReasonCode } from './entities/dispute-reason-code.enum';
 import { EscrowService } from '../escrow/escrow.service';
 import { EscrowStateMachine } from '../escrow/escrow-state-machine';
-import { computeFeeSplit } from '../escrow/fee-split';
 import { OnlyBuyerMayActError } from '../escrow/errors/only-buyer-may-act.error';
 import { EvidencePhase } from '../evidence/entities/evidence-phase.enum';
 import { toEvidenceItemResponse } from '../evidence/dto/evidence-response';
@@ -144,6 +144,15 @@ export class DisputeService {
     return dispute;
   }
 
+  async listByEscrow(escrowId: string, currentUser: AuthenticatedUser): Promise<Dispute[]> {
+    const isArbiter = currentUser.role === UserRole.ARBITER || currentUser.role === UserRole.ADMIN;
+    if (!isArbiter) {
+      await this.escrowService.assertIsParty(escrowId, currentUser.id);
+    }
+
+    return this.disputes.find({ where: { escrowId }, order: { createdAt: 'DESC' } });
+  }
+
   async listByState(state?: DisputeState): Promise<Dispute[]> {
     return this.disputes.find({
       where: state ? { state } : {},
@@ -197,27 +206,19 @@ export class DisputeService {
 
     const correlationId = this.requestContext.correlationId() ?? randomUUID();
 
+    const outcome = dto.outcome as DisputeResolutionOutcome;
     const price = Money.of(terms.priceAmount, terms.priceCurrency);
-    const sellerShareBps =
-      dto.outcome === DisputeResolutionOutcome.REFUND_TO_BUYER
-        ? 0
-        : dto.outcome === DisputeResolutionOutcome.RELEASE_TO_SELLER
-          ? 10_000
-          : (dto.splitSellerBps as number);
-
-    const releasedAmount = Money.of(
-      Math.floor((price.amount * sellerShareBps) / 10_000),
-      price.currency,
-    );
-    const { feeAmount, netAmount: sellerAmount } = computeFeeSplit(releasedAmount, terms.feeBps);
-    const buyerAmount = price.subtract(releasedAmount);
+    const split = computeResolutionSplit(price.amount, terms.feeBps, dto.outcome, dto.splitSellerBps);
+    const sellerAmount = Money.of(split.sellerAmount, price.currency);
+    const feeAmount = Money.of(split.feeAmount, price.currency);
+    const buyerAmount = Money.of(split.buyerAmount, price.currency);
 
     const intermediateState =
-      dto.outcome === DisputeResolutionOutcome.REFUND_TO_BUYER
+      outcome === DisputeResolutionOutcome.REFUND_TO_BUYER
         ? EscrowState.RESOLVED_REFUND
         : EscrowState.RESOLVED_RELEASE;
     const terminalState =
-      dto.outcome === DisputeResolutionOutcome.REFUND_TO_BUYER
+      outcome === DisputeResolutionOutcome.REFUND_TO_BUYER
         ? EscrowState.REFUNDED
         : EscrowState.RELEASED;
 
@@ -275,7 +276,7 @@ export class DisputeService {
 
       const resolvedAt = new Date();
       await manager.update(Dispute, { id: dispute.id }, {
-        resolvedOutcome: dto.outcome,
+        resolvedOutcome: outcome,
         resolvedByUserId: actorId,
         resolvedAt,
         resolvedSellerAmount: sellerAmount.amount,
@@ -285,7 +286,7 @@ export class DisputeService {
         resolvedArbitrationRecordId: dto.arbitrationRecordId ?? null,
       });
 
-      resolved.resolvedOutcome = dto.outcome;
+      resolved.resolvedOutcome = outcome;
       resolved.resolvedByUserId = actorId;
       resolved.resolvedAt = resolvedAt;
       resolved.resolvedSellerAmount = sellerAmount.amount;
