@@ -21,6 +21,17 @@ import { useChatSocket } from '../../../../hooks/use-chat-socket';
 
 const NON_EDITABLE_STATES = new Set(['DRAFT', 'PENDING_COUNTERPARTY']);
 
+const RECEIPT_ELIGIBLE_STATES = new Set([
+  'FUNDED',
+  'SHIPPED',
+  'DELIVERED',
+  'RELEASED',
+  'DISPUTED',
+  'RESOLVED_RELEASE',
+  'RESOLVED_REFUND',
+  'REFUNDED',
+]);
+
 const DISPUTE_LINK_STATES = new Set([
   'DISPUTED',
   'RESOLVED_RELEASE',
@@ -163,6 +174,14 @@ export default function EscrowDetailPage() {
             </div>
           ) : null}
           {escrow.terms ? <TermsPanel terms={escrow.terms} frozen={termsFrozen} /> : null}
+          {RECEIPT_ELIGIBLE_STATES.has(escrow.state) ? (
+            <Link
+              href={`/escrow/${escrow.id}/receipt`}
+              className="block rounded-xl border border-line-soft bg-surface p-4 text-sm text-vellum hover:border-line"
+            >
+              View receipt
+            </Link>
+          ) : null}
           {currentUserId ? (
             <div className="rounded-xl border border-line-soft bg-surface p-4">
               <h2 className="mb-3 text-sm font-medium text-vellum">Actions</h2>

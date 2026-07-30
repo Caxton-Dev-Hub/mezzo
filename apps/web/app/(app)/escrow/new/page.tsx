@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, LayoutDashboard } from 'lucide-react';
 import { useEscrowWizardStore, type WizardStep } from '../../../../lib/escrow-wizard-store';
 import { StepDetails } from '../../../../components/escrow/wizard/step-details';
 import { StepEvidence } from '../../../../components/escrow/wizard/step-evidence';
@@ -17,6 +17,7 @@ export default function NewEscrowPage() {
   const router = useRouter();
   const step = useEscrowWizardStore((state) => state.step);
   const setStep = useEscrowWizardStore((state) => state.setStep);
+  const escrow = useEscrowWizardStore((state) => state.escrow);
   const invite = useEscrowWizardStore((state) => state.invite);
   const reset = useEscrowWizardStore((state) => state.reset);
 
@@ -35,14 +36,30 @@ export default function NewEscrowPage() {
 
   return (
     <div className="mx-auto max-w-lg">
-      <button
-        type="button"
-        onClick={handleBack}
-        className="mb-5 inline-flex items-center gap-1.5 text-sm text-fog hover:text-vellum"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back
-      </button>
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={handleBack}
+          className="inline-flex items-center gap-1.5 text-sm text-fog hover:text-vellum"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </button>
+        <button
+          type="button"
+          onClick={() => router.push('/dashboard')}
+          className="inline-flex items-center gap-1.5 text-sm text-fog hover:text-vellum"
+        >
+          <LayoutDashboard className="h-4 w-4" />
+          {escrow ? 'Save draft & exit' : 'Dashboard'}
+        </button>
+      </div>
+
+      {escrow ? (
+        <p className="mb-5 rounded-lg border border-line-soft bg-surface px-3 py-2 text-[13px] text-mute">
+          Saved as a draft. Leaving keeps it on your dashboard until you delete it.
+        </p>
+      ) : null}
 
       <div className="mb-6">
         <p className="text-[13px] font-medium text-mint">

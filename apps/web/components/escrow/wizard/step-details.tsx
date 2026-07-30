@@ -6,8 +6,8 @@ import { z } from 'zod';
 import { createEscrowSchema, currencySchema, escrowRoleSchema, type CreateEscrowDto } from '@mezzo/shared-types';
 import { useMutation } from '@tanstack/react-query';
 import { createEscrow, updateEscrowTerms } from '../../../lib/escrow-client';
-import { majorToMinorUnits, minorToMajorUnitsString } from '../../../lib/money';
-import { PLATFORM_FEE_BPS } from '../../../lib/constants';
+import { formatMoney, majorToMinorUnits, minorToMajorUnitsString } from '../../../lib/money';
+import { PLATFORM_FEE_BPS, VERIFICATION_EXEMPT_THRESHOLD_KOBO } from '../../../lib/constants';
 import { useEscrowWizardStore } from '../../../lib/escrow-wizard-store';
 import { useAuthStore } from '../../../lib/auth-store';
 import { ApiError } from '../../../lib/api-error';
@@ -27,6 +27,8 @@ const detailsFormSchema = z.object({
   currency: currencySchema,
   deliveryMethod: z.string().trim().min(1, 'Enter a delivery method').max(255),
   inspectionWindowHours: z.coerce.number().int().positive('Enter a positive number of hours'),
+  requiresVerification: z.boolean(),
+  agreementText: z.string().trim().max(20_000),
 });
 
 type DetailsFormValues = z.infer<typeof detailsFormSchema>;
@@ -41,6 +43,7 @@ export function StepDetails({ onAdvance }: { onAdvance: () => void }) {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<DetailsFormValues>({
     resolver: zodResolver(detailsFormSchema),
@@ -51,8 +54,12 @@ export function StepDetails({ onAdvance }: { onAdvance: () => void }) {
       currency: escrow?.terms?.price.currency ?? 'NGN',
       deliveryMethod: escrow?.terms?.deliveryMethod ?? '',
       inspectionWindowHours: escrow?.terms?.inspectionWindowHours ?? 48,
+      requiresVerification: escrow?.terms?.requiresVerification ?? false,
+      agreementText: escrow?.terms?.agreementText ?? '',
     },
   });
+
+  const selectedRole = watch('role');
 
   const mutation = useMutation({
     mutationFn: async (values: DetailsFormValues) => {
@@ -68,6 +75,8 @@ export function StepDetails({ onAdvance }: { onAdvance: () => void }) {
           deliveryMethod: values.deliveryMethod,
           itemDescription: values.itemDescription,
           feeBps: PLATFORM_FEE_BPS,
+          requiresVerification: values.role === 'BUYER' ? values.requiresVerification : false,
+          agreementText: values.agreementText || undefined,
         });
         return { ...escrow, terms };
       }
@@ -79,6 +88,8 @@ export function StepDetails({ onAdvance }: { onAdvance: () => void }) {
         deliveryMethod: values.deliveryMethod,
         itemDescription: values.itemDescription,
         feeBps: PLATFORM_FEE_BPS,
+        requiresVerification: values.role === 'BUYER' ? values.requiresVerification : false,
+        agreementText: values.agreementText || undefined,
       });
       return createEscrow(dto);
     },
@@ -188,6 +199,37 @@ export function StepDetails({ onAdvance }: { onAdvance: () => void }) {
       <p className="text-[13px] text-mute">
         Platform fee: {(PLATFORM_FEE_BPS / 100).toFixed(2)}%, deducted from the release.
       </p>
+
+      {selectedRole === 'BUYER' ? (
+        <div>
+          <label className="flex items-start gap-2 text-sm text-vellum">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 rounded border-line"
+              {...register('requiresVerification')}
+            />
+            Require identity verification for this escrow
+          </label>
+          <p className="mt-1.5 text-[13px] text-mute">
+            Optional below {formatMoney(VERIFICATION_EXEMPT_THRESHOLD_KOBO, 'NGN')} — required
+            automatically at or above that amount.
+          </p>
+        </div>
+      ) : null}
+
+      <div>
+        <Label htmlFor="agreementText">Written agreement (optional)</Label>
+        <textarea
+          id="agreementText"
+          rows={4}
+          className="w-full rounded-lg border border-line bg-surface px-4 py-3 text-sm text-vellum placeholder:text-mute focus:border-fog focus:outline-none focus:ring-2 focus:ring-mint/40"
+          placeholder="Paste or write out any additional terms both parties should agree to"
+          {...register('agreementText')}
+        />
+        <p className="mt-1.5 text-[13px] text-mute">
+          Shown to the other party, who must check a box to accept it before the escrow can proceed.
+        </p>
+      </div>
 
       {serverError ? (
         <p role="alert" className="text-[13px] text-danger">

@@ -7,8 +7,10 @@ import { useEscrowWizardStore } from '../../../lib/escrow-wizard-store';
 import { getEvidenceBundle } from '../../../lib/evidence-client';
 import { inviteToEscrow } from '../../../lib/escrow-client';
 import { formatMoney } from '../../../lib/money';
+import { VERIFICATION_EXEMPT_THRESHOLD_KOBO } from '../../../lib/constants';
 import { ApiError } from '../../../lib/api-error';
 import { Button } from '../../ui/button';
+import { InviteWatcher } from './invite-watcher';
 
 export function StepReview() {
   const escrow = useEscrowWizardStore((state) => state.escrow);
@@ -32,6 +34,8 @@ export function StepReview() {
   }
 
   const terms = escrow.terms;
+  const verificationRequired =
+    terms.requiresVerification || terms.price.amount >= VERIFICATION_EXEMPT_THRESHOLD_KOBO;
   const inviteUrl = invite
     ? `${typeof window !== 'undefined' ? window.location.origin : ''}/invite/${invite.token}`
     : null;
@@ -74,7 +78,18 @@ export function StepReview() {
           <dt className="text-fog">Platform fee</dt>
           <dd className="text-vellum">{(terms.feeBps / 100).toFixed(2)}%</dd>
         </div>
+        <div className="flex justify-between gap-4">
+          <dt className="text-fog">Verification</dt>
+          <dd className="text-vellum">{verificationRequired ? 'Required' : 'Optional'}</dd>
+        </div>
       </dl>
+
+      {terms.agreementText ? (
+        <div className="mt-4 rounded-xl border border-line-soft bg-surface p-4">
+          <h3 className="text-sm font-medium text-vellum">Written agreement</h3>
+          <p className="mt-2 whitespace-pre-wrap text-[13px] text-fog">{terms.agreementText}</p>
+        </div>
+      ) : null}
 
       <div className="mt-4 flex items-center justify-between rounded-xl border border-line-soft bg-surface p-4 text-sm">
         <span className="text-fog">Evidence</span>
@@ -114,6 +129,7 @@ export function StepReview() {
               ) : null}
             </div>
           </div>
+          <InviteWatcher escrowId={escrow.id} />
         </div>
       ) : (
         <>

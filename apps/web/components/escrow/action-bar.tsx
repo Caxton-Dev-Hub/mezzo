@@ -18,7 +18,7 @@ import {
 } from '../../lib/escrow-client';
 import { ApiError } from '../../lib/api-error';
 
-type OpenModal = 'cancel' | 'ship' | 'confirm-delivery' | 'release' | 'dispute' | null;
+type OpenModal = 'cancel' | 'ship' | 'confirm-delivery' | 'release' | 'dispute' | 'accept-terms' | null;
 
 const RESTING_MESSAGES: Partial<Record<EscrowState, string>> = {
   DISPUTED: 'This escrow is frozen while an arbiter reviews the dispute.',
@@ -39,6 +39,7 @@ export function ActionBar({ escrow, currentUserId }: ActionBarProps) {
   const queryClient = useQueryClient();
   const [openModal, setOpenModal] = useState<OpenModal>(null);
   const [trackingReference, setTrackingReference] = useState('');
+  const [agreementChecked, setAgreementChecked] = useState(false);
 
   const myParty = escrow.parties.find((party) => party.userId === currentUserId);
   const isBuyer = myParty?.role === 'BUYER';
@@ -52,7 +53,11 @@ export function ActionBar({ escrow, currentUserId }: ActionBarProps) {
 
   const acceptTermsMutation = useMutation({
     mutationFn: () => acceptEscrowTerms(escrow.id),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      setOpenModal(null);
+      setAgreementChecked(false);
+    },
   });
 
   const cancelMutation = useMutation({
@@ -92,7 +97,10 @@ export function ActionBar({ escrow, currentUserId }: ActionBarProps) {
     return error instanceof ApiError ? error.message : 'Something went wrong. Please try again.';
   };
 
-  const canCancel = escrow.state === 'PENDING_COUNTERPARTY' || escrow.state === 'AGREED';
+  const canCancel =
+    escrow.state === 'DRAFT' ||
+    escrow.state === 'PENDING_COUNTERPARTY' ||
+    escrow.state === 'AGREED';
 
   return (
     <div className="space-y-3">
@@ -100,12 +108,7 @@ export function ActionBar({ escrow, currentUserId }: ActionBarProps) {
         iHaveAcceptedTerms ? (
           <p className="text-[13px] text-mute">Waiting for the other party to accept the terms.</p>
         ) : (
-          <Button
-            type="button"
-            className="w-full"
-            loading={acceptTermsMutation.isPending}
-            onClick={() => acceptTermsMutation.mutate()}
-          >
+          <Button type="button" className="w-full" onClick={() => setOpenModal('accept-terms')}>
             Accept terms
           </Button>
         )
@@ -113,12 +116,6 @@ export function ActionBar({ escrow, currentUserId }: ActionBarProps) {
 
       {escrow.state === 'PENDING_COUNTERPARTY' && escrow.parties.length === 1 ? (
         <p className="text-[13px] text-mute">Waiting for the counterparty to accept your invite.</p>
-      ) : null}
-
-      {acceptTermsMutation.error ? (
-        <p role="alert" className="text-[13px] text-danger">
-          {errorMessage(acceptTermsMutation.error)}
-        </p>
       ) : null}
 
       {escrow.state === 'AGREED' && isBuyer ? (
@@ -191,6 +188,36 @@ export function ActionBar({ escrow, currentUserId }: ActionBarProps) {
           Cancel escrow
         </Button>
       ) : null}
+
+      <ConfirmModal
+        open={openModal === 'accept-terms'}
+        title="Accept these terms?"
+        description="Once both parties accept, the terms are frozen and the buyer can fund the escrow."
+        confirmLabel="Accept terms"
+        loading={acceptTermsMutation.isPending}
+        confirmDisabled={!agreementChecked}
+        error={errorMessage(acceptTermsMutation.error)}
+        onConfirm={() => acceptTermsMutation.mutate()}
+        onClose={() => {
+          setOpenModal(null);
+          setAgreementChecked(false);
+        }}
+      >
+        {escrow.terms?.agreementText ? (
+          <div className="mb-3 max-h-40 overflow-y-auto rounded-lg border border-line-soft bg-surface-2 p-3">
+            <p className="whitespace-pre-wrap text-[13px] text-fog">{escrow.terms.agreementText}</p>
+          </div>
+        ) : null}
+        <label className="flex items-start gap-2 text-sm text-vellum">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 rounded border-line"
+            checked={agreementChecked}
+            onChange={(event) => setAgreementChecked(event.target.checked)}
+          />
+          I have read and agree to the terms above
+        </label>
+      </ConfirmModal>
 
       <ConfirmModal
         open={openModal === 'cancel'}
