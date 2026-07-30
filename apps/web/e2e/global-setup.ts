@@ -14,6 +14,7 @@ import {
   PAYSTACK_SECRET,
   WEB_PORT,
   WEB_URL,
+  BOOTSTRAP_ADMIN_EMAIL,
 } from './stack';
 
 const API_DIR = join(__dirname, '..', '..', 'api');
@@ -107,6 +108,7 @@ export default async function globalSetup(): Promise<void> {
     S3_FORCE_PATH_STYLE: 'true',
     PAYSTACK_PROVIDER: 'fake',
     PAYSTACK_SECRET_KEY: PAYSTACK_SECRET,
+    BOOTSTRAP_ADMIN_EMAILS: BOOTSTRAP_ADMIN_EMAIL,
     ARBITRATION_PROVIDER: 'fake',
     NOTIFICATION_EMAIL_PROVIDER: 'fake',
     NOTIFICATION_SMS_PROVIDER: 'fake',

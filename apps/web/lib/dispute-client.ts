@@ -18,6 +18,12 @@ export function getDisputePacket(disputeId: string): Promise<DisputePacketRespon
   return apiRequest<DisputePacketResponse>(`/disputes/${disputeId}`);
 }
 
+export function closeDisputeEvidenceWindow(disputeId: string): Promise<DisputeResponse> {
+  return apiRequest<DisputeResponse>(`/disputes/${disputeId}/close-evidence-window`, {
+    method: 'POST',
+  });
+}
+
 export function resolveDispute(disputeId: string, dto: ResolveDisputeDto): Promise<DisputeResponse> {
   return apiRequest<DisputeResponse>(`/disputes/${disputeId}/resolve`, {
     method: 'POST',

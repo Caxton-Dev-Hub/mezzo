@@ -22,12 +22,30 @@ record of who did what.
 | `GET /admin/users` | ADMIN | User roster with role and KYC tier. |
 | `GET /admin/audit` | ADMIN | `AuditEvent` rows, optionally filtered by entity. |
 
+Every response shape above that the web console reads — the dispute summary, the
+packet-with-records envelope, the `ArbitrationRecord`, and the `AuditEvent` — is
+defined once as a zod schema in `packages/shared-types` and imported here, so the
+F7 console consumes exactly what this module returns.
+
 The actual resolution-execution endpoint is `POST /disputes/:id/resolve`
 (Milestone 8) — it isn't duplicated here. This milestone extends it with an
 optional `arbitrationRecordId`: if present, it's validated against the
 dispute and persisted on `Dispute.resolvedArbitrationRecordId`, so the
 executed decision always references the recommendation it was based on (or
 `null` for a resolution made without one).
+
+## Where the first privileged account comes from
+
+Every route above is `@Roles(ARBITER, ADMIN)` or `@Roles(ADMIN)`, and the only
+endpoint that can change a user's role is itself admin-gated — so a fresh
+deployment had no way to mint its first privileged account. `UsersService.create()`
+now checks the registering email against `BOOTSTRAP_ADMIN_EMAILS` (a comma-separated
+env value, empty by default) and assigns `ADMIN` instead of `USER` on a match. It
+is deliberately dumb: nothing is promoted after the fact, an unset variable means
+every registration is an ordinary `USER`, and the address still has to complete a
+normal registration with a password of its own. It is also what lets the web
+Playwright suite drive the arbiter console at all, since that suite can only reach
+the API over HTTP.
 
 ## Adjustments are reversals, never edits
 

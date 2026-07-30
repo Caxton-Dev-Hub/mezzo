@@ -1,73 +1,23 @@
-import { expect, test, type Browser, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import {
   apiContext,
   captureEvidencePhoto,
   chargeSuccess,
+  createAgreedEscrow,
   expectCurrentState,
   expectNotCurrentState,
   fillEscrowDetails,
   grantTier1,
-  login,
+  readIntentReference,
   registerAndLogin,
   registerUser,
   sendPaystackWebhook,
-  type TestUser,
+  stubPaystackCheckout,
 } from './helpers';
 
 const PRICE_MAJOR = '1200.00';
 const PRICE_KOBO = 120_000;
-
-async function openAs(browser: Browser, user: TestUser): Promise<Page> {
-  const context = await browser.newContext();
-  const page = await context.newPage();
-  await login(page, user);
-  return page;
-}
-
-async function createAgreedEscrow(
-  buyerPage: Page,
-  browser: Browser,
-  seller: TestUser,
-): Promise<string> {
-  await buyerPage.goto('/escrow/new');
-  await fillEscrowDetails(buyerPage, {
-    role: 'Buyer',
-    item: 'A vintage camera',
-    priceMajor: PRICE_MAJOR,
-  });
-
-  await captureEvidencePhoto(buyerPage);
-  await buyerPage.getByRole('button', { name: /^Continue \(1 photo\)$/ }).click();
-  await buyerPage.getByRole('button', { name: 'Invite counterparty' }).click();
-
-  const inviteUrl = await buyerPage.locator('input[readonly]').inputValue();
-
-  const sellerPage = await openAs(browser, seller);
-  await sellerPage.goto(inviteUrl);
-  await sellerPage.getByRole('button', { name: 'Accept invite' }).click();
-  await sellerPage.waitForURL(/\/escrow\/[0-9a-f-]+$/);
-  await sellerPage.getByRole('button', { name: 'Accept terms' }).click();
-  await expect(sellerPage.getByText(/waiting for the other party/i)).toBeVisible();
-
-  const escrowPath = sellerPage.url().replace(/^https?:\/\/[^/]+/, '');
-  await sellerPage.context().close();
-
-  await buyerPage.goto(escrowPath);
-  await buyerPage.getByRole('button', { name: 'Accept terms' }).click();
-  await expectCurrentState(buyerPage, 'Terms agreed');
-
-  return escrowPath;
-}
-
-async function stubPaystackCheckout(page: Page): Promise<void> {
-  await page.route('https://checkout.fake-paystack.test/**', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'text/html',
-      body: '<html><body><h1>Paystack test checkout</h1></body></html>',
-    });
-  });
-}
+const ITEM = 'A vintage camera';
 
 async function escrowIdForInvite(inviteUrl: string): Promise<string> {
   const token = new URL(inviteUrl).pathname.split('/').pop() as string;
@@ -76,25 +26,6 @@ async function escrowIdForInvite(inviteUrl: string): Promise<string> {
   const { escrowId } = (await response.json()) as { escrowId: string };
   await api.dispose();
   return escrowId;
-}
-
-async function readIntentReference(user: TestUser, escrowId: string): Promise<string> {
-  const api = await apiContext();
-  const loginResponse = await api.post('/auth/login', {
-    data: { email: user.email, password: user.password },
-  });
-  const { accessToken } = (await loginResponse.json()) as { accessToken: string };
-
-  const response = await api.get(`/payments/escrows/${escrowId}/intent`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  const { intent } = (await response.json()) as { intent: { reference: string } | null };
-  await api.dispose();
-
-  if (!intent) {
-    throw new Error(`No payment intent found for escrow ${escrowId}`);
-  }
-  return intent.reference;
 }
 
 test.describe('Funding an escrow (F4)', () => {
@@ -106,7 +37,10 @@ test.describe('Funding an escrow (F4)', () => {
     await grantTier1(buyer);
     const seller = await registerUser('fund-seller');
 
-    const escrowPath = await createAgreedEscrow(page, browser, seller);
+    const escrowPath = await createAgreedEscrow(page, browser, seller, {
+      item: ITEM,
+      priceMajor: PRICE_MAJOR,
+    });
     const escrowId = escrowPath.split('/').pop() as string;
 
     await stubPaystackCheckout(page);
@@ -148,7 +82,10 @@ test.describe('Funding an escrow (F4)', () => {
     await grantTier1(buyer);
     const seller = await registerUser('wallet-seller');
 
-    const escrowPath = await createAgreedEscrow(page, browser, seller);
+    const escrowPath = await createAgreedEscrow(page, browser, seller, {
+      item: ITEM,
+      priceMajor: PRICE_MAJOR,
+    });
     const escrowId = escrowPath.split('/').pop() as string;
 
     await stubPaystackCheckout(page);

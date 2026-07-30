@@ -1,10 +1,10 @@
 # Browser end-to-end tests
 
 Playwright specs for the flows the frontend milestones call out: the escrow
-creation wizard (F2), invite acceptance (F3), and funding (F4). They drive a
-real browser against a real API and a real database — nothing is mocked except
-the camera (a file is supplied to the capture input) and the Paystack checkout
-page itself.
+creation wizard (F2), invite acceptance (F3), funding (F4), chat (F5), the
+dispute center (F6) and the arbiter console (F7). They drive a real browser against a real API and a real
+database — nothing is mocked except the camera (a file is supplied to the
+capture input) and the Paystack checkout page itself.
 
 ```
 pnpm --filter @mezzo/web test:e2e
@@ -45,6 +45,21 @@ escrow is **still not funded** — the UI shows "Confirming payment…". Only af
 the spec posts an HMAC-signed `charge.success` webhook to the API does it
 expect `FUNDED`. A client-side success callback never moves money, and this
 test fails if that ever stops being true.
+
+## The dispute and arbiter specs, in that order
+
+`dispute.e2e-spec.ts` carries an escrow all the way to `DELIVERED`, raises a
+dispute with a reason, a statement and a photo, and then has the seller find
+that dispute from the frozen escrow and rebut it — asserting that each party
+sees only their own evidence until both have submitted.
+
+`arbiter-console.e2e-spec.ts` picks the same story up from the other side: an
+arbiter opens the queue, reads the packet, runs the AI analysis, executes a
+refund, and the buyer's wallet ends up credited to the kobo. Nothing here can
+register itself as an arbiter — the API only grants `ADMIN` to an address listed
+in `BOOTSTRAP_ADMIN_EMAILS`, which `global-setup.ts` sets to a fixed test address
+and `registerBootstrapAdmin()` claims once per run. That is the only privileged
+account the browser suite has, so treat it as shared state between specs.
 
 ## Test users
 
