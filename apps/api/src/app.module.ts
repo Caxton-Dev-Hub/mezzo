@@ -19,6 +19,7 @@ import { ChatModule } from './chat/chat.module';
 import { ObservabilityModule } from './observability/observability.module';
 import { AuditModule } from './audit/audit.module';
 import { AdminModule } from './admin/admin.module';
+import { ReceiptsModule } from './receipts/receipts.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { AdminModule } from './admin/admin.module';
     DisputeModule,
     ArbitrationModule,
     AdminModule,
+    ReceiptsModule,
   ],
 })
 export class AppModule {}

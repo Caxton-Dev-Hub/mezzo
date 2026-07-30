@@ -31,6 +31,8 @@ interface EscrowDetailBody {
     deliveryMethod: string;
     itemDescription: string;
     feeBps: number;
+    requiresVerification: boolean;
+    agreementText: string | null;
   } | null;
   parties: { userId: string; role: EscrowRole; termsAcceptedAt: string | null }[];
 }
@@ -190,6 +192,35 @@ describe('Escrow (e2e)', () => {
       expect(draft.parties).toHaveLength(1);
       expect(draft.parties[0]).toMatchObject({ userId: buyer.userId, role: EscrowRole.BUYER });
       expect(draft.terms?.price).toEqual(validTerms.price);
+    });
+
+    it('defaults requiresVerification to false and agreementText to null when omitted', async () => {
+      const buyer = await registerAndLogin();
+      const draft = await createDraft(buyer.accessToken);
+
+      expect(draft.terms?.requiresVerification).toBe(false);
+      expect(draft.terms?.agreementText).toBeNull();
+    });
+
+    it('accepts and returns requiresVerification and a written agreement', async () => {
+      const buyer = await registerAndLogin();
+
+      const response = await request(server)
+        .post('/escrows')
+        .set(auth(buyer.accessToken))
+        .send({
+          role: EscrowRole.BUYER,
+          ...validTerms,
+          requiresVerification: true,
+          agreementText: 'Buyer pays return shipping if the item is not as described.',
+        });
+
+      expect(response.status).toBe(201);
+      const draft = response.body as EscrowDetailBody;
+      expect(draft.terms?.requiresVerification).toBe(true);
+      expect(draft.terms?.agreementText).toBe(
+        'Buyer pays return shipping if the item is not as described.',
+      );
     });
 
     it('drives DRAFT -> PENDING_COUNTERPARTY -> AGREED and writes exactly one event per transition', async () => {
@@ -516,6 +547,34 @@ describe('Escrow (e2e)', () => {
         .post(`/escrows/${escrowId}/cancel`)
         .set(auth(agreedBuyer.accessToken));
       expect((cancelledFromAgreed.body as EscrowDetailBody).state).toBe(EscrowState.CANCELLED);
+    });
+
+    it('deletes an unsent draft, cancelling it and writing exactly one event', async () => {
+      const buyer = await registerAndLogin();
+      const draft = await createDraft(buyer.accessToken);
+      const before = await eventCount(draft.id);
+
+      const cancelled = await request(server)
+        .post(`/escrows/${draft.id}/cancel`)
+        .set(auth(buyer.accessToken));
+
+      expect(cancelled.status).toBe(200);
+      expect((cancelled.body as EscrowDetailBody).state).toBe(EscrowState.CANCELLED);
+      expect(await eventCount(draft.id)).toBe(before + 1);
+    });
+
+    it('refuses to delete a draft belonging to somebody else', async () => {
+      const buyer = await registerAndLogin();
+      const stranger = await registerAndLogin();
+      const draft = await createDraft(buyer.accessToken);
+
+      const response = await request(server)
+        .post(`/escrows/${draft.id}/cancel`)
+        .set(auth(stranger.accessToken));
+
+      expect(response.status).toBe(403);
+      const still = await request(server).get(`/escrows/${draft.id}`).set(auth(buyer.accessToken));
+      expect((still.body as EscrowDetailBody).state).toBe(EscrowState.DRAFT);
     });
 
     it('rejects the illegal transition DRAFT -> RELEASED and writes no event', async () => {
