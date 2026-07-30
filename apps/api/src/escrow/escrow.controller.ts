@@ -35,6 +35,12 @@ export class EscrowController {
     return toEscrowDetailResponse(detail.escrow, detail.terms, detail.parties);
   }
 
+  @Get()
+  async list(@CurrentUser() currentUser: AuthenticatedUser): Promise<EscrowDetailResponse[]> {
+    const escrows = await this.escrowService.listForUser(currentUser.id);
+    return escrows.map((item) => toEscrowDetailResponse(item.escrow, item.terms, item.parties));
+  }
+
   @Get(':id')
   async get(
     @CurrentUser() currentUser: AuthenticatedUser,

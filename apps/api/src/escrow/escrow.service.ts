@@ -324,6 +324,38 @@ export class EscrowService {
     return parties.map((party) => party.escrowId);
   }
 
+  async listForUser(
+    userId: string,
+  ): Promise<{ escrow: Escrow; terms: EscrowTerms | null; parties: EscrowParty[] }[]> {
+    const escrowIds = await this.listEscrowIdsForUser(userId);
+    if (escrowIds.length === 0) {
+      return [];
+    }
+
+    const [escrows, terms, parties] = await Promise.all([
+      this.escrows.find({ where: { id: In(escrowIds) }, order: { updatedAt: 'DESC' } }),
+      this.terms.find({ where: { escrowId: In(escrowIds) } }),
+      this.parties.find({ where: { escrowId: In(escrowIds) } }),
+    ]);
+
+    const termsByEscrow = new Map(terms.map((row) => [row.escrowId, row]));
+    const partiesByEscrow = new Map<string, EscrowParty[]>();
+    for (const party of parties) {
+      const group = partiesByEscrow.get(party.escrowId);
+      if (group) {
+        group.push(party);
+      } else {
+        partiesByEscrow.set(party.escrowId, [party]);
+      }
+    }
+
+    return escrows.map((escrow) => ({
+      escrow,
+      terms: termsByEscrow.get(escrow.id) ?? null,
+      parties: partiesByEscrow.get(escrow.id) ?? [],
+    }));
+  }
+
   async assertIsParty(escrowId: string, userId: string): Promise<void> {
     const party = await this.parties.findOne({ where: { escrowId, userId } });
     if (!party) {
