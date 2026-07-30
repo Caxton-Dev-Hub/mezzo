@@ -63,6 +63,38 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+@keyframes orb-travel {
+  0% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: -15;
+    opacity: 0;
+  }
+}
+
+.orb-travel {
+  animation: orb-travel 2.4s linear infinite;
+}
+
+@keyframes orb-breathe {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.orb-breathe {
+  animation: orb-breathe 7s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
