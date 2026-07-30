@@ -9,6 +9,7 @@ import type {
   EscrowDetailResponse,
 } from "@mezzo/shared-types";
 import { useAuthStore } from "../../lib/auth-store";
+import { formatTime } from "../../lib/format-date";
 import {
   getChatMessages,
   getChatReadState,
@@ -237,7 +238,11 @@ export function ChatPanel({ escrow }: ChatPanelProps) {
                     >
                       Failed to send — retry
                     </button>
-                  ) : null}
+                  ) : (
+                    <p className="mt-1 text-[10px] text-mute/70">
+                      {formatTime(message.createdAt)}
+                    </p>
+                  )}
                 </div>
               </div>
             );

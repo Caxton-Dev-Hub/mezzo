@@ -8,6 +8,7 @@ interface ConfirmModalProps {
   confirmLabel: string;
   destructive?: boolean;
   loading?: boolean;
+  confirmDisabled?: boolean;
   error?: string | null;
   onConfirm: () => void;
   onClose: () => void;
@@ -21,6 +22,7 @@ export function ConfirmModal({
   confirmLabel,
   destructive,
   loading,
+  confirmDisabled,
   error,
   onConfirm,
   onClose,
@@ -44,6 +46,7 @@ export function ConfirmModal({
           variant={destructive ? 'primary' : 'primary'}
           className={destructive ? 'bg-danger text-vellum hover:bg-danger-deep' : undefined}
           loading={loading}
+          disabled={loading || confirmDisabled}
           onClick={onConfirm}
         >
           {confirmLabel}

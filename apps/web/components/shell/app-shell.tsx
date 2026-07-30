@@ -16,7 +16,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-dvh flex-col">
       <header className="border-b border-line-soft">
         <div className="mx-auto flex h-16 max-w-4xl items-center justify-between gap-4 px-5 sm:px-8">
-          <Wordmark />
+          <Link href="/" aria-label="Mezzo home">
+            <Wordmark />
+          </Link>
           <div className="flex items-center gap-3 sm:gap-4">
             {status === 'authenticated' ? (
               <Link href="/wallet" className="text-sm text-fog hover:text-vellum">
