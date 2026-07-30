@@ -138,14 +138,14 @@ function buildHarness(): {
 
 describe('KycService', () => {
   describe('assertCanFund', () => {
-    it('blocks a TIER_0 user with a verification-required error', async () => {
+    it('blocks a TIER_0 user with a verification-required error when verification is required', async () => {
       const { service, users } = buildHarness();
       const user = buildUser(KycTier.TIER_0);
       await users.save(user);
 
-      await expect(service.assertCanFund(user.id, Money.of(1000, 'NGN'))).rejects.toBeInstanceOf(
-        KycTierRequiredError,
-      );
+      await expect(
+        service.assertCanFund(user.id, Money.of(1000, 'NGN'), true),
+      ).rejects.toBeInstanceOf(KycTierRequiredError);
     });
 
     it('rejects an amount above the TIER_1 cap, surfacing the cap', async () => {
@@ -154,12 +154,12 @@ describe('KycService', () => {
       await users.save(user);
 
       const overCap = Money.of(50_000_001, 'NGN');
-      await expect(service.assertCanFund(user.id, overCap)).rejects.toThrow(
+      await expect(service.assertCanFund(user.id, overCap, true)).rejects.toThrow(
         TransactionCapExceededError,
       );
 
       try {
-        await service.assertCanFund(user.id, overCap);
+        await service.assertCanFund(user.id, overCap, true);
         fail('expected TransactionCapExceededError');
       } catch (error) {
         expect(error).toBeInstanceOf(TransactionCapExceededError);
@@ -176,7 +176,7 @@ describe('KycService', () => {
       await users.save(user);
 
       await expect(
-        service.assertCanFund(user.id, Money.of(50_000_000, 'NGN')),
+        service.assertCanFund(user.id, Money.of(50_000_000, 'NGN'), true),
       ).resolves.toBeUndefined();
     });
 
@@ -186,7 +186,17 @@ describe('KycService', () => {
       await users.save(user);
 
       await expect(
-        service.assertCanFund(user.id, Money.of(10_000_000_000, 'NGN')),
+        service.assertCanFund(user.id, Money.of(10_000_000_000, 'NGN'), true),
+      ).resolves.toBeUndefined();
+    });
+
+    it('skips the tier and cap checks entirely when verification is not required', async () => {
+      const { service, users } = buildHarness();
+      const user = buildUser(KycTier.TIER_0);
+      await users.save(user);
+
+      await expect(
+        service.assertCanFund(user.id, Money.of(10_000_000_000, 'NGN'), false),
       ).resolves.toBeUndefined();
     });
   });

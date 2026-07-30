@@ -42,8 +42,9 @@ export default async function globalSetup(): Promise<void> {
   process.env.S3_SECRET_ACCESS_KEY = 'mezzo-minio-secret';
   process.env.S3_BUCKET ??= 'mezzo-evidence-test';
   process.env.S3_FORCE_PATH_STYLE = 'true';
-  process.env.PAYSTACK_PROVIDER ??= 'fake';
+  process.env.PAYMENT_PROVIDER ??= 'fake';
   process.env.PAYSTACK_SECRET_KEY ??= 'test-paystack-secret-key';
+  process.env.FLUTTERWAVE_SECRET_HASH ??= 'test-flutterwave-secret-hash';
   process.env.ARBITRATION_PROVIDER ??= 'fake';
   process.env.ARBITRATION_CONFIDENCE_THRESHOLD ??= '0.75';
   process.env.NOTIFICATION_EMAIL_PROVIDER ??= 'fake';

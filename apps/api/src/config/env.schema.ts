@@ -16,6 +16,7 @@ export const envSchema = z.object({
   KYC_PROVIDER: z.enum(['fake', 'dojah']).default('fake'),
   KYC_TIER_1_CAP_KOBO: z.coerce.number().int().positive().default(50_000_000),
   KYC_TIER_2_CAP_KOBO: z.coerce.number().int().positive().default(500_000_000),
+  KYC_VERIFICATION_EXEMPT_THRESHOLD_KOBO: z.coerce.number().int().positive().default(10_000_000),
   DOJAH_BASE_URL: z.string().url().optional(),
   DOJAH_APP_ID: z.string().min(1).optional(),
   DOJAH_PRIVATE_KEY: z.string().min(1).optional(),
@@ -32,9 +33,13 @@ export const envSchema = z.object({
   S3_PRESIGN_EXPIRY_SECONDS: z.coerce.number().int().positive().default(900),
   EVIDENCE_TIMESTAMP_DRIFT_HOURS: z.coerce.number().int().positive().default(720),
   DISPUTE_EVIDENCE_WINDOW_HOURS: z.coerce.number().int().positive().default(72),
-  PAYSTACK_PROVIDER: z.enum(['fake', 'paystack']).default('fake'),
-  PAYSTACK_SECRET_KEY: z.string().min(1),
+  PAYMENT_PROVIDER: z.enum(['fake', 'paystack', 'flutterwave']).default('fake'),
+  PAYSTACK_SECRET_KEY: z.string().min(1).optional(),
   PAYSTACK_BASE_URL: z.string().url().default('https://api.paystack.co'),
+  FLUTTERWAVE_SECRET_KEY: z.string().min(1).optional(),
+  FLUTTERWAVE_SECRET_HASH: z.string().min(1).optional(),
+  FLUTTERWAVE_BASE_URL: z.string().url().default('https://api.flutterwave.com/v3'),
+  FLUTTERWAVE_REDIRECT_URL: z.string().url().optional(),
   ARBITRATION_PROVIDER: z.enum(['fake', 'live']).default('fake'),
   ARBITRATION_CONFIDENCE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.75),
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
@@ -59,10 +64,30 @@ export const envSchema = z.object({
   OTEL_SERVICE_NAME: z.string().min(1).default('mezzo-api'),
 });
 
+type PaymentProviderSetting = z.infer<typeof envSchema>['PAYMENT_PROVIDER'];
+
+const PAYMENT_PROVIDER_CREDENTIALS: Record<PaymentProviderSetting, readonly (keyof Env)[]> = {
+  fake: ['PAYSTACK_SECRET_KEY'],
+  paystack: ['PAYSTACK_SECRET_KEY'],
+  flutterwave: ['FLUTTERWAVE_SECRET_KEY', 'FLUTTERWAVE_SECRET_HASH', 'FLUTTERWAVE_REDIRECT_URL'],
+};
+
+export const configSchema = envSchema.superRefine((env, ctx) => {
+  for (const key of PAYMENT_PROVIDER_CREDENTIALS[env.PAYMENT_PROVIDER]) {
+    if (!env[key]) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [key],
+        message: `${key} is required when PAYMENT_PROVIDER is "${env.PAYMENT_PROVIDER}"`,
+      });
+    }
+  }
+});
+
 export type Env = z.infer<typeof envSchema>;
 
 export function validateEnv(config: Record<string, unknown>): Env {
-  const result = envSchema.safeParse(config);
+  const result = configSchema.safeParse(config);
 
   if (!result.success) {
     throw new Error(`Invalid environment configuration:\n${result.error.toString()}`);

@@ -118,7 +118,11 @@ export class KycService {
     }
   }
 
-  async assertCanFund(userId: string, amount: Money): Promise<void> {
+  async assertCanFund(userId: string, amount: Money, requiresVerification: boolean): Promise<void> {
+    if (!requiresVerification) {
+      return;
+    }
+
     const tier = await this.getTier(userId);
 
     if (tierRank(tier) < tierRank(KycTier.TIER_1)) {
