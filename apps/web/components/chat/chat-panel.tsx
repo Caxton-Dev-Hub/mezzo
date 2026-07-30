@@ -98,11 +98,13 @@ export function ChatPanel({ escrow }: ChatPanelProps) {
     },
   });
 
+  const messageCount = messagesQuery.data?.length ?? 0;
+
   useEffect(() => {
     if (!allowed) return;
-    void markChatRead(escrow.id);
+    void markChatRead(escrow.id).catch(() => undefined);
     markRead();
-  }, [allowed, escrow.id, markRead]);
+  }, [allowed, escrow.id, markRead, messageCount]);
 
   useEffect(() => {
     const list = listRef.current;
@@ -245,6 +247,13 @@ export function ChatPanel({ escrow }: ChatPanelProps) {
           <p className="text-right text-xs text-mute">Seen</p>
         ) : null}
       </div>
+      {status !== 'connected' ? (
+        <p className="border-t border-line-soft px-3 py-1.5 text-xs text-mute">
+          {status === 'forbidden'
+            ? 'This conversation is closed to you.'
+            : 'Reconnecting — messages you send now may not go through.'}
+        </p>
+      ) : null}
       <form
         onSubmit={handleSubmit}
         className="flex items-end gap-2 border-t border-line-soft p-3"
