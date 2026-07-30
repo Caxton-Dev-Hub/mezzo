@@ -31,6 +31,12 @@ export const chatReadStateSchema = z.object({
 
 export type ChatReadState = z.infer<typeof chatReadStateSchema>;
 
+export const socketRejectionSchema = z.object({
+  code: z.enum(['UNAUTHORIZED', 'FORBIDDEN']),
+});
+
+export type SocketRejection = z.infer<typeof socketRejectionSchema>;
+
 export const escrowUpdatedEventSchema = z.object({
   escrowId: z.string().uuid(),
   eventType: z.string(),
