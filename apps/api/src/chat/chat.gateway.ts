@@ -7,11 +7,13 @@ import {
   MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
 import type { Server, Socket } from 'socket.io';
+import type { SocketRejection } from '@mezzo/shared-types';
 import { UserRole } from '../users/entities/user-role.enum';
 import { AuthenticatedUser } from '../common/types/authenticated-user';
 import { ChatService } from './chat.service';
@@ -30,7 +32,7 @@ interface SocketData {
 }
 
 @WebSocketGateway({ namespace: '/ws/chat', cors: { origin: true, credentials: true } })
-export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server!: Server;
 
@@ -42,40 +44,25 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly chatService: ChatService,
   ) {}
 
+  afterInit(server: Server): void {
+    server.use((client, next) => {
+      void this.authenticate(client).then(
+        () => next(),
+        (error: Error) => next(error),
+      );
+    });
+  }
+
   async handleConnection(client: Socket): Promise<void> {
-    try {
-      const token = this.extractToken(client);
-      const escrowId = this.extractEscrowId(client);
-      if (!token || !escrowId) {
-        client.disconnect(true);
-        return;
-      }
-
-      const payload = await this.jwtService.verifyAsync<AccessTokenPayload>(token, {
-        secret: this.configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
-      });
-      const user: AuthenticatedUser = { id: payload.sub, role: payload.role };
-
-      await this.chatService.assertCanAccess(escrowId, user);
-
-      const data: SocketData = { user, escrowId };
-      client.data = data;
-      await client.join(chatRoomName(escrowId));
-    } catch (error) {
-      this.logger.debug(`Rejecting websocket connection: ${(error as Error).message}`);
-      client.disconnect(true);
-    }
+    const { escrowId } = client.data as SocketData;
+    await client.join(chatRoomName(escrowId));
   }
 
   handleDisconnect(): void {}
 
   @SubscribeMessage('message:send')
   async onMessageSend(@ConnectedSocket() client: Socket, @MessageBody() body: unknown): Promise<void> {
-    const data = client.data as Partial<SocketData>;
-    if (!data.user || !data.escrowId) {
-      client.disconnect(true);
-      return;
-    }
+    const data = client.data as SocketData;
 
     const result = sendMessageSchema.safeParse(body);
     if (!result.success) {
@@ -89,11 +76,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('message:read')
   async onMessageRead(@ConnectedSocket() client: Socket): Promise<void> {
-    const data = client.data as Partial<SocketData>;
-    if (!data.user || !data.escrowId) {
-      client.disconnect(true);
-      return;
-    }
+    const data = client.data as SocketData;
 
     const readState = await this.chatService.markRead(data.escrowId, data.user);
     client.to(chatRoomName(data.escrowId)).emit('message:read', readState);
@@ -102,6 +85,37 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @OnEvent('escrow.updated')
   onEscrowUpdated(event: EscrowUpdatedEvent): void {
     this.server.to(chatRoomName(event.escrowId)).emit('escrow:updated', event);
+  }
+
+  private async authenticate(client: Socket): Promise<void> {
+    const token = this.extractToken(client);
+    const escrowId = this.extractEscrowId(client);
+    if (!token || !escrowId) {
+      throw this.rejection('UNAUTHORIZED', 'Missing token or escrow id');
+    }
+
+    let user: AuthenticatedUser;
+    try {
+      const payload = await this.jwtService.verifyAsync<AccessTokenPayload>(token, {
+        secret: this.configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
+      });
+      user = { id: payload.sub, role: payload.role };
+    } catch (error) {
+      throw this.rejection('UNAUTHORIZED', (error as Error).message);
+    }
+
+    try {
+      await this.chatService.assertCanAccess(escrowId, user);
+    } catch (error) {
+      throw this.rejection('FORBIDDEN', (error as Error).message);
+    }
+
+    client.data = { user, escrowId } satisfies SocketData;
+  }
+
+  private rejection(code: SocketRejection['code'], reason: string): Error {
+    this.logger.debug(`Rejecting websocket connection (${code}): ${reason}`);
+    return Object.assign(new Error(code), { data: { code } satisfies SocketRejection });
   }
 
   private extractToken(client: Socket): string | undefined {
