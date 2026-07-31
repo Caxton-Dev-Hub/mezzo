@@ -113,10 +113,7 @@ export class FlutterwaveHttpProvider implements PaymentProvider {
     return { transferCode: String(body.data.id), reference: body.data.reference };
   }
 
-  private async failure(
-    response: Response,
-    message: string,
-  ): Promise<ServiceUnavailableException> {
+  private async failure(response: Response, message: string): Promise<ServiceUnavailableException> {
     const body = await response.text().catch(() => '');
     this.logger.error(
       `${message} (${response.status} ${response.statusText}): ${body.slice(0, 500)}`,

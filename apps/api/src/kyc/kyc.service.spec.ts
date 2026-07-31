@@ -98,6 +98,10 @@ function buildUser(tier: KycTier): User {
     phone: null,
     role: UserRole.USER,
     kycTier: tier,
+    businessName: null,
+    bio: null,
+    location: null,
+    avatarKey: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };

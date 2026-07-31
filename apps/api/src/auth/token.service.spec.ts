@@ -78,6 +78,10 @@ describe('TokenService', () => {
     phone: null,
     role: UserRole.USER,
     kycTier: KycTier.TIER_0,
+    businessName: null,
+    bio: null,
+    location: null,
+    avatarKey: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };

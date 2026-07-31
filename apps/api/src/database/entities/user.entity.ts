@@ -30,6 +30,18 @@ export class User {
   @Column({ name: 'kyc_tier', type: 'enum', enum: KycTier, default: KycTier.TIER_0 })
   kycTier!: KycTier;
 
+  @Column({ name: 'business_name', type: 'varchar', length: 80, nullable: true })
+  businessName!: string | null;
+
+  @Column({ type: 'varchar', length: 280, nullable: true })
+  bio!: string | null;
+
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  location!: string | null;
+
+  @Column({ name: 'avatar_key', type: 'text', nullable: true })
+  avatarKey!: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 
