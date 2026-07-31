@@ -143,7 +143,7 @@ export default async function LandingPage() {
             className="pointer-events-none absolute left-1/2 top-[-14rem] h-[52rem] w-[52rem] -translate-x-1/2 rounded-full"
             style={{
               background:
-                'radial-gradient(circle, rgba(91,141,239,0.16) 0%, rgba(127,232,176,0.07) 38%, rgba(11,15,20,0) 68%)',
+                'radial-gradient(circle, rgba(46,95,194,0.10) 0%, rgba(10,122,82,0.06) 38%, rgba(250,248,241,0) 68%)',
             }}
           />
           <div className="relative mx-auto max-w-6xl px-6 pb-24 pt-16 sm:pt-20">
@@ -355,7 +355,7 @@ export default async function LandingPage() {
             className="pointer-events-none absolute left-1/2 top-1/2 h-[34rem] w-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-full"
             style={{
               background:
-                'radial-gradient(circle, rgba(127,232,176,0.09) 0%, rgba(11,15,20,0) 70%)',
+                'radial-gradient(circle, rgba(10,122,82,0.08) 0%, rgba(250,248,241,0) 70%)',
             }}
           />
           <div className="relative mx-auto max-w-2xl px-6 py-28 text-center">

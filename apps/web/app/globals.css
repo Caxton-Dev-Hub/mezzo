@@ -1,36 +1,36 @@
 @import "tailwindcss";
 
 @theme {
-  --color-ink: #0b0f14;
-  --color-ink-2: #0e131a;
-  --color-surface: #12171f;
-  --color-surface-2: #171d27;
-  --color-line: #232c39;
-  --color-line-soft: #1a212c;
+  --color-ink: #faf8f1;
+  --color-ink-2: #f1eee1;
+  --color-surface: #ffffff;
+  --color-surface-2: #f6f4e9;
+  --color-line: #dde3d2;
+  --color-line-soft: #eaecdf;
 
-  --color-vellum: #ede7db;
-  --color-fog: #9aa7b8;
-  --color-mute: #6b7789;
+  --color-vellum: #16241c;
+  --color-fog: #4f5d50;
+  --color-mute: #7c8a7b;
 
-  --color-buyer: #5b8def;
-  --color-buyer-deep: #3d6fd6;
-  --color-seller: #e8935c;
-  --color-seller-deep: #d2743a;
-  --color-mint: #7fe8b0;
-  --color-mint-deep: #43c789;
-  --color-danger: #e8695c;
-  --color-danger-deep: #d2503f;
+  --color-buyer: #2e5fc2;
+  --color-buyer-deep: #1f4494;
+  --color-seller: #a15816;
+  --color-seller-deep: #7a430e;
+  --color-mint: #0a7a52;
+  --color-mint-deep: #075c3e;
+  --color-danger: #c5382b;
+  --color-danger-deep: #9c2c22;
 
   --font-display: var(--font-instrument);
   --font-sans: var(--font-hanken);
   --font-mono: var(--font-mono);
 
-  --shadow-panel: 0 1px 0 0 rgba(255, 255, 255, 0.02) inset,
-    0 24px 60px -30px rgba(0, 0, 0, 0.75);
+  --shadow-panel: 0 1px 0 0 rgba(255, 255, 255, 0.7) inset,
+    0 20px 44px -26px rgba(22, 36, 28, 0.16);
 }
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 html {
@@ -46,8 +46,8 @@ body {
 }
 
 ::selection {
-  background: color-mix(in oklab, var(--color-mint) 30%, transparent);
-  color: #fff;
+  background: color-mix(in oklab, var(--color-mint) 24%, white);
+  color: var(--color-vellum);
 }
 
 .font-display {

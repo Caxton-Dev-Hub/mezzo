@@ -129,15 +129,15 @@ export function EscrowOrb() {
       <svg viewBox="0 0 100 100" className="absolute inset-0 h-full w-full overflow-visible">
         <defs>
           <radialGradient id="orb-core">
-            <stop offset="0%" stopColor="#1b2a3f" />
-            <stop offset="62%" stopColor="#121a25" />
-            <stop offset="100%" stopColor="#0d131b" />
+            <stop offset="0%" stopColor="#145c40" />
+            <stop offset="62%" stopColor="#0c3f2c" />
+            <stop offset="100%" stopColor="#082a1e" />
           </radialGradient>
           <radialGradient id="orb-halo">
-            <stop offset="0%" stopColor="rgba(127,232,176,0.20)" />
-            <stop offset="52%" stopColor="rgba(91,141,239,0.26)" />
-            <stop offset="74%" stopColor="rgba(91,141,239,0.10)" />
-            <stop offset="100%" stopColor="rgba(91,141,239,0)" />
+            <stop offset="0%" stopColor="rgba(10,122,82,0.22)" />
+            <stop offset="52%" stopColor="rgba(46,95,194,0.16)" />
+            <stop offset="74%" stopColor="rgba(46,95,194,0.07)" />
+            <stop offset="100%" stopColor="rgba(46,95,194,0)" />
           </radialGradient>
         </defs>
 
@@ -201,18 +201,24 @@ export function EscrowOrb() {
       </svg>
 
       <div className="absolute left-1/2 top-1/2 flex w-[30cqw] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-[1cqw]">
-        <span className="font-mono text-[clamp(7px,1.5cqw,11px)] uppercase tracking-[0.22em] text-mute">
+        <span
+          className="font-mono text-[clamp(7px,1.5cqw,11px)] uppercase tracking-[0.22em]"
+          style={{ color: 'rgba(223,238,229,0.56)' }}
+        >
           {current.holding}
         </span>
-        <span className="tabular font-mono text-[clamp(17px,4.4cqw,29px)] leading-none text-vellum">
+        <span
+          className="tabular font-mono text-[clamp(17px,4.4cqw,29px)] leading-none"
+          style={{ color: '#EAF5EE' }}
+        >
           ₦450,000
         </span>
         <span
           className="tabular mt-[0.6cqw] rounded-full border px-[2cqw] py-[0.7cqw] font-mono text-[clamp(7px,1.55cqw,11px)] tracking-[0.12em] transition-colors duration-500"
           style={{
-            color: current.color,
-            borderColor: `color-mix(in oklab, ${current.color} 38%, transparent)`,
-            backgroundColor: `color-mix(in oklab, ${current.color} 9%, transparent)`,
+            color: `color-mix(in oklab, ${current.color} 72%, white)`,
+            borderColor: `color-mix(in oklab, ${current.color} 50%, transparent)`,
+            backgroundColor: `color-mix(in oklab, ${current.color} 18%, transparent)`,
           }}
         >
           {current.chip}
@@ -230,14 +236,14 @@ export function EscrowOrb() {
             style={{ left: `${point.x}%`, top: `${point.y}%` }}
           >
             <div
-              className="flex h-[13cqw] w-[13cqw] items-center justify-center rounded-full border bg-ink-2 transition-all duration-500"
+              className="flex h-[13cqw] w-[13cqw] items-center justify-center rounded-full border bg-surface shadow-panel transition-all duration-500"
               style={{
                 borderColor: isActive
                   ? `color-mix(in oklab, ${node.color} 60%, transparent)`
                   : 'var(--color-line)',
                 boxShadow: isActive
-                  ? `0 0 0 0.35cqw color-mix(in oklab, ${node.color} 12%, transparent)`
-                  : 'none',
+                  ? `0 0 0 0.35cqw color-mix(in oklab, ${node.color} 14%, transparent)`
+                  : undefined,
               }}
             >
               <Icon
