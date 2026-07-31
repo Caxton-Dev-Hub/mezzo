@@ -34,7 +34,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {status === 'pending' ? (
               <span className="hidden h-4 w-32 animate-pulse rounded bg-surface-2 sm:block" />
             ) : status === 'authenticated' && user ? (
-              <span className="hidden truncate text-sm text-fog sm:block">{user.email}</span>
+              <Link
+                href="/profile"
+                className="hidden max-w-[14rem] truncate text-sm text-fog hover:text-vellum sm:block"
+              >
+                {user.email}
+              </Link>
             ) : null}
             <Button
               variant="secondary"

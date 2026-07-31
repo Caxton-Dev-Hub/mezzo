@@ -17,6 +17,7 @@ import { ActionBar } from '../../../../components/escrow/action-bar';
 import { EvidenceViewer } from '../../../../components/evidence/evidence-viewer';
 import { InspectionCountdown } from '../../../../components/escrow/inspection-countdown';
 import { ChatPanel } from '../../../../components/chat/chat-panel';
+import { CounterpartyCard } from '../../../../components/profile/counterparty-card';
 import { useChatSocket } from '../../../../hooks/use-chat-socket';
 
 const NON_EDITABLE_STATES = new Set(['DRAFT', 'PENDING_COUNTERPARTY']);
@@ -109,6 +110,7 @@ export default function EscrowDetailPage() {
   const creationEvidence =
     evidenceQuery.data?.items.filter((item) => item.phase === 'AT_CREATION') ?? [];
   const dispute = disputesQuery.data?.[0];
+  const counterparty = escrow.parties.find((party) => party.userId !== currentUserId);
 
   return (
     <div>
@@ -158,6 +160,12 @@ export default function EscrowDetailPage() {
         </div>
 
         <div className="space-y-6">
+          {counterparty ? (
+            <CounterpartyCard
+              userId={counterparty.userId}
+              roleLabel={counterparty.role === 'SELLER' ? 'Seller' : 'Buyer'}
+            />
+          ) : null}
           {dispute ? (
             <div className="rounded-xl border border-danger/30 bg-danger/5 p-4">
               <h2 className="text-sm font-medium text-vellum">Dispute</h2>

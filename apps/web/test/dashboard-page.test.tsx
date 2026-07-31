@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
-import type { EscrowDetailResponse } from '@mezzo/shared-types';
+import userEvent from '@testing-library/user-event';
+import type { EscrowDetailResponse, KycTier, KycVerificationResponse } from '@mezzo/shared-types';
 import DashboardPage from '../app/(app)/dashboard/page';
 import { renderWithProviders } from './render-with-providers';
 import { useAuthStore } from '../lib/auth-store';
@@ -38,11 +39,48 @@ function makeEscrow(
   };
 }
 
-function stubEscrows(escrows: EscrowDetailResponse[] | { status: number }) {
-  const fetchMock = vi.fn(async () => {
+function stubEscrows(
+  escrows: EscrowDetailResponse[] | { status: number },
+  kyc: {
+    tier: KycTier;
+    latestVerification?: KycVerificationResponse | null;
+  } = {
+    tier: 'TIER_1',
+  },
+) {
+  const fetchMock = vi.fn(async (input: string | URL) => {
+    const url = input.toString();
+
+    if (url.includes('/kyc/me')) {
+      return new Response(
+        JSON.stringify({
+          tier: kyc.tier,
+          latestVerification: kyc.latestVerification ?? null,
+        }),
+        { status: 200 },
+      );
+    }
+
+    if (url.includes('/kyc/submissions')) {
+      return new Response(
+        JSON.stringify({
+          id: '33333333-3333-4333-8333-333333333333',
+          status: 'PENDING',
+          requestedTier: 'TIER_1',
+          providerReference: 'ref-1',
+          createdAt: new Date('2026-07-31T10:00:00Z'),
+        }),
+        { status: 201 },
+      );
+    }
+
     if (!Array.isArray(escrows)) {
       return new Response(
-        JSON.stringify({ statusCode: escrows.status, code: 'SERVER_ERROR', message: 'Boom' }),
+        JSON.stringify({
+          statusCode: escrows.status,
+          code: 'SERVER_ERROR',
+          message: 'Boom',
+        }),
         { status: escrows.status },
       );
     }
@@ -59,7 +97,12 @@ describe('DashboardPage', () => {
     useAuthStore.setState({
       status: 'authenticated',
       accessToken: 'token',
-      user: { id: USER_ID, email: 'buyer@example.com', role: 'USER', createdAt: new Date() },
+      user: {
+        id: USER_ID,
+        email: 'buyer@example.com',
+        role: 'USER',
+        createdAt: new Date(),
+      },
     });
   });
 
@@ -114,10 +157,14 @@ describe('DashboardPage', () => {
     ).toBeInTheDocument();
 
     expect(
-      screen.queryByRole('link', { name: /Item cccccccc-cccc-4ccc-8ccc-cccccccccccc/ }),
+      screen.queryByRole('link', {
+        name: /Item cccccccc-cccc-4ccc-8ccc-cccccccccccc/,
+      }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: /Item aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/ }),
+      screen.getByRole('link', {
+        name: /Item aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/,
+      }),
     ).toBeInTheDocument();
   });
 
@@ -136,5 +183,55 @@ describe('DashboardPage', () => {
 
     expect(await screen.findByRole('button', { name: 'Try again' })).toBeInTheDocument();
     expect(screen.queryByText('No escrows yet')).not.toBeInTheDocument();
+  });
+
+  it('prompts an unverified user to complete verification', async () => {
+    stubEscrows([], { tier: 'TIER_0' });
+
+    renderWithProviders(<DashboardPage />);
+
+    expect(await screen.findByText('Verify your identity to continue')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Verify now' })).toBeInTheDocument();
+  });
+
+  it('starts verification from the dashboard prompt', async () => {
+    const fetchMock = stubEscrows([], { tier: 'TIER_0' });
+
+    renderWithProviders(<DashboardPage />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Verify now' }));
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([input]) => input.toString().includes('/kyc/submissions')),
+      ).toBe(true);
+    });
+  });
+
+  it('shows the in-review state instead of the button while verification is pending', async () => {
+    stubEscrows([], {
+      tier: 'TIER_0',
+      latestVerification: {
+        id: '33333333-3333-4333-8333-333333333333',
+        status: 'PENDING',
+        requestedTier: 'TIER_1',
+        providerReference: 'ref-1',
+        createdAt: new Date('2026-07-31T10:00:00Z'),
+      } as KycVerificationResponse,
+    });
+
+    renderWithProviders(<DashboardPage />);
+
+    expect(await screen.findByText(/Your verification is in review/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Verify now' })).not.toBeInTheDocument();
+  });
+
+  it('leaves a verified user’s dashboard free of the prompt', async () => {
+    stubEscrows([], { tier: 'TIER_1' });
+
+    renderWithProviders(<DashboardPage />);
+
+    expect(await screen.findByText('No escrows yet')).toBeInTheDocument();
+    expect(screen.queryByText('Verify your identity to continue')).not.toBeInTheDocument();
   });
 });

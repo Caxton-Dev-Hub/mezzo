@@ -6,10 +6,13 @@ import { Plus, ShieldAlert } from 'lucide-react';
 import { useAuthStore } from '../../../lib/auth-store';
 import { useEscrowWizardStore } from '../../../lib/escrow-wizard-store';
 import { listEscrows } from '../../../lib/escrow-client';
+import { getKycStatus } from '../../../lib/kyc-client';
+import { meetsTier, PAYOUT_MIN_TIER } from '../../../lib/kyc-tiers';
 import { ApiError } from '../../../lib/api-error';
 import { buttonVariants } from '../../../components/ui/button';
 import { EscrowList } from '../../../components/escrow/escrow-list';
 import { DraftList } from '../../../components/escrow/draft-list';
+import { VerifyPrompt } from '../../../components/kyc/verify-prompt';
 
 export default function DashboardPage() {
   const status = useAuthStore((state) => state.status);
@@ -22,9 +25,18 @@ export default function DashboardPage() {
     enabled: status === 'authenticated',
   });
 
+  const kycQuery = useQuery({
+    queryKey: ['kyc-status'],
+    queryFn: getKycStatus,
+    enabled: status === 'authenticated',
+  });
+
   const escrows = escrowsQuery.data ?? [];
   const drafts = escrows.filter((escrow) => escrow.state === 'DRAFT');
   const started = escrows.filter((escrow) => escrow.state !== 'DRAFT');
+
+  const kycStatus = kycQuery.data ?? null;
+  const needsVerification = kycStatus ? !meetsTier(kycStatus.tier, PAYOUT_MIN_TIER) : false;
 
   return (
     <div>
@@ -51,6 +63,16 @@ export default function DashboardPage() {
           New escrow
         </Link>
       </div>
+
+      {kycStatus && needsVerification ? (
+        <div className="mt-6">
+          <VerifyPrompt
+            status={kycStatus}
+            requiredTier={PAYOUT_MIN_TIER}
+            reason="Verify your identity to withdraw funds and raise your transaction limits. It only takes a minute."
+          />
+        </div>
+      ) : null}
 
       <div className="mt-8">
         {status === 'pending' || escrowsQuery.isLoading ? (
