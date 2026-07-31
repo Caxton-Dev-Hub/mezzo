@@ -1,5 +1,6 @@
 export * from './auth';
 export * from './users';
+export * from './profiles';
 export * from './money';
 export * from './escrow';
 export * from './evidence';
