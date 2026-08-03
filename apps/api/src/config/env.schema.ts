@@ -13,6 +13,11 @@ export const envSchema = z.object({
   BOOTSTRAP_ADMIN_EMAILS: z.string().default(''),
   AUTH_RATE_LIMIT_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
   AUTH_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().positive().default(60),
+  GOOGLE_AUTH_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  GOOGLE_CLIENT_ID: z.string().min(1).optional(),
   KYC_PROVIDER: z.enum(['fake', 'dojah']).default('fake'),
   KYC_TIER_1_CAP_KOBO: z.coerce.number().int().positive().default(50_000_000),
   KYC_TIER_2_CAP_KOBO: z.coerce.number().int().positive().default(500_000_000),
@@ -81,6 +86,14 @@ export const configSchema = envSchema.superRefine((env, ctx) => {
         message: `${key} is required when PAYMENT_PROVIDER is "${env.PAYMENT_PROVIDER}"`,
       });
     }
+  }
+
+  if (env.GOOGLE_AUTH_ENABLED && !env.GOOGLE_CLIENT_ID) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['GOOGLE_CLIENT_ID'],
+      message: 'GOOGLE_CLIENT_ID is required when GOOGLE_AUTH_ENABLED is "true"',
+    });
   }
 });
 
