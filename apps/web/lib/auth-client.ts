@@ -1,4 +1,4 @@
-import type { LoginDto, RegisterDto, UserResponse } from '@mezzo/shared-types';
+import type { GoogleLoginDto, LoginDto, RegisterDto, UserResponse } from '@mezzo/shared-types';
 import { ApiError } from './api-error';
 import { useAuthStore } from './auth-store';
 
@@ -37,6 +37,10 @@ export function registerRequest(dto: RegisterDto): Promise<UserResponse> {
 
 export function loginRequest(dto: LoginDto): Promise<LoginResult> {
   return postJson<LoginResult>('/api/auth/login', dto);
+}
+
+export function googleLoginRequest(dto: GoogleLoginDto): Promise<LoginResult> {
+  return postJson<LoginResult>('/api/auth/google', dto);
 }
 
 export function refreshRequest(): Promise<RefreshResult> {

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { LoginForm } from '../../../components/auth/login-form';
+import { GoogleSignInButton } from '../../../components/auth/google-sign-in-button';
 
 export default async function LoginPage({
   searchParams,
@@ -24,6 +25,9 @@ export default async function LoginPage({
       ) : null}
       <div className="mt-7">
         <LoginForm redirectTo={redirectTo} />
+      </div>
+      <div className="mt-6">
+        <GoogleSignInButton redirectTo={redirectTo} />
       </div>
       <p className="mt-6 text-center text-sm text-fog">
         New to Mezzo?{' '}
