@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { apiInternalUrl, REFRESH_COOKIE_NAME } from '../../../../lib/server-config';
-import { decodeJwtExpiryMs } from '../../../../lib/jwt';
+import { apiInternalUrl } from '../../../../lib/server-config';
+import { setRefreshCookie } from '../../../../lib/refresh-cookie';
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const body = await request.json();
@@ -26,15 +26,4 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const response = NextResponse.json({ accessToken, user }, { status: 200 });
   setRefreshCookie(response, refreshToken);
   return response;
-}
-
-function setRefreshCookie(response: NextResponse, refreshToken: string): void {
-  const expiresAt = decodeJwtExpiryMs(refreshToken);
-  response.cookies.set(REFRESH_COOKIE_NAME, refreshToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    ...(expiresAt ? { expires: new Date(expiresAt) } : { maxAge: 60 * 60 * 24 * 30 }),
-  });
 }
