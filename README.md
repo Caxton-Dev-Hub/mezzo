@@ -339,14 +339,30 @@ The importer saves by primary key, so it is safe to re-run. Uniqueness on `email
 | `OPENAI_API_KEY`                                                | Fallback arbitration model provider                                       |
 | `ARBITRATION_CONFIDENCE_THRESHOLD`                              | Minimum confidence required to surface an AI recommendation               |
 | `CORS_ALLOWED_ORIGINS`                                          | Origins permitted to call the API (the web app's URL in each environment) |
+| `GOOGLE_AUTH_ENABLED`                                           | Turns the Google sign-in endpoint on; the API refuses it when unset       |
+| `GOOGLE_CLIENT_ID`                                              | OAuth client ID every Google ID token must be minted for                  |
 
 ### `apps/web/.env.local`
 
-| Variable                    | Purpose                                                                           |
-| --------------------------- | --------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_API_URL`       | Base URL of the API the client talks to                                           |
-| `NEXT_PUBLIC_WS_URL`        | WebSocket endpoint for realtime updates                                           |
-| `NEXT_PUBLIC_MAX_UPLOAD_MB` | Client-side cap enforced before an upload is attempted, mirroring the API's limit |
+| Variable                       | Purpose                                                                           |
+| ------------------------------ | --------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_API_URL`          | Base URL of the API the client talks to                                           |
+| `NEXT_PUBLIC_WS_URL`           | WebSocket endpoint for realtime updates                                           |
+| `NEXT_PUBLIC_MAX_UPLOAD_MB`    | Client-side cap enforced before an upload is attempted, mirroring the API's limit |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Same OAuth client ID as the API; absent, the Google button is not rendered        |
+
+### Google sign-in
+
+Sign-in uses the Google Identity Services ID-token flow: the browser obtains a signed ID token, the API verifies it against Google's published JWKS, and a Mezzo session is issued. There is no client secret and no redirect URI to register.
+
+In the [Google Cloud Console](https://console.cloud.google.com/):
+
+1. Create (or select) a project, then open **APIs & Services → OAuth consent screen**. Choose **External**, fill in the app name, support email, and developer contact. Add the `email`, `profile`, and `openid` scopes — nothing further is needed. While the app is in **Testing**, add each account you intend to sign in with as a test user.
+2. Open **APIs & Services → Credentials → Create Credentials → OAuth client ID** and choose **Web application**.
+3. Under **Authorized JavaScript origins**, add every origin that renders the button — `http://localhost:3000` for local development, plus the production web origin. Leave **Authorized redirect URIs** empty; this flow does not use one.
+4. Copy the generated client ID into `GOOGLE_CLIENT_ID` (API) and `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (web), and set `GOOGLE_AUTH_ENABLED=true`. The client ID is public by design; the client secret is not used and does not need to be stored.
+
+A Google identity is matched first on its subject, then on its verified email, so signing in with Google attaches to an existing password account with the same address rather than creating a second one. Tokens whose `email_verified` claim is not true are rejected.
 
 All configuration is validated against a schema at startup; neither application will boot with missing or malformed required variables. No secret keys (Paystack, KYC provider, AI providers, storage credentials) are ever exposed to the frontend — only the API holds them.
 
