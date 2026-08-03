@@ -14,7 +14,8 @@
     "typeorm": "typeorm-ts-node-commonjs -d src/database/data-source.ts",
     "migration:generate": "pnpm typeorm migration:generate",
     "migration:run": "pnpm typeorm migration:run",
-    "migration:revert": "pnpm typeorm migration:revert"
+    "migration:revert": "pnpm typeorm migration:revert",
+    "json-store:import": "ts-node src/database/json-store/import-json-store.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.5",
