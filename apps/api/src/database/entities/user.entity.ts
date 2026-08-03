@@ -18,8 +18,12 @@ export class User {
   @Column({ type: 'varchar', length: 320 })
   email!: string;
 
-  @Column({ name: 'password_hash', type: 'text' })
-  passwordHash!: string;
+  @Column({ name: 'password_hash', type: 'text', nullable: true })
+  passwordHash!: string | null;
+
+  @Index({ unique: true })
+  @Column({ name: 'google_sub', type: 'varchar', length: 255, nullable: true })
+  googleSub!: string | null;
 
   @Column({ type: 'varchar', length: 32, nullable: true })
   phone!: string | null;

@@ -95,6 +95,7 @@ function buildUser(tier: KycTier): User {
     id: randomUUID(),
     email: `${randomUUID()}@example.com`,
     passwordHash: 'irrelevant',
+    googleSub: null,
     phone: null,
     role: UserRole.USER,
     kycTier: tier,

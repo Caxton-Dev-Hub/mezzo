@@ -60,6 +60,7 @@ function buildUser(id: string, email: string): User {
     id,
     email,
     passwordHash: 'irrelevant',
+    googleSub: null,
     phone: null,
     role: UserRole.USER,
     kycTier: KycTier.TIER_0,

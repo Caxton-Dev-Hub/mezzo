@@ -75,6 +75,7 @@ describe('TokenService', () => {
     id: randomUUID(),
     email: 'user@example.com',
     passwordHash: 'irrelevant',
+    googleSub: null,
     phone: null,
     role: UserRole.USER,
     kycTier: KycTier.TIER_0,
