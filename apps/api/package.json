@@ -15,6 +15,7 @@
     "typeorm": "typeorm-ts-node-commonjs -d src/database/data-source.ts",
     "migration:generate": "pnpm typeorm migration:generate",
     "migration:run": "pnpm typeorm migration:run",
+    "migration:run:prod": "typeorm migration:run -d dist/database/data-source.js",
     "migration:revert": "pnpm typeorm migration:revert",
     "json-store:import": "ts-node src/database/json-store/import-json-store.ts"
   },
