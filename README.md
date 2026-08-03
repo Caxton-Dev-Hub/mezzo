@@ -270,13 +270,65 @@ pnpm --filter @mezzo/web dev
 
 The API is served at `http://localhost:3000`; the web client at `http://localhost:3001`, configured to talk to the local API via `NEXT_PUBLIC_API_URL`. The API's `GET /health` endpoint verifies database and cache connectivity; both apps fail fast on startup if required configuration is missing.
 
+### Running without PostgreSQL
+
+Leaving `DATABASE_URL` unset starts the API in a **JSON file store** mode intended for local work on sign-up and sign-in. Accounts and refresh tokens are written to `JSON_STORE_PATH` (default `.data/mezzo-store.json`) instead of Postgres, so registration, password login, Google sign-in, `/users/me`, and refresh-token rotation all work with no database running.
+
+This mode is deliberately narrow:
+
+- Only `auth`, `users`, and `health` are mounted. Escrow, ledger, payments, disputes, evidence, chat, KYC, arbitration, admin, and receipts require Postgres and are not registered, so their routes return 404. The `/profile` endpoints are among them — profile statistics are derived from escrow history.
+- **Redis is still required.** `REDIS_URL` must point at a running instance; `docker compose up -d redis` is enough.
+- The API refuses to start in this mode when `NODE_ENV=production`, so a missing or misspelled `DATABASE_URL` in a deployed environment fails fast instead of quietly accepting signups into a file.
+- There are no transactions, row locks, or foreign keys. It is a development convenience, never a substitute for the database.
+
+`GET /health` reports a `jsonStore` indicator in place of `database`, including the file path and row count, so it is always obvious which mode is live.
+
+### Migrating the JSON store into PostgreSQL
+
+The file is structured to import directly. Each key under `tables` is the real Postgres table name, each carries the TypeORM entity name, and every row uses entity property names with ISO-8601 timestamps:
+
+```json
+{
+  "version": 1,
+  "updatedAt": "2026-08-03T09:12:44.117Z",
+  "tables": {
+    "users": {
+      "entity": "User",
+      "rows": [
+        {
+          "id": "0f5d…",
+          "email": "buyer@example.com",
+          "passwordHash": "$argon2id$…",
+          "googleSub": null,
+          "role": "USER",
+          "kycTier": "TIER_0",
+          "createdAt": "2026-08-03T09:12:44.117Z",
+          "updatedAt": "2026-08-03T09:12:44.117Z"
+        }
+      ]
+    },
+    "refresh_tokens": { "entity": "RefreshToken", "rows": [] }
+  }
+}
+```
+
+Point `DATABASE_URL` at a migrated database and run:
+
+```bash
+pnpm --filter @mezzo/api migration:run
+pnpm --filter @mezzo/api json-store:import
+```
+
+The importer saves by primary key, so it is safe to re-run. Uniqueness on `email` and `googleSub` is enforced on write in JSON mode, so a store that accumulated locally will not collide with the unique indexes on import.
+
 ## Configuration
 
 ### `apps/api/.env`
 
 | Variable                                                        | Purpose                                                                   |
 | --------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `DATABASE_URL`                                                  | PostgreSQL connection string                                              |
+| `DATABASE_URL`                                                  | PostgreSQL connection string; unset falls back to the JSON file store     |
+| `JSON_STORE_PATH`                                               | Where the JSON file store writes when `DATABASE_URL` is unset             |
 | `REDIS_URL`                                                     | Redis connection string                                                   |
 | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET`                      | Token signing secrets                                                     |
 | `PAYSTACK_SECRET_KEY`                                           | Paystack API credential                                                   |
