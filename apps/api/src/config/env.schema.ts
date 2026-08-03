@@ -1,10 +1,12 @@
 import { z } from 'zod';
+import { DEFAULT_JSON_STORE_PATH } from '../database/persistence-mode';
 
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
   CORS_ORIGINS: z.string().min(1).default('http://localhost:3001,http://localhost:3100'),
-  DATABASE_URL: z.string().url(),
+  DATABASE_URL: z.string().url().optional(),
+  JSON_STORE_PATH: z.string().min(1).default(DEFAULT_JSON_STORE_PATH),
   REDIS_URL: z.string().url(),
   JWT_ACCESS_SECRET: z.string().min(32),
   JWT_REFRESH_SECRET: z.string().min(32),
@@ -86,6 +88,15 @@ export const configSchema = envSchema.superRefine((env, ctx) => {
         message: `${key} is required when PAYMENT_PROVIDER is "${env.PAYMENT_PROVIDER}"`,
       });
     }
+  }
+
+  if (env.NODE_ENV === 'production' && !env.DATABASE_URL) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['DATABASE_URL'],
+      message:
+        'DATABASE_URL is required when NODE_ENV is "production"; the JSON file store is for local development only',
+    });
   }
 
   if (env.GOOGLE_AUTH_ENABLED && !env.GOOGLE_CLIENT_ID) {

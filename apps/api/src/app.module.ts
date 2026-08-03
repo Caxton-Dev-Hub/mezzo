@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ConfigModule } from './config/config.module';
 import { DatabaseModule } from './database/database.module';
+import { isDatabaseConfigured } from './database/persistence-mode';
 import { HealthModule } from './health/health.module';
 import { CommonModule } from './common/common.module';
 import { UsersModule } from './users/users.module';
@@ -21,29 +22,33 @@ import { AuditModule } from './audit/audit.module';
 import { AdminModule } from './admin/admin.module';
 import { ReceiptsModule } from './receipts/receipts.module';
 
+const databaseBacked = isDatabaseConfigured();
+
 @Module({
   imports: [
     EventEmitterModule.forRoot(),
     ConfigModule,
-    DatabaseModule,
+    DatabaseModule.register(),
     HealthModule,
     CommonModule,
-    ObservabilityModule,
-    AuditModule,
-    QueueModule,
+    ...(databaseBacked ? [ObservabilityModule, AuditModule, QueueModule] : []),
     UsersModule,
     AuthModule,
-    KycModule,
-    NotificationsModule,
-    EscrowModule,
-    EvidenceModule,
-    ChatModule,
-    LedgerModule,
-    PaymentsModule,
-    DisputeModule,
-    ArbitrationModule,
-    AdminModule,
-    ReceiptsModule,
+    ...(databaseBacked
+      ? [
+          KycModule,
+          NotificationsModule,
+          EscrowModule,
+          EvidenceModule,
+          ChatModule,
+          LedgerModule,
+          PaymentsModule,
+          DisputeModule,
+          ArbitrationModule,
+          AdminModule,
+          ReceiptsModule,
+        ]
+      : []),
   ],
 })
 export class AppModule {}

@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { RefreshToken } from '../database/entities/refresh-token.entity';
 import { User } from '../database/entities/user.entity';
+import { persistenceFeature } from '../database/persistence.feature';
 import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -12,7 +12,7 @@ import { GoogleTokenVerifier } from './google-token-verifier.service';
 import { AuthRateLimitGuard } from './guards/auth-rate-limit.guard';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, RefreshToken]), JwtModule.register({}), UsersModule],
+  imports: [...persistenceFeature([User, RefreshToken]), JwtModule.register({}), UsersModule],
   controllers: [AuthController],
   providers: [AuthService, PasswordService, TokenService, GoogleTokenVerifier, AuthRateLimitGuard],
 })
