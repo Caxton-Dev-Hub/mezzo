@@ -40,6 +40,31 @@ export class UsersService {
     return this.usersRepository.save(user);
   }
 
+  async linkOrCreateGoogleUser(googleSub: string, email: string): Promise<User> {
+    const linked = await this.usersRepository.findOne({ where: { googleSub } });
+
+    if (linked) {
+      return linked;
+    }
+
+    const normalizedEmail = email.toLowerCase();
+    const existing = await this.usersRepository.findOne({ where: { email: normalizedEmail } });
+
+    if (existing) {
+      existing.googleSub = googleSub;
+      return this.usersRepository.save(existing);
+    }
+
+    const user = this.usersRepository.create({
+      email: normalizedEmail,
+      passwordHash: null,
+      googleSub,
+      role: this.bootstrapAdminEmails.has(normalizedEmail) ? UserRole.ADMIN : UserRole.USER,
+    });
+
+    return this.usersRepository.save(user);
+  }
+
   findByEmail(email: string): Promise<User | null> {
     return this.usersRepository.findOne({ where: { email: email.toLowerCase() } });
   }

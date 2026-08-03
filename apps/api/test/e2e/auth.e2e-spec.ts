@@ -86,7 +86,7 @@ describe('Auth (e2e)', () => {
       expect(body.passwordHash).toBeUndefined();
 
       const stored = await usersRepository.findOne({ where: { email } });
-      expect(stored?.passwordHash.startsWith('$argon2id$')).toBe(true);
+      expect(stored?.passwordHash?.startsWith('$argon2id$')).toBe(true);
     });
 
     it('registers a configured bootstrap email as an ADMIN, and everyone else as a USER', async () => {
@@ -216,6 +216,56 @@ describe('Auth (e2e)', () => {
 
       expect(blocked.status).toBe(429);
       expect((blocked.body as ErrorBody).code).toBe('RATE_LIMIT_EXCEEDED');
+    });
+  });
+
+  describe('google sign-in', () => {
+    it('rejects a request with no id token', async () => {
+      const response = await request(server).post('/auth/google').send({});
+
+      expect(response.status).toBe(400);
+    });
+
+    it('rejects a token that is not a JWT', async () => {
+      const response = await request(server).post('/auth/google').send({ idToken: 'not-a-jwt' });
+
+      expect(response.status).toBe(401);
+      expect((response.body as ErrorBody).code).toBe('INVALID_GOOGLE_TOKEN');
+    });
+
+    it('rejects a token that carries no signing key id', async () => {
+      const unsigned = [
+        Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url'),
+        Buffer.from(JSON.stringify({ sub: 'forged', email: 'attacker@example.com' })).toString(
+          'base64url',
+        ),
+        'signature',
+      ].join('.');
+
+      const response = await request(server).post('/auth/google').send({ idToken: unsigned });
+
+      expect(response.status).toBe(401);
+      expect((response.body as ErrorBody).code).toBe('INVALID_GOOGLE_TOKEN');
+      expect(
+        await usersRepository.findOne({ where: { email: 'attacker@example.com' } }),
+      ).toBeNull();
+    });
+
+    it('refuses password login for an account that only has Google linked', async () => {
+      const email = uniqueEmail();
+      await usersRepository.save(
+        usersRepository.create({
+          email,
+          passwordHash: null,
+          googleSub: `google-${Date.now()}`,
+          role: UserRole.USER,
+        }),
+      );
+
+      const response = await request(server).post('/auth/login').send({ email, password });
+
+      expect(response.status).toBe(401);
+      expect((response.body as ErrorBody).code).toBe('INVALID_CREDENTIALS');
     });
   });
 });

@@ -8,11 +8,12 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { PasswordService } from './password.service';
 import { TokenService } from './token.service';
+import { GoogleTokenVerifier } from './google-token-verifier.service';
 import { AuthRateLimitGuard } from './guards/auth-rate-limit.guard';
 
 @Module({
   imports: [TypeOrmModule.forFeature([User, RefreshToken]), JwtModule.register({}), UsersModule],
   controllers: [AuthController],
-  providers: [AuthService, PasswordService, TokenService, AuthRateLimitGuard],
+  providers: [AuthService, PasswordService, TokenService, GoogleTokenVerifier, AuthRateLimitGuard],
 })
 export class AuthModule {}

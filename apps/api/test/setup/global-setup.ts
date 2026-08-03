@@ -53,6 +53,8 @@ export default async function globalSetup(): Promise<void> {
   process.env.NOTIFICATION_QUEUE_BACKOFF_MS ??= '1000';
   process.env.INSPECTION_ENDING_SOON_LEAD_HOURS ??= '6';
   process.env.BOOTSTRAP_ADMIN_EMAILS ??= 'bootstrap-admin@example.com';
+  process.env.GOOGLE_AUTH_ENABLED ??= 'true';
+  process.env.GOOGLE_CLIENT_ID ??= 'test-client-id.apps.googleusercontent.com';
 
   execSync('pnpm typeorm migration:run', {
     cwd: join(__dirname, '..', '..'),

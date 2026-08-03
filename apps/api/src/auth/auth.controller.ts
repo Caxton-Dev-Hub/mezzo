@@ -10,6 +10,8 @@ import {
   RefreshDto,
   registerSchema,
   RegisterDto,
+  googleLoginSchema,
+  GoogleLoginDto,
 } from './dto/auth.schemas';
 import { UserResponse } from '../users/dto/user-response';
 import { TokenPair } from './token.service';
@@ -34,6 +36,16 @@ export class AuthController {
     @Body(new ZodValidationPipe(loginSchema)) dto: LoginDto,
   ): Promise<TokenPair & { user: UserResponse }> {
     return this.authService.login(dto);
+  }
+
+  @Public()
+  @UseGuards(AuthRateLimitGuard)
+  @Post('google')
+  @HttpCode(HttpStatus.OK)
+  loginWithGoogle(
+    @Body(new ZodValidationPipe(googleLoginSchema)) dto: GoogleLoginDto,
+  ): Promise<TokenPair & { user: UserResponse }> {
+    return this.authService.loginWithGoogle(dto);
   }
 
   @Public()
