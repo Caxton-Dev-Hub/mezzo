@@ -1,5 +1,6 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
 import {
+  acceptTerms,
   captureEvidencePhoto,
   expectCurrentState,
   fillEscrowDetails,
@@ -37,11 +38,11 @@ async function agreeEscrow(page: Page, browser: Browser, item: string): Promise<
   await counterpartyPage.goto(inviteUrl);
   await counterpartyPage.getByRole('button', { name: 'Accept invite' }).click();
   await counterpartyPage.waitForURL(/\/escrow\/[0-9a-f-]+$/);
-  await counterpartyPage.getByRole('button', { name: 'Accept terms' }).click();
+  await acceptTerms(counterpartyPage);
 
   const escrowUrl = counterpartyPage.url().replace(/^https?:\/\/[^/]+/, '');
   await page.goto(escrowUrl);
-  await page.getByRole('button', { name: 'Accept terms' }).click();
+  await acceptTerms(page);
   await expectCurrentState(page, 'Terms agreed');
 
   return { counterpartyPage };

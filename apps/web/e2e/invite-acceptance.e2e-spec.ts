@@ -1,5 +1,6 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
 import {
+  acceptTerms,
   captureEvidencePhoto,
   expectCurrentState,
   fillEscrowDetails,
@@ -51,12 +52,12 @@ test.describe('Invite acceptance and agreement (F3)', () => {
     await counterpartyPage.getByRole('button', { name: 'Accept invite' }).click();
     await counterpartyPage.waitForURL(/\/escrow\/[0-9a-f-]+$/);
 
-    await counterpartyPage.getByRole('button', { name: 'Accept terms' }).click();
+    await acceptTerms(counterpartyPage);
     await expect(counterpartyPage.getByText(/waiting for the other party/i)).toBeVisible();
 
     const escrowUrl = counterpartyPage.url().replace(/^https?:\/\/[^/]+/, '');
     await page.goto(escrowUrl);
-    await page.getByRole('button', { name: 'Accept terms' }).click();
+    await acceptTerms(page);
 
     await expectCurrentState(page, 'Terms agreed');
     await expect(page.getByText('Frozen')).toBeVisible();

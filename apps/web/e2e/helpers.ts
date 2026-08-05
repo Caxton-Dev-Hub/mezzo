@@ -229,14 +229,14 @@ export async function createAgreedEscrow(
   await sellerPage.goto(inviteUrl);
   await sellerPage.getByRole('button', { name: 'Accept invite' }).click();
   await sellerPage.waitForURL(/\/escrow\/[0-9a-f-]+$/);
-  await sellerPage.getByRole('button', { name: 'Accept terms' }).click();
+  await acceptTerms(sellerPage);
   await expect(sellerPage.getByText(/waiting for the other party/i)).toBeVisible();
 
   const escrowPath = sellerPage.url().replace(/^https?:\/\/[^/]+/, '');
   await sellerPage.context().close();
 
   await buyerPage.goto(escrowPath);
-  await buyerPage.getByRole('button', { name: 'Accept terms' }).click();
+  await acceptTerms(buyerPage);
   await expectCurrentState(buyerPage, 'Terms agreed');
 
   return escrowPath;
@@ -263,4 +263,10 @@ export async function fundEscrow(
 
 export async function confirmInModal(page: Page, confirmLabel: string): Promise<void> {
   await page.getByRole('dialog').getByRole('button', { name: confirmLabel }).click();
+}
+
+export async function acceptTerms(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Accept terms' }).click();
+  await page.getByRole('dialog').getByRole('checkbox').check();
+  await confirmInModal(page, 'Accept terms');
 }
