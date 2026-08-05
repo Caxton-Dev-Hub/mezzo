@@ -1,7 +1,8 @@
 import { NotificationEventType } from './entities/notification-event-type.enum';
 
 const SUBJECTS: Record<NotificationEventType, string> = {
-  [NotificationEventType.INVITED]: 'Your escrow invite is ready',
+  [NotificationEventType.ESCROW_CREATED]: 'Your escrow invite is ready to share',
+  [NotificationEventType.INVITED]: 'You were invited to an escrow',
   [NotificationEventType.AGREED]: 'Both parties agreed on terms',
   [NotificationEventType.FUNDED]: 'Escrow funded',
   [NotificationEventType.SHIPPED]: 'Item marked as shipped',

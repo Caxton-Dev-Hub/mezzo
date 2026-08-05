@@ -1,4 +1,5 @@
 export enum NotificationEventType {
+  ESCROW_CREATED = 'ESCROW_CREATED',
   INVITED = 'INVITED',
   AGREED = 'AGREED',
   FUNDED = 'FUNDED',

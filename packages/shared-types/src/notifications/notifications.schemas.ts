@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export const notificationEventTypeSchema = z.enum([
+  'ESCROW_CREATED',
   'INVITED',
   'AGREED',
   'FUNDED',

@@ -118,7 +118,7 @@ export class EscrowService {
     await this.notificationsService.notify({
       escrowId,
       sourceEventId: `${escrowId}_${escrow.state}_${escrow.version}`,
-      eventType: NotificationEventType.INVITED,
+      eventType: NotificationEventType.ESCROW_CREATED,
       recipientUserIds: [actorId],
     });
 
