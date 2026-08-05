@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { User, Wallet as WalletIcon } from 'lucide-react';
 import { useAuthStore } from '../../lib/auth-store';
 import { useLogout } from '../../hooks/use-logout';
 import { Wordmark } from './wordmark';
@@ -21,8 +22,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
           <div className="flex items-center gap-3 sm:gap-4">
             {status === 'authenticated' ? (
-              <Link href="/wallet" className="text-sm text-fog hover:text-vellum">
-                Wallet
+              <Link
+                href="/wallet"
+                aria-label="Wallet"
+                className="rounded-full p-2 text-fog hover:text-vellum"
+              >
+                <WalletIcon className="h-5 w-5" />
               </Link>
             ) : null}
             {user?.role === 'ARBITER' || user?.role === 'ADMIN' ? (
@@ -32,13 +37,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             ) : null}
             {status === 'authenticated' ? <NotificationCenter /> : null}
             {status === 'pending' ? (
-              <span className="hidden h-4 w-32 animate-pulse rounded bg-surface-2 sm:block" />
+              <span className="h-9 w-9 animate-pulse rounded-full bg-surface-2" />
             ) : status === 'authenticated' && user ? (
               <Link
                 href="/profile"
-                className="hidden max-w-[14rem] truncate text-sm text-fog hover:text-vellum sm:block"
+                aria-label="Profile"
+                className="rounded-full p-2 text-fog hover:text-vellum"
               >
-                {user.email}
+                <User className="h-5 w-5" />
               </Link>
             ) : null}
             <Button

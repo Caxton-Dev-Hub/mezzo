@@ -1,6 +1,7 @@
 import type { NotificationEventType } from '@mezzo/shared-types';
 
 export const NOTIFICATION_EVENT_LABELS: Record<NotificationEventType, string> = {
+  ESCROW_CREATED: 'Escrow created — invite link ready to share',
   INVITED: 'You were invited to an escrow',
   AGREED: 'Both parties agreed to the terms',
   FUNDED: 'The escrow was funded',
