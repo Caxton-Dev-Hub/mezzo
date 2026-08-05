@@ -27,7 +27,7 @@ jobs:
           version: 10.10.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @mezzo/shared-types build
@@ -44,11 +44,12 @@ jobs:
           version: 10.10.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @mezzo/shared-types build
-      - run: pnpm -r --if-present run test
+      - run: pnpm --filter @mezzo/api exec jest --config jest.config.js --maxWorkers=2
+      - run: pnpm --filter @mezzo/web run test
 
   api-e2e:
     name: API e2e (Testcontainers)
@@ -60,7 +61,7 @@ jobs:
           version: 10.10.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @mezzo/shared-types build
@@ -76,7 +77,7 @@ jobs:
           version: 10.10.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @mezzo/shared-types build
