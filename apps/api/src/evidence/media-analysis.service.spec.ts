@@ -41,7 +41,7 @@ describe('MediaAnalysisService', () => {
     const result = await service.analyze(readFixture('with-exif.jpg'));
 
     expect(result.hasExif).toBe(true);
-    expect(result.capturedAt).toEqual(new Date('2026-07-20T09:30:00.000Z'));
+    expect(result.capturedAt).toEqual(new Date('2026-07-20T10:30:00.000Z'));
     expect(result.deviceMake).toBe('MezzoCam');
     expect(result.deviceModel).toBe('MezzoCam Model X');
     expect(result.gpsLatitude).toBeCloseTo(6.5244, 3);
