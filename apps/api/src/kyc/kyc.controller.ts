@@ -1,5 +1,17 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import type { Request } from 'express';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  HttpStatus,
+  Post,
+  RawBodyRequest,
+  Req,
+} from '@nestjs/common';
 import { KycService } from './kyc.service';
+import { KycWebhookSignatureService } from './webhook-signature.service';
 import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
@@ -14,7 +26,10 @@ import {
 
 @Controller('kyc')
 export class KycController {
-  constructor(private readonly kycService: KycService) {}
+  constructor(
+    private readonly kycService: KycService,
+    private readonly webhookSignature: KycWebhookSignatureService,
+  ) {}
 
   @Post('submissions')
   @HttpCode(HttpStatus.CREATED)
@@ -30,8 +45,11 @@ export class KycController {
   @Post('webhook')
   @HttpCode(HttpStatus.OK)
   async webhook(
+    @Req() request: RawBodyRequest<Request>,
+    @Headers('x-dojah-signature') signature: string | undefined,
     @Body(new ZodValidationPipe(kycWebhookSchema)) dto: KycWebhookDto,
   ): Promise<KycVerificationResponse> {
+    this.webhookSignature.verify(request.rawBody ?? Buffer.alloc(0), signature);
     const verification = await this.kycService.handleProviderCallback(dto);
     return toKycVerificationResponse(verification);
   }

@@ -27,6 +27,7 @@ export const envSchema = z.object({
   DOJAH_BASE_URL: z.string().url().optional(),
   DOJAH_APP_ID: z.string().min(1).optional(),
   DOJAH_PRIVATE_KEY: z.string().min(1).optional(),
+  DOJAH_WEBHOOK_SECRET: z.string().min(1).optional(),
   ESCROW_INVITE_EXPIRY_HOURS: z.coerce.number().int().positive().default(72),
   S3_ENDPOINT: z.string().url(),
   S3_REGION: z.string().min(1).default('us-east-1'),
@@ -104,6 +105,14 @@ export const configSchema = envSchema.superRefine((env, ctx) => {
       code: z.ZodIssueCode.custom,
       path: ['GOOGLE_CLIENT_ID'],
       message: 'GOOGLE_CLIENT_ID is required when GOOGLE_AUTH_ENABLED is "true"',
+    });
+  }
+
+  if (env.KYC_PROVIDER === 'dojah' && !env.DOJAH_WEBHOOK_SECRET) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['DOJAH_WEBHOOK_SECRET'],
+      message: 'DOJAH_WEBHOOK_SECRET is required when KYC_PROVIDER is "dojah"',
     });
   }
 });

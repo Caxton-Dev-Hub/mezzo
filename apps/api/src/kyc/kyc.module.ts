@@ -7,6 +7,7 @@ import { KycEvent } from '../database/entities/kyc-event.entity';
 import { KycController } from './kyc.controller';
 import { KycService } from './kyc.service';
 import { KycCapsService } from './kyc-caps.service';
+import { KycWebhookSignatureService } from './webhook-signature.service';
 import { KycTierGuard } from './guards/kyc-tier.guard';
 import { KYC_PROVIDER, KycProvider } from './providers/kyc-provider.interface';
 import { FakeKycProvider } from './providers/fake-kyc.provider';
@@ -18,6 +19,7 @@ import { DojahKycProvider } from './providers/dojah-kyc.provider';
   providers: [
     KycService,
     KycCapsService,
+    KycWebhookSignatureService,
     KycTierGuard,
     FakeKycProvider,
     DojahKycProvider,
