@@ -2,9 +2,10 @@ node_modules/
 dist/
 build/
 coverage/
+*.tsbuildinfo
 
 .next
-.next-e2e
+.next-*
 
 playwright-report/
 test-results/
@@ -12,6 +13,7 @@ apps/web/e2e/.stack.json
 
 .env
 .env.local
+.env*.local
 !.env.example
 
 *.log

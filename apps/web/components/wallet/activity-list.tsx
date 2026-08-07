@@ -31,7 +31,7 @@ export function ActivityList({ items }: ActivityListProps) {
   }
 
   return (
-    <ul className="divide-y divide-line-soft rounded-xl border border-line-soft bg-surface">
+    <ul className="divide-y divide-line-soft rounded-xl border border-line-soft bg-surface shadow-card">
       {items.map((item) => (
         <li key={item.id} className="flex items-center gap-3 px-4 py-3">
           <span

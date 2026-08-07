@@ -15,7 +15,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="border-b border-line-soft">
+      <header className="sticky top-0 z-30 border-b border-line-soft bg-ink/75 shadow-hairline backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-4xl items-center justify-between gap-4 px-5 sm:px-8">
           <Link href="/" aria-label="Mezzo home">
             <Wordmark />

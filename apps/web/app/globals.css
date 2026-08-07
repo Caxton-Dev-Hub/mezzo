@@ -21,12 +21,22 @@
   --color-danger: #c5382b;
   --color-danger-deep: #9c2c22;
 
+  --color-line-strong: #c8d2bc;
+
   --font-display: var(--font-instrument);
   --font-sans: var(--font-hanken);
   --font-mono: var(--font-mono);
 
+  --shadow-hairline: 0 1px 1px -0.5px rgba(22, 36, 28, 0.06);
+  --shadow-card: 0 1px 0 0 rgba(255, 255, 255, 0.8) inset,
+    0 1px 2px -1px rgba(22, 36, 28, 0.08), 0 8px 20px -14px rgba(22, 36, 28, 0.18);
+  --shadow-lift: 0 1px 0 0 rgba(255, 255, 255, 0.8) inset,
+    0 2px 4px -2px rgba(22, 36, 28, 0.1), 0 18px 34px -20px rgba(22, 36, 28, 0.24);
   --shadow-panel: 0 1px 0 0 rgba(255, 255, 255, 0.7) inset,
     0 20px 44px -26px rgba(22, 36, 28, 0.16);
+  --shadow-float: 0 1px 0 0 rgba(255, 255, 255, 0.8) inset,
+    0 4px 8px -4px rgba(22, 36, 28, 0.12), 0 28px 60px -28px rgba(22, 36, 28, 0.3);
+  --shadow-mint: 0 1px 2px -1px rgba(7, 92, 62, 0.4), 0 10px 22px -14px rgba(7, 92, 62, 0.5);
 }
 
 :root {
@@ -61,6 +71,67 @@ body {
 
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+.ambient {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+
+.ambient-field {
+  position: absolute;
+  inset: -25%;
+  background:
+    radial-gradient(36rem 36rem at 20% 14%, rgba(10, 122, 82, 0.11), transparent 62%),
+    radial-gradient(32rem 32rem at 82% 24%, rgba(46, 95, 194, 0.07), transparent 60%),
+    radial-gradient(30rem 30rem at 58% 88%, rgba(10, 122, 82, 0.06), transparent 64%);
+  animation: ambient-drift 72s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@keyframes ambient-drift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(2.5%, -1.5%, 0) scale(1.06);
+  }
+  100% {
+    transform: translate3d(-2%, 2%, 0) scale(1.03);
+  }
+}
+
+.ambient-grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.4;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.09'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+}
+
+@keyframes reveal-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal {
+      animation: reveal-in linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 44%;
+    }
+  }
 }
 
 @keyframes orb-travel {

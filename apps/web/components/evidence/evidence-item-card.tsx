@@ -13,7 +13,7 @@ export function EvidenceItemCard({ item, onRetry, onRemove }: EvidenceItemCardPr
   const flags = item.confirmed?.flags ?? [];
 
   return (
-    <div className="relative aspect-square overflow-hidden rounded-xl border border-line-soft bg-surface">
+    <div className="relative aspect-square overflow-hidden rounded-xl border border-line-soft bg-surface shadow-card">
       {item.previewUrl ? (
         item.kind === 'image' ? (
           // eslint-disable-next-line @next/next/no-img-element

@@ -15,7 +15,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
       <Link href="/" className="mb-8 sm:mb-10" aria-label="Mezzo home">
         <Wordmark />
       </Link>
-      <div className="w-full max-w-sm rounded-2xl border border-line-soft bg-surface p-6 shadow-panel sm:p-8">
+      <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-6 shadow-float sm:p-8">
         {children}
       </div>
     </div>

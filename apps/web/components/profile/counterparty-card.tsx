@@ -29,7 +29,7 @@ export function CounterpartyCard({ userId, roleLabel }: CounterpartyCardProps) {
   return (
     <Link
       href={`/users/${profile.id}`}
-      className="block rounded-xl border border-line-soft bg-surface p-4 hover:border-line"
+      className="block rounded-xl border border-line-soft bg-surface shadow-card p-4 hover:border-line"
     >
       <h2 className="text-sm font-medium text-vellum">{roleLabel}</h2>
       <div className="mt-3 flex items-center gap-3">

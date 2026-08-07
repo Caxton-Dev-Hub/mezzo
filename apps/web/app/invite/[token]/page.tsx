@@ -49,7 +49,7 @@ export default function InvitePreviewPage() {
         ) : null}
 
         {previewQuery.isError ? (
-          <div className="flex flex-col items-center rounded-2xl border border-line-soft bg-surface px-6 py-10 text-center">
+          <div className="flex flex-col items-center rounded-2xl border border-line-soft bg-surface shadow-card px-6 py-10 text-center">
             <Info className="h-6 w-6 text-mute" />
             <p className="mt-3 text-sm text-vellum">
               {previewQuery.error instanceof ApiError

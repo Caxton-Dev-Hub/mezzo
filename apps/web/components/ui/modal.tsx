@@ -38,7 +38,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
       <div className="absolute inset-0 bg-ink/80 backdrop-blur-sm" onClick={onClose} />
       <div
         className={cn(
-          'relative max-h-full w-full max-w-lg overflow-y-auto rounded-2xl border border-line-soft bg-surface p-6 shadow-panel',
+          'relative max-h-full w-full max-w-lg overflow-y-auto rounded-2xl border border-line bg-surface p-6 shadow-float',
           className,
         )}
       >

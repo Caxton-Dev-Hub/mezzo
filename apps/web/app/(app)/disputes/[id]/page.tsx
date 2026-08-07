@@ -94,7 +94,7 @@ export default function DisputeDetailPage() {
 
       <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-6">
-          <section className="rounded-xl border border-line-soft bg-surface p-4">
+          <section className="rounded-xl border border-line-soft bg-surface shadow-card p-4">
             <h2 className="text-sm font-medium text-vellum">Dispute status</h2>
             <div className="mt-4">
               <DisputeStateTimeline currentState={dispute.state} />
@@ -108,7 +108,7 @@ export default function DisputeDetailPage() {
 
           {isResolved ? <DisputeOutcomePanel dispute={dispute} viewerRole={viewerRole} /> : null}
 
-          <section className="rounded-xl border border-line-soft bg-surface p-4">
+          <section className="rounded-xl border border-line-soft bg-surface shadow-card p-4">
             <h2 className="text-sm font-medium text-vellum">What the buyer reported</h2>
             <p className="mt-1 text-[13px] text-mute">
               Raised {formatDateTime(dispute.createdAt)}
@@ -140,7 +140,7 @@ export default function DisputeDetailPage() {
 
         <div className="space-y-6">
           <TermsPanel terms={frozenTerms} frozen />
-          <div className="rounded-xl border border-line-soft bg-surface p-4">
+          <div className="rounded-xl border border-line-soft bg-surface shadow-card p-4">
             <h2 className="text-sm font-medium text-vellum">While this is open</h2>
             <p className="mt-2 text-[13px] text-fog">
               The escrow is frozen: nothing is released or refunded until an arbiter decides. You can

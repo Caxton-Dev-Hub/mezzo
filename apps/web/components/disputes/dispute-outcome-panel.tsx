@@ -23,7 +23,7 @@ export function DisputeOutcomePanel({ dispute, viewerRole }: DisputeOutcomePanel
   return (
     <section
       aria-label="Dispute outcome"
-      className="rounded-xl border border-line-soft bg-surface p-4"
+      className="rounded-xl border border-line-soft bg-surface shadow-card p-4"
     >
       <div className="flex items-center gap-2">
         <Scale className="h-4 w-4 text-mint" />

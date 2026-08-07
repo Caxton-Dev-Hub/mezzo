@@ -13,7 +13,7 @@ export function ProfileSummary({ profile }: { profile: PublicProfileResponse }) 
   const displayName = profile.businessName ?? 'Unnamed trader';
 
   return (
-    <div className="rounded-2xl border border-line-soft bg-surface p-5 shadow-panel sm:p-6">
+    <div className="rounded-2xl border border-line-soft bg-surface shadow-card p-5 shadow-panel sm:p-6">
       <div className="flex items-start gap-4">
         <Avatar url={profile.avatarUrl} name={profile.businessName} size="lg" />
         <div className="min-w-0 flex-1">

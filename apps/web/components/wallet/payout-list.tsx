@@ -31,7 +31,7 @@ export function PayoutList({ payouts }: PayoutListProps) {
   }
 
   return (
-    <ul className="divide-y divide-line-soft rounded-xl border border-line-soft bg-surface">
+    <ul className="divide-y divide-line-soft rounded-xl border border-line-soft bg-surface shadow-card">
       {payouts.map((payout) => {
         const Icon = PAYOUT_STATUS_ICONS[payout.status];
         return (

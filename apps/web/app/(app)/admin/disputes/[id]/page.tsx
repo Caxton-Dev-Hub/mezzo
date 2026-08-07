@@ -107,12 +107,12 @@ export default function AdminDisputePage() {
 
       <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-6">
-          <section className="rounded-xl border border-line-soft bg-surface p-4">
+          <section className="rounded-xl border border-line-soft bg-surface shadow-card p-4">
             <h2 className="text-sm font-medium text-vellum">The buyer&apos;s claim</h2>
             <p className="mt-3 whitespace-pre-wrap text-sm text-vellum">{dispute.statement}</p>
           </section>
 
-          <section className="rounded-xl border border-line-soft bg-surface p-4">
+          <section className="rounded-xl border border-line-soft bg-surface shadow-card p-4">
             <h2 className="text-sm font-medium text-vellum">Event timeline</h2>
             <div className="mt-3">
               <PacketTimeline entries={packet.timeline} />
@@ -137,7 +137,7 @@ export default function AdminDisputePage() {
             />
           </div>
 
-          <section className="rounded-xl border border-line-soft bg-surface p-4">
+          <section className="rounded-xl border border-line-soft bg-surface shadow-card p-4">
             <h2 className="text-sm font-medium text-vellum">Chat transcript</h2>
             <div className="mt-3">
               <PacketChatTranscript messages={packet.chatTranscript} buyerId={buyerId} />
@@ -164,7 +164,7 @@ export default function AdminDisputePage() {
           {isResolved ? (
             <section
               aria-label="Executed resolution"
-              className="rounded-xl border border-line-soft bg-surface p-4"
+              className="rounded-xl border border-line-soft bg-surface shadow-card p-4"
             >
               <h2 className="text-sm font-medium text-vellum">Executed resolution</h2>
               <dl className="mt-3 space-y-2 text-[13px]">

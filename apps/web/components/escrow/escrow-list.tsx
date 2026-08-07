@@ -17,7 +17,7 @@ interface EscrowListProps {
 
 export function EscrowList({ escrows, currentUserId }: EscrowListProps) {
   return (
-    <ul className="divide-y divide-line-soft rounded-xl border border-line-soft bg-surface">
+    <ul className="divide-y divide-line-soft rounded-xl border border-line-soft bg-surface shadow-card">
       {escrows.map((escrow) => {
         const role = escrow.parties.find((party) => party.userId === currentUserId)?.role;
         return (

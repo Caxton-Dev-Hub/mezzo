@@ -84,7 +84,7 @@ export default function AdminDisputeQueuePage() {
               <li key={dispute.id}>
                 <Link
                   href={`/admin/disputes/${dispute.id}`}
-                  className="block rounded-xl border border-line-soft bg-surface p-4 hover:border-line"
+                  className="block rounded-xl border border-line-soft bg-surface shadow-card p-4 hover:border-line"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>

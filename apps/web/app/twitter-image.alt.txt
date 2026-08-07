@@ -1,0 +1,1 @@
+Mezzo — escrow that holds the buyer payment while the seller documents the item, with the escrow lifecycle from agreed to released.

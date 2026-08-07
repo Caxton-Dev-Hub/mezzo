@@ -1,6 +1,14 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { RegisterForm } from '../../../components/auth/register-form';
 import { GoogleSignInButton } from '../../../components/auth/google-sign-in-button';
+
+export const metadata: Metadata = {
+  title: 'Start an escrow',
+  description:
+    'Create a Mezzo account to hold a buyer’s payment in escrow while the item is documented, delivered and inspected. Free to open an escrow; 1.5% at release.',
+  alternates: { canonical: '/register' },
+};
 
 export default async function RegisterPage({
   searchParams,

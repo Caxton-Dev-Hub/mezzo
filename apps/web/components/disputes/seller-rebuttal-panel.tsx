@@ -26,7 +26,7 @@ export function SellerRebuttalPanel({ escrowId, disputeId }: SellerRebuttalPanel
   return (
     <section
       aria-label="Respond to this dispute"
-      className="rounded-xl border border-line-soft bg-surface p-4"
+      className="rounded-xl border border-line-soft bg-surface shadow-card p-4"
     >
       <h2 className="text-sm font-medium text-vellum">Respond to this dispute</h2>
       <p className="mt-1 text-[13px] text-fog">

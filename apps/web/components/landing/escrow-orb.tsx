@@ -202,19 +202,19 @@ export function EscrowOrb() {
 
       <div className="absolute left-1/2 top-1/2 flex w-[30cqw] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-[1cqw]">
         <span
-          className="font-mono text-[clamp(7px,1.5cqw,11px)] uppercase tracking-[0.22em]"
+          className="whitespace-nowrap font-mono text-[clamp(5.5px,1.5cqw,11px)] uppercase tracking-[0.22em]"
           style={{ color: 'rgba(223,238,229,0.56)' }}
         >
           {current.holding}
         </span>
         <span
-          className="tabular font-mono text-[clamp(17px,4.4cqw,29px)] leading-none"
+          className="tabular whitespace-nowrap font-mono text-[clamp(13px,4.4cqw,29px)] leading-none"
           style={{ color: '#EAF5EE' }}
         >
           ₦450,000
         </span>
         <span
-          className="tabular mt-[0.6cqw] rounded-full border px-[2cqw] py-[0.7cqw] font-mono text-[clamp(7px,1.55cqw,11px)] tracking-[0.12em] transition-colors duration-500"
+          className="tabular mt-[0.6cqw] whitespace-nowrap rounded-full border px-[2cqw] py-[0.7cqw] font-mono text-[clamp(5.5px,1.55cqw,11px)] tracking-[0.12em] transition-colors duration-500"
           style={{
             color: `color-mix(in oklab, ${current.color} 72%, white)`,
             borderColor: `color-mix(in oklab, ${current.color} 50%, transparent)`,

@@ -125,7 +125,7 @@ export default function EscrowDetailPage() {
 
       <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-6">
-          <section className="rounded-xl border border-line-soft bg-surface p-4">
+          <section className="rounded-xl border border-line-soft bg-surface shadow-card p-4">
             <h2 className="text-sm font-medium text-vellum">Status</h2>
             <div className="mt-4">
               <StatusTimeline
@@ -185,13 +185,13 @@ export default function EscrowDetailPage() {
           {RECEIPT_ELIGIBLE_STATES.has(escrow.state) ? (
             <Link
               href={`/escrow/${escrow.id}/receipt`}
-              className="block rounded-xl border border-line-soft bg-surface p-4 text-sm text-vellum hover:border-line"
+              className="block rounded-xl border border-line-soft bg-surface shadow-card p-4 text-sm text-vellum hover:border-line"
             >
               View receipt
             </Link>
           ) : null}
           {currentUserId ? (
-            <div className="rounded-xl border border-line-soft bg-surface p-4">
+            <div className="rounded-xl border border-line-soft bg-surface shadow-card p-4">
               <h2 className="mb-3 text-sm font-medium text-vellum">Actions</h2>
               <ActionBar escrow={escrow} currentUserId={currentUserId} />
             </div>

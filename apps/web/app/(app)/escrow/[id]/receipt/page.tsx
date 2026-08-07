@@ -98,7 +98,7 @@ export default function EscrowReceiptPage() {
         </p>
       ) : null}
 
-      <dl className="mt-6 space-y-3 rounded-xl border border-line-soft bg-surface p-4 text-sm">
+      <dl className="mt-6 space-y-3 rounded-xl border border-line-soft bg-surface shadow-card p-4 text-sm">
         <div className="flex justify-between gap-4">
           <dt className="text-fog">Escrow</dt>
           <dd className="text-right font-mono text-[12px] text-vellum">{receipt.escrowId}</dd>
@@ -117,7 +117,7 @@ export default function EscrowReceiptPage() {
         </div>
       </dl>
 
-      <dl className="mt-4 space-y-3 rounded-xl border border-line-soft bg-surface p-4 text-sm">
+      <dl className="mt-4 space-y-3 rounded-xl border border-line-soft bg-surface shadow-card p-4 text-sm">
         <div className="flex justify-between gap-4">
           <dt className="text-fog">Price</dt>
           <dd className="font-mono tabular text-vellum">
@@ -138,7 +138,7 @@ export default function EscrowReceiptPage() {
         </div>
       </dl>
 
-      <dl className="mt-4 space-y-3 rounded-xl border border-line-soft bg-surface p-4 text-sm">
+      <dl className="mt-4 space-y-3 rounded-xl border border-line-soft bg-surface shadow-card p-4 text-sm">
         <div className="flex justify-between gap-4">
           <dt className="text-fog">Buyer</dt>
           <dd className="text-right text-vellum">{receipt.buyerEmail}</dd>

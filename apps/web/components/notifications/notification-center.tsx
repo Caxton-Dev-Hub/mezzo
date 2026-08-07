@@ -90,7 +90,7 @@ export function NotificationCenter() {
         ) : null}
       </button>
       {open ? (
-        <div className="absolute right-0 z-40 mt-2 w-80 rounded-xl border border-line-soft bg-surface p-2 shadow-panel">
+        <div className="absolute right-0 z-40 mt-2 w-80 rounded-xl border border-line-soft bg-surface shadow-card p-2 shadow-panel">
           {notifications.length === 0 ? (
             <p className="p-3 text-sm text-mute">No notifications yet.</p>
           ) : (

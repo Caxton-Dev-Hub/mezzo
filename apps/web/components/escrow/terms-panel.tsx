@@ -13,7 +13,7 @@ export function TermsPanel({ terms, frozen }: TermsPanelProps) {
     terms.requiresVerification || terms.price.amount >= VERIFICATION_EXEMPT_THRESHOLD_KOBO;
 
   return (
-    <div className="rounded-xl border border-line-soft bg-surface p-4">
+    <div className="rounded-xl border border-line-soft bg-surface shadow-card p-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-vellum">Terms</h3>
         {frozen ? (

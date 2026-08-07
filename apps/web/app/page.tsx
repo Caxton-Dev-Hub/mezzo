@@ -5,12 +5,47 @@ import { REFRESH_COOKIE_NAME } from '../lib/server-config';
 import { Wordmark } from '../components/shell/wordmark';
 import { buttonVariants } from '../components/ui/button';
 import { EscrowOrb } from '../components/landing/escrow-orb';
+import { faqSchema, jsonLdGraph, serviceSchema } from '../lib/site';
 
 const NAV_LINKS = [
   { href: '#how', label: 'How it works' },
   { href: '#evidence', label: 'Evidence' },
   { href: '#disputes', label: 'Disputes' },
   { href: '#fees', label: 'Fees' },
+  { href: '#faq', label: 'FAQ' },
+];
+
+const FAQS = [
+  {
+    question: 'How does Mezzo hold the money?',
+    answer:
+      'The buyer pays into a Mezzo escrow instead of paying the seller directly, and the money stops there. Neither side can move it until the item has been delivered and inspected, or until an arbiter decides the outcome.',
+  },
+  {
+    question: 'How long does the buyer have to inspect the item?',
+    answer:
+      'The inspection window is agreed in the terms before the escrow starts, so both sides know it in advance. If it closes without a dispute, the funds release to the seller automatically.',
+  },
+  {
+    question: 'What does Mezzo cost?',
+    answer:
+      'One fee of 1.5% of the transaction, capped at ₦7,500, charged once when the money is released. Payouts to a Nigerian bank account are included and settle same day on business days. Nothing is charged while an escrow is open, and nothing is charged on a refund.',
+  },
+  {
+    question: 'What happens if the item arrives wrong or damaged?',
+    answer:
+      'Either side can raise a dispute any time before the inspection window closes. Raising one freezes the escrow so the money stays exactly where it is. Both parties upload evidence and see what the other filed, and an arbiter decides on a release, a refund, or a split.',
+  },
+  {
+    question: 'Why must the seller photograph the item inside the app?',
+    answer:
+      'A file from the camera roll proves nothing about when it was taken. Mezzo fingerprints each photo with a SHA-256 hash the moment it is captured, so a record of the item’s condition exists before it ships and cannot be swapped later.',
+  },
+  {
+    question: 'Do I have to verify my identity?',
+    answer:
+      'Yes, before you can receive a payout. Verification is what keeps a payout tied to a real, accountable person on the other side of the deal.',
+  },
 ];
 
 const GUARANTEES = [
@@ -100,8 +135,8 @@ export default async function LandingPage() {
   const signedIn = Boolean(cookieStore.get(REFRESH_COOKIE_NAME));
 
   return (
-    <div className="min-h-screen bg-ink">
-      <header className="sticky top-0 z-50 border-b border-line-soft bg-ink/80 backdrop-blur-md">
+    <div className="min-h-screen">
+      <header className="sticky top-0 z-50 border-b border-line-soft bg-ink/70 shadow-hairline backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
           <Link href="/" className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint focus-visible:ring-offset-4 focus-visible:ring-offset-ink">
             <Wordmark className="text-base" />
@@ -143,7 +178,7 @@ export default async function LandingPage() {
             className="pointer-events-none absolute left-1/2 top-[-14rem] h-[52rem] w-[52rem] -translate-x-1/2 rounded-full"
             style={{
               background:
-                'radial-gradient(circle, rgba(46,95,194,0.10) 0%, rgba(10,122,82,0.06) 38%, rgba(250,248,241,0) 68%)',
+                'radial-gradient(circle, rgba(46,95,194,0.06) 0%, rgba(10,122,82,0.04) 38%, rgba(250,248,241,0) 68%)',
             }}
           />
           <div className="relative mx-auto max-w-6xl px-6 pb-24 pt-16 sm:pt-20">
@@ -187,13 +222,18 @@ export default async function LandingPage() {
           </div>
         </section>
 
-        <section className="border-y border-line-soft bg-ink-2">
-          <div className="mx-auto grid max-w-6xl gap-px bg-line-soft sm:grid-cols-3">
+        <section className="border-y border-line-soft bg-ink-2/70">
+          <div className="mx-auto grid max-w-6xl gap-4 px-6 py-14 sm:grid-cols-3">
             {GUARANTEES.map((item) => {
               const Icon = item.icon;
               return (
-                <div key={item.title} className="bg-ink-2 px-6 py-9 sm:px-8">
-                  <Icon className="h-5 w-5 text-mint" strokeWidth={1.5} />
+                <div
+                  key={item.title}
+                  className="reveal group rounded-xl border border-line bg-surface p-6 shadow-card transition-[box-shadow,border-color,transform] duration-300 hover:-translate-y-0.5 hover:border-line-strong hover:shadow-lift sm:p-7"
+                >
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line-soft bg-ink-2 text-mint shadow-hairline transition-colors duration-300 group-hover:border-mint/30">
+                    <Icon className="h-[18px] w-[18px]" strokeWidth={1.5} />
+                  </span>
                   <h2 className="mt-4 text-[15px] text-vellum">{item.title}</h2>
                   <p className="mt-2 text-sm leading-relaxed text-mute">{item.body}</p>
                 </div>
@@ -221,7 +261,7 @@ export default async function LandingPage() {
               {STEPS.map((step) => (
                 <li
                   key={step.state}
-                  className="group grid gap-4 border-t border-line-soft py-8 md:grid-cols-[minmax(0,15rem)_1fr] md:gap-12"
+                  className="reveal group -mx-4 grid gap-4 rounded-lg border-t border-line-soft px-4 py-8 transition-colors duration-300 hover:bg-surface/70 md:grid-cols-[minmax(0,15rem)_1fr] md:gap-12"
                 >
                   <div className="flex items-start gap-3">
                     <span className={`mt-[7px] h-px w-6 shrink-0 ${step.rule} opacity-60`} />
@@ -264,7 +304,7 @@ export default async function LandingPage() {
               </p>
             </div>
 
-            <div className="rounded-2xl border border-line bg-surface p-2 shadow-panel">
+            <div className="reveal rounded-2xl border border-line bg-surface p-2 shadow-lift transition-shadow duration-500 hover:shadow-float">
               <div className="rounded-xl border border-line-soft bg-ink">
                 <div className="flex items-center justify-between border-b border-line-soft px-5 py-3">
                   <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-mute">
@@ -314,7 +354,7 @@ export default async function LandingPage() {
               {DISPUTE_FACTS.map((fact) => (
                 <li
                   key={fact}
-                  className="flex gap-5 border-t border-line-soft py-6 text-[17px] leading-relaxed text-fog"
+                  className="reveal flex gap-5 border-t border-line-soft py-6 text-[17px] leading-relaxed text-fog"
                 >
                   <span className="mt-[13px] h-px w-6 shrink-0 bg-danger opacity-60" />
                   {fact}
@@ -335,14 +375,46 @@ export default async function LandingPage() {
                 Nothing is charged while an escrow is open, and nothing is charged on a refund.
               </p>
             </div>
-            <dl className="mt-14 grid gap-px border border-line-soft bg-line-soft sm:grid-cols-2 lg:grid-cols-4">
+            <dl className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {FEES.map((fee) => (
-                <div key={fee.label} className="bg-ink-2 px-6 py-8">
+                <div
+                  key={fee.label}
+                  className="reveal rounded-xl border border-line bg-surface px-6 py-7 shadow-card transition-[box-shadow,border-color,transform] duration-300 hover:-translate-y-0.5 hover:border-line-strong hover:shadow-lift"
+                >
                   <dt className="font-mono text-[11px] uppercase tracking-[0.18em] text-mute">
                     {fee.label}
                   </dt>
                   <dd className="tabular mt-3 font-mono text-3xl text-vellum">{fee.value}</dd>
                   <p className="mt-2 text-[13px] leading-relaxed text-mute">{fee.note}</p>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </section>
+
+        <section id="faq" className="scroll-mt-16 border-b border-line-soft">
+          <div className="mx-auto max-w-6xl px-6 py-24">
+            <div className="max-w-2xl">
+              <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-mute">
+                Questions
+              </p>
+              <h2 className="font-display mt-4 text-4xl leading-tight text-vellum sm:text-5xl">
+                The things people ask first
+              </h2>
+              <p className="mt-5 max-w-xl leading-relaxed text-fog">
+                If your question is about where the money is at any given moment, the answer is
+                always the same: in escrow, until the terms say otherwise.
+              </p>
+            </div>
+
+            <dl className="mt-14">
+              {FAQS.map((faq) => (
+                <div
+                  key={faq.question}
+                  className="reveal -mx-4 grid gap-3 rounded-lg border-t border-line-soft px-4 py-7 transition-colors duration-300 hover:bg-surface/70 md:grid-cols-[minmax(0,22rem)_1fr] md:gap-12"
+                >
+                  <dt className="text-[17px] leading-snug text-vellum">{faq.question}</dt>
+                  <dd className="max-w-2xl leading-relaxed text-fog">{faq.answer}</dd>
                 </div>
               ))}
             </dl>
@@ -355,7 +427,7 @@ export default async function LandingPage() {
             className="pointer-events-none absolute left-1/2 top-1/2 h-[34rem] w-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-full"
             style={{
               background:
-                'radial-gradient(circle, rgba(10,122,82,0.08) 0%, rgba(250,248,241,0) 70%)',
+                'radial-gradient(circle, rgba(10,122,82,0.05) 0%, rgba(250,248,241,0) 70%)',
             }}
           />
           <div className="relative mx-auto max-w-2xl px-6 py-28 text-center">
@@ -381,15 +453,72 @@ export default async function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-line-soft">
-        <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-10 sm:flex-row sm:items-center sm:justify-between">
-          <Wordmark className="text-sm" />
-          <p className="font-mono text-[11px] tracking-[0.14em] text-mute">
-            ESCROW THAT DOCUMENTS THE ITEM BEFORE MONEY MOVES
-          </p>
-          <p className="text-[13px] text-mute">© {new Date().getFullYear()} Mezzo</p>
+      <footer className="border-t border-line-soft bg-ink-2/60">
+        <div className="mx-auto max-w-6xl px-6 py-14">
+          <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[minmax(0,22rem)_1fr_1fr]">
+            <div>
+              <Wordmark className="text-sm" />
+              <p className="mt-4 max-w-xs text-[13px] leading-relaxed text-mute">
+                Escrow for people trading in naira who would rather not take a stranger at their
+                word. The item gets documented, then the money moves.
+              </p>
+            </div>
+            <nav aria-label="Product">
+              <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-mute">
+                Product
+              </h2>
+              <ul className="mt-4 space-y-2.5">
+                {NAV_LINKS.map((link) => (
+                  <li key={link.href}>
+                    <a
+                      href={link.href}
+                      className="rounded-sm text-[13px] text-fog transition-colors hover:text-vellum focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint focus-visible:ring-offset-4 focus-visible:ring-offset-ink"
+                    >
+                      {link.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+            <nav aria-label="Account">
+              <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-mute">
+                Account
+              </h2>
+              <ul className="mt-4 space-y-2.5">
+                <li>
+                  <Link
+                    href="/register"
+                    className="rounded-sm text-[13px] text-fog transition-colors hover:text-vellum focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint focus-visible:ring-offset-4 focus-visible:ring-offset-ink"
+                  >
+                    Start an escrow
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/login"
+                    className="rounded-sm text-[13px] text-fog transition-colors hover:text-vellum focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint focus-visible:ring-offset-4 focus-visible:ring-offset-ink"
+                  >
+                    Log in
+                  </Link>
+                </li>
+              </ul>
+            </nav>
+          </div>
+          <div className="mt-12 flex flex-col gap-3 border-t border-line-soft pt-6 sm:flex-row sm:items-center sm:justify-between">
+            <p className="font-mono text-[11px] tracking-[0.14em] text-mute">
+              ESCROW THAT DOCUMENTS THE ITEM BEFORE MONEY MOVES
+            </p>
+            <p className="text-[13px] text-mute">© {new Date().getFullYear()} Mezzo</p>
+          </div>
         </div>
       </footer>
+
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: jsonLdGraph([serviceSchema(), faqSchema(FAQS)]),
+        }}
+      />
     </div>
   );
 }

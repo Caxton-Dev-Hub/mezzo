@@ -64,7 +64,7 @@ export function CameraCapturePanel({ onCapture, onClose }: CameraCapturePanelPro
   };
 
   return (
-    <div className="rounded-2xl border border-line-soft bg-surface p-3 sm:p-4">
+    <div className="rounded-2xl border border-line-soft bg-surface shadow-card p-3 sm:p-4">
       <div className="flex items-center justify-between">
         <span className="text-[13px] font-medium text-fog">Camera</span>
         <button

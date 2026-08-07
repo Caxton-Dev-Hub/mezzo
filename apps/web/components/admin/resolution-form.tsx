@@ -61,7 +61,7 @@ export function ResolutionForm({ disputeId, terms, record }: ResolutionFormProps
   return (
     <section
       aria-label="Execute resolution"
-      className="rounded-xl border border-line-soft bg-surface p-4"
+      className="rounded-xl border border-line-soft bg-surface shadow-card p-4"
     >
       <h2 className="text-sm font-medium text-vellum">Execute resolution</h2>
       <p className="mt-1 text-[13px] text-mute">

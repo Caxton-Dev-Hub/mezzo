@@ -57,7 +57,7 @@ export function StepReview() {
 
   return (
     <div>
-      <dl className="space-y-3 rounded-xl border border-line-soft bg-surface p-4 text-sm">
+      <dl className="space-y-3 rounded-xl border border-line-soft bg-surface shadow-card p-4 text-sm">
         <div className="flex justify-between gap-4">
           <dt className="text-fog">Item</dt>
           <dd className="text-right text-vellum">{terms.itemDescription}</dd>
@@ -85,13 +85,13 @@ export function StepReview() {
       </dl>
 
       {terms.agreementText ? (
-        <div className="mt-4 rounded-xl border border-line-soft bg-surface p-4">
+        <div className="mt-4 rounded-xl border border-line-soft bg-surface shadow-card p-4">
           <h3 className="text-sm font-medium text-vellum">Written agreement</h3>
           <p className="mt-2 whitespace-pre-wrap text-[13px] text-fog">{terms.agreementText}</p>
         </div>
       ) : null}
 
-      <div className="mt-4 flex items-center justify-between rounded-xl border border-line-soft bg-surface p-4 text-sm">
+      <div className="mt-4 flex items-center justify-between rounded-xl border border-line-soft bg-surface shadow-card p-4 text-sm">
         <span className="text-fog">Evidence</span>
         <span className="text-vellum">
           {evidenceQuery.isLoading

@@ -26,7 +26,7 @@ export function PacketEvidenceGrid({ heading, items, emptyLabel }: PacketEvidenc
             <li
               key={item.id}
               id={`evidence-${item.id}`}
-              className="flex gap-3 rounded-xl border border-line-soft bg-surface p-3 target:border-mint"
+              className="flex gap-3 rounded-xl border border-line-soft bg-surface shadow-card p-3 target:border-mint"
             >
               <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg bg-surface-2">
                 {item.url && isImageMime(item.declaredMime) ? (

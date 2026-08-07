@@ -200,7 +200,7 @@ export function ChatPanel({ escrow }: ChatPanelProps) {
   }
 
   return (
-    <div className="flex h-[28rem] flex-col rounded-xl border border-line-soft bg-surface">
+    <div className="flex h-[28rem] flex-col rounded-xl border border-line-soft bg-surface shadow-card">
       <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto p-4">
         {messages.length === 0 ? (
           <p className="text-sm text-mute">No messages yet.</p>

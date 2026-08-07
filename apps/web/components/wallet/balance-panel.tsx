@@ -37,7 +37,7 @@ export function BalancePanel({ balances }: BalancePanelProps) {
         <section
           key={label}
           aria-label={label}
-          className="rounded-xl border border-line-soft bg-surface p-4"
+          className="rounded-xl border border-line-soft bg-surface shadow-card p-4"
         >
           <div className="flex items-center gap-2">
             <Icon className={`h-4 w-4 ${accent}`} />

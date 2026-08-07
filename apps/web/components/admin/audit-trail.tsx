@@ -18,7 +18,7 @@ export function AuditTrail({ disputeId, visible }: AuditTrailProps) {
   });
 
   return (
-    <section aria-label="Audit trail" className="rounded-xl border border-line-soft bg-surface p-4">
+    <section aria-label="Audit trail" className="rounded-xl border border-line-soft bg-surface shadow-card p-4">
       <h2 className="text-sm font-medium text-vellum">Audit trail</h2>
       {!visible ? (
         <p className="mt-2 text-[13px] text-mute">
