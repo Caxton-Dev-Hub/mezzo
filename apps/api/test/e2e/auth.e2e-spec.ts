@@ -8,6 +8,7 @@ import { AppModule } from '../../src/app.module';
 import { User } from '../../src/database/entities/user.entity';
 import { UserRole } from '../../src/users/entities/user-role.enum';
 import { RedisService } from '../../src/redis/redis.service';
+import { FakePasswordResetMailer } from '../../src/auth/mailers/fake-password-reset.mailer';
 
 interface UserResponseBody {
   id: string;
@@ -38,6 +39,7 @@ describe('Auth (e2e)', () => {
   let server: Server;
   let usersRepository: Repository<User>;
   let redis: RedisService;
+  let passwordResetMailer: FakePasswordResetMailer;
   let emailCounter = 0;
 
   const password = 'super-secret-password';
@@ -64,6 +66,7 @@ describe('Auth (e2e)', () => {
     server = app.getHttpServer() as Server;
     usersRepository = app.get<Repository<User>>(getRepositoryToken(User));
     redis = app.get(RedisService);
+    passwordResetMailer = app.get(FakePasswordResetMailer);
   });
 
   afterAll(async () => {
@@ -72,6 +75,7 @@ describe('Auth (e2e)', () => {
 
   beforeEach(async () => {
     await redis.flushdb();
+    passwordResetMailer.sent.length = 0;
   });
 
   describe('register and login', () => {
@@ -165,6 +169,130 @@ describe('Auth (e2e)', () => {
 
       expect(response.status).toBe(401);
       expect((response.body as ErrorBody).code).toBe('INVALID_REFRESH_TOKEN');
+    });
+  });
+
+  describe('password reset', () => {
+    const newPassword = 'a-brand-new-password';
+
+    function issuedToken(): string {
+      const resetUrl = passwordResetMailer.sent[passwordResetMailer.sent.length - 1].resetUrl;
+      return new URL(resetUrl).searchParams.get('token') ?? '';
+    }
+
+    async function requestReset(email: string): Promise<number> {
+      const response = await request(server).post('/auth/forgot-password').send({ email });
+      return response.status;
+    }
+
+    it('emails a reset link, accepts the new password, and rejects the old one', async () => {
+      const email = uniqueEmail();
+      await register(email);
+
+      expect(await requestReset(email)).toBe(204);
+      expect(passwordResetMailer.sent).toHaveLength(1);
+
+      const reset = await request(server)
+        .post('/auth/reset-password')
+        .send({ token: issuedToken(), password: newPassword });
+      expect(reset.status).toBe(204);
+
+      const withNew = await request(server)
+        .post('/auth/login')
+        .send({ email, password: newPassword });
+      expect(withNew.status).toBe(200);
+
+      const withOld = await request(server).post('/auth/login').send({ email, password });
+      expect(withOld.status).toBe(401);
+      expect((withOld.body as ErrorBody).code).toBe('INVALID_CREDENTIALS');
+    });
+
+    it('answers 204 for an unknown email without sending anything, so accounts cannot be enumerated', async () => {
+      const known = uniqueEmail();
+      await register(known);
+
+      expect(await requestReset(known)).toBe(204);
+      const knownSends = passwordResetMailer.sent.length;
+
+      expect(await requestReset(uniqueEmail())).toBe(204);
+
+      expect(knownSends).toBe(1);
+      expect(passwordResetMailer.sent).toHaveLength(1);
+    });
+
+    it('burns the token after a successful reset', async () => {
+      const email = uniqueEmail();
+      await register(email);
+      await requestReset(email);
+      const token = issuedToken();
+
+      const first = await request(server)
+        .post('/auth/reset-password')
+        .send({ token, password: newPassword });
+      expect(first.status).toBe(204);
+
+      const second = await request(server)
+        .post('/auth/reset-password')
+        .send({ token, password: 'yet-another-password' });
+      expect(second.status).toBe(400);
+      expect((second.body as ErrorBody).code).toBe('INVALID_PASSWORD_RESET_TOKEN');
+    });
+
+    it('invalidates an earlier token when a second reset is requested', async () => {
+      const email = uniqueEmail();
+      await register(email);
+
+      await requestReset(email);
+      const firstToken = issuedToken();
+      await requestReset(email);
+      const secondToken = issuedToken();
+
+      expect(secondToken).not.toBe(firstToken);
+
+      const stale = await request(server)
+        .post('/auth/reset-password')
+        .send({ token: firstToken, password: newPassword });
+      expect(stale.status).toBe(400);
+      expect((stale.body as ErrorBody).code).toBe('INVALID_PASSWORD_RESET_TOKEN');
+
+      const current = await request(server)
+        .post('/auth/reset-password')
+        .send({ token: secondToken, password: newPassword });
+      expect(current.status).toBe(204);
+    });
+
+    it('logs out existing sessions by revoking refresh tokens on reset', async () => {
+      const email = uniqueEmail();
+      await register(email);
+      const session = await login(email);
+
+      await requestReset(email);
+      await request(server)
+        .post('/auth/reset-password')
+        .send({ token: issuedToken(), password: newPassword });
+
+      const response = await request(server)
+        .post('/auth/refresh')
+        .send({ refreshToken: session.refreshToken });
+
+      expect(response.status).toBe(401);
+    });
+
+    it('rejects a forged token', async () => {
+      const response = await request(server)
+        .post('/auth/reset-password')
+        .send({ token: 'not-a-real-token', password: newPassword });
+
+      expect(response.status).toBe(400);
+      expect((response.body as ErrorBody).code).toBe('INVALID_PASSWORD_RESET_TOKEN');
+    });
+
+    it('rejects a new password that is too short before any token lookup', async () => {
+      const response = await request(server)
+        .post('/auth/reset-password')
+        .send({ token: 'anything', password: 'short' });
+
+      expect(response.status).toBe(400);
     });
   });
 

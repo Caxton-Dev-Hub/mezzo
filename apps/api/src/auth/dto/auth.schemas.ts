@@ -7,4 +7,8 @@ export {
   type RefreshDto,
   googleLoginSchema,
   type GoogleLoginDto,
+  forgotPasswordSchema,
+  type ForgotPasswordDto,
+  resetPasswordSchema,
+  type ResetPasswordDto,
 } from '@mezzo/shared-types';

@@ -1,5 +1,6 @@
 import { KycTier } from '../../kyc/entities/kyc-tier.enum';
 import { UserRole } from '../../users/entities/user-role.enum';
+import { PasswordResetToken } from '../entities/password-reset-token.entity';
 import { RefreshToken } from '../entities/refresh-token.entity';
 import { User } from '../entities/user.entity';
 import { JsonCollectionSchema } from './json-repository';
@@ -46,4 +47,14 @@ export const REFRESH_TOKENS_COLLECTION: JsonCollectionSchema<RefreshToken> = {
   unique: [],
   hasUpdatedAt: false,
   defaults: () => ({ revokedAt: null }),
+};
+
+export const PASSWORD_RESET_TOKENS_COLLECTION: JsonCollectionSchema<PasswordResetToken> = {
+  table: 'password_reset_tokens',
+  entity: 'PasswordResetToken',
+  fields: ['id', 'userId', 'tokenHash', 'expiresAt', 'usedAt', 'createdAt'],
+  dateFields: ['expiresAt', 'usedAt', 'createdAt'],
+  unique: [['tokenHash']],
+  hasUpdatedAt: false,
+  defaults: () => ({ usedAt: null }),
 };

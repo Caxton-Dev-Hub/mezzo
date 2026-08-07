@@ -94,6 +94,7 @@ export default async function globalSetup(): Promise<void> {
     NODE_ENV: 'production',
     PORT: String(API_PORT),
     CORS_ORIGINS: WEB_URL,
+    WEB_APP_URL: WEB_URL,
     DATABASE_URL: databaseUrl,
     REDIS_URL: `redis://${redis.getHost()}:${redis.getMappedPort(6379)}`,
     JWT_ACCESS_SECRET: 'e2e-access-secret-at-least-32-characters-long',

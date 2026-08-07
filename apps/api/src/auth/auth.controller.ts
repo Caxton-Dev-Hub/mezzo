@@ -1,5 +1,6 @@
 import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
+import { PasswordResetService } from './password-reset.service';
 import { Public } from '../common/decorators/public.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { AuthRateLimitGuard } from './guards/auth-rate-limit.guard';
@@ -12,13 +13,20 @@ import {
   RegisterDto,
   googleLoginSchema,
   GoogleLoginDto,
+  forgotPasswordSchema,
+  ForgotPasswordDto,
+  resetPasswordSchema,
+  ResetPasswordDto,
 } from './dto/auth.schemas';
 import { UserResponse } from '../users/dto/user-response';
 import { TokenPair } from './token.service';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly passwordResetService: PasswordResetService,
+  ) {}
 
   @Public()
   @UseGuards(AuthRateLimitGuard)
@@ -53,5 +61,25 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   refresh(@Body(new ZodValidationPipe(refreshSchema)) dto: RefreshDto): Promise<TokenPair> {
     return this.authService.refresh(dto);
+  }
+
+  @Public()
+  @UseGuards(AuthRateLimitGuard)
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  forgotPassword(
+    @Body(new ZodValidationPipe(forgotPasswordSchema)) dto: ForgotPasswordDto,
+  ): Promise<void> {
+    return this.passwordResetService.request(dto);
+  }
+
+  @Public()
+  @UseGuards(AuthRateLimitGuard)
+  @Post('reset-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  resetPassword(
+    @Body(new ZodValidationPipe(resetPasswordSchema)) dto: ResetPasswordDto,
+  ): Promise<void> {
+    return this.passwordResetService.reset(dto);
   }
 }

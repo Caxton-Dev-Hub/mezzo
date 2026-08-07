@@ -1,4 +1,11 @@
-import type { GoogleLoginDto, LoginDto, RegisterDto, UserResponse } from '@mezzo/shared-types';
+import type {
+  ForgotPasswordDto,
+  GoogleLoginDto,
+  LoginDto,
+  RegisterDto,
+  ResetPasswordDto,
+  UserResponse,
+} from '@mezzo/shared-types';
 import { ApiError } from './api-error';
 import { useAuthStore } from './auth-store';
 
@@ -49,6 +56,14 @@ export function refreshRequest(): Promise<RefreshResult> {
 
 export function logoutRequest(): Promise<void> {
   return postJson<void>('/api/auth/logout');
+}
+
+export function forgotPasswordRequest(dto: ForgotPasswordDto): Promise<void> {
+  return postJson<void>('/api/auth/forgot-password', dto);
+}
+
+export function resetPasswordRequest(dto: ResetPasswordDto): Promise<void> {
+  return postJson<void>('/api/auth/reset-password', dto);
 }
 
 let refreshInFlight: Promise<string | null> | null = null;

@@ -1,9 +1,14 @@
 import { DynamicModule, Global, Module } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { resolveJsonStorePath } from '../persistence-mode';
+import { PasswordResetToken } from '../entities/password-reset-token.entity';
 import { RefreshToken } from '../entities/refresh-token.entity';
 import { User } from '../entities/user.entity';
-import { REFRESH_TOKENS_COLLECTION, USERS_COLLECTION } from './collections';
+import {
+  PASSWORD_RESET_TOKENS_COLLECTION,
+  REFRESH_TOKENS_COLLECTION,
+  USERS_COLLECTION,
+} from './collections';
 import { JsonDatabase } from './json-database';
 import { JsonRepository } from './json-repository';
 
@@ -25,8 +30,17 @@ export class JsonPersistenceModule {
           provide: getRepositoryToken(RefreshToken),
           useValue: new JsonRepository(database, REFRESH_TOKENS_COLLECTION),
         },
+        {
+          provide: getRepositoryToken(PasswordResetToken),
+          useValue: new JsonRepository(database, PASSWORD_RESET_TOKENS_COLLECTION),
+        },
       ],
-      exports: [JsonDatabase, getRepositoryToken(User), getRepositoryToken(RefreshToken)],
+      exports: [
+        JsonDatabase,
+        getRepositoryToken(User),
+        getRepositoryToken(RefreshToken),
+        getRepositoryToken(PasswordResetToken),
+      ],
     };
   }
 }

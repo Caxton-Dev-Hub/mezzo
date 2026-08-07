@@ -5,6 +5,7 @@ export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
   CORS_ORIGINS: z.string().min(1).default('http://localhost:3001,http://localhost:3100'),
+  WEB_APP_URL: z.string().url().default('http://localhost:3001'),
   DATABASE_URL: z.string().url().optional(),
   JSON_STORE_PATH: z.string().min(1).default(DEFAULT_JSON_STORE_PATH),
   REDIS_URL: z.string().url(),
@@ -15,6 +16,7 @@ export const envSchema = z.object({
   BOOTSTRAP_ADMIN_EMAILS: z.string().default(''),
   AUTH_RATE_LIMIT_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
   AUTH_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().positive().default(60),
+  PASSWORD_RESET_TOKEN_TTL_MINUTES: z.coerce.number().int().positive().default(60),
   GOOGLE_AUTH_ENABLED: z
     .enum(['true', 'false'])
     .default('false')
