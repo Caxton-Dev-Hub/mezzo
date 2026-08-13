@@ -4,7 +4,7 @@ A milestone-driven prompt playbook for building Mezzo, an AI-assisted escrow pla
 
 **Product in one line:** two strangers create an escrow, the initiator captures the product's condition (photos + optional video), invites the counterparty, both agree on terms, the buyer funds the escrow *after* reviewing the evidence, the seller ships, the buyer confirms receipt and either releases funds or raises a dispute — where an AI arbitration layer (human in the loop) rules on the evidence.
 
-**Two tracks.** Backend milestones (Milestone 0–12) build the API. Frontend milestones (F1–F7) build the Next.js web client against it. They interleave: build a backend milestone, then the frontend milestone that consumes its API surface. The suggested interleaving is at the end of this file.
+**Two tracks.** Backend milestones (Milestone 0–13) build the API. Frontend milestones (F1–F7) build the Next.js web client against it. They interleave: build a backend milestone, then the frontend milestone that consumes its API surface. The suggested interleaving is at the end of this file.
 
 ---
 
@@ -373,6 +373,39 @@ Only if you want the trust-minimized variant that ties into your Arbitra work.
 - An on-chain release emits an event that the listener reconciles to exactly one off-chain posting.
 - Divergence between Horizon state and the internal ledger is detected and flagged.
 - Feature flag off = zero on-chain code path exercised (the web2 flow is unaffected).
+
+---
+
+## Milestone 13 — WhatsApp bot (full transactional)
+
+Depends on: Milestone 1 (Auth), Milestone 3 (Escrow), Milestone 7 (Settlement), Milestone 8 (Disputes), Milestone 10 (Notifications, Audit from Milestone 11 if built).
+
+> **Prompt**
+>
+> Build a `whatsapp` module giving users a bidirectional bot interface over the Meta WhatsApp Cloud API, sitting alongside `chat` and `notifications` rather than inside either.
+>
+> - **Webhook ingress:** `GET` handshake verification + `POST` event receiver. Verify every inbound request's `X-Hub-Signature-256` against `WHATSAPP_APP_SECRET` before parsing the body; reject unverified requests. Enqueue each inbound message onto BullMQ and return 200 immediately — command handling happens off the request path. Dedupe on WhatsApp's `message.id` (Redis `SETNX` + short TTL) since Meta redelivers on any timeout/ambiguity.
+> - **Outbound delivery:** implement a `WhatsAppChannel` satisfying the existing `NotificationChannel` interface (`notifications/channels`) so escrow/dispute state-transition notifications fan out over WhatsApp exactly like email/SMS today, using pre-approved Meta message templates for anything sent outside a 24h user-initiated session window.
+> - **Account linking:** a user's WhatsApp number is never trusted on its own. Linking requires the user to prove control of the number *and* of the already-verified email/phone on their Mezzo account (reuse `auth`'s OTP/token issuance) before `whatsappVerifiedAt` is set. One WhatsApp number per user; re-verification required if the number changes.
+> - **Conversation state:** Redis-backed session per phone number (`idle`, `linking`, `awaiting-pin`, `confirming-release`, …) driven by a BullMQ worker, with a TTL so a half-finished flow can't sit open indefinitely. Prefer WhatsApp interactive buttons/lists over free-text parsing.
+> - **Step-up auth for money movement:** releasing funds, approving an escrow, or accepting a dispute resolution over WhatsApp requires a second factor inside that same conversation turn — a hashed PIN (set at onboarding, rate-limited, lockout after N failures) — and the confirmation message must spell out the exact amount (via the `Money` value object, never a raw integer) and counterparty before the user confirms.
+> - **Command handlers only call existing services** (`escrow.service`, `settlement.service`, `disputes`) — the WhatsApp module owns no escrow state of its own, so `IllegalTransitionError`/`InsufficientFundsError` etc. surface through the same global exception filter. Every transactional command writes an `AuditEvent` (actor, command, before/after, correlationId) same as any other privileged action.
+> - Commands in scope: link account, check escrow status, list active escrows/disputes, approve delivery / start inspection window, release funds (step-up), reply to a dispute / attach evidence link, opt out of notifications.
+> - A `FakeWhatsAppClient` for tests — no test ever calls the real Meta API. Config (`WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_BUSINESS_ACCOUNT_ID`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET`) is Zod-validated at boot like every other module.
+> - Ship behind a feature flag; the transactional commands (release, approve) get their own inner flag so they can be disabled instantly without pulling the whole bot.
+
+**Test cases**
+- An unverified webhook signature is rejected with no side effects (no queue write, no state change).
+- Redelivering the same `message.id` is a no-op the second time.
+- A user cannot execute any command before completing account linking; linking requires proving control of both the WhatsApp number and the existing verified email/phone.
+- `release funds` without a correct PIN does not move money; N consecutive wrong PINs locks the flow out for a cooldown window.
+- A successful `release funds` command moves money exactly once, matches the amount/counterparty shown in the confirmation message, and produces exactly one `AuditEvent` linked to the resulting ledger posting.
+- Fund-moving commands routed through an illegal escrow state (e.g. release before delivery is confirmed) return the same `IllegalTransitionError` the REST API would, not a bot-specific bypass.
+- A stale/expired conversation session cannot be resumed to complete a fund-moving action.
+- Disabling the transactional-commands flag leaves read-only commands (status, list) working while release/approve are refused.
+- An outbound state-transition notification is delivered via `WhatsAppChannel` exactly once per (event, channel, user), matching the existing notification idempotency test pattern.
+
+**Definition of done:** account linking, read-only commands, and outbound notifications are green end-to-end against `FakeWhatsAppClient`; the step-up release flow is green including PIN lockout; the transactional flag can disable money movement without a deploy.
 
 ---
 
