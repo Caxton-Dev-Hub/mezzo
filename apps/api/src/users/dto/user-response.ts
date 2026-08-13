@@ -8,6 +8,7 @@ export function toUserResponse(user: User): UserResponse {
     id: user.id,
     email: user.email,
     role: user.role,
+    emailVerified: user.emailVerifiedAt !== null,
     createdAt: user.createdAt,
   };
 }

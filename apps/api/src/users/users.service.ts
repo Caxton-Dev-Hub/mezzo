@@ -52,6 +52,7 @@ export class UsersService {
 
     if (existing) {
       existing.googleSub = googleSub;
+      existing.emailVerifiedAt ??= new Date();
       return this.usersRepository.save(existing);
     }
 
@@ -59,6 +60,7 @@ export class UsersService {
       email: normalizedEmail,
       passwordHash: null,
       googleSub,
+      emailVerifiedAt: new Date(),
       role: this.bootstrapAdminEmails.has(normalizedEmail) ? UserRole.ADMIN : UserRole.USER,
     });
 
