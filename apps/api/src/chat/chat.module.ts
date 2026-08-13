@@ -6,6 +6,7 @@ import { ChatRead } from '../database/entities/chat-read.entity';
 import { EvidenceItem } from '../database/entities/evidence-item.entity';
 import { EvidenceFlag } from '../database/entities/evidence-flag.entity';
 import { EscrowModule } from '../escrow/escrow.module';
+import { StorageModule } from '../evidence/storage/storage.module';
 import { ChatService } from './chat.service';
 import { ChatController } from './chat.controller';
 import { ChatGateway } from './chat.gateway';
@@ -15,6 +16,7 @@ import { ChatGateway } from './chat.gateway';
     TypeOrmModule.forFeature([ChatMessage, ChatRead, EvidenceItem, EvidenceFlag]),
     JwtModule.register({}),
     EscrowModule,
+    StorageModule,
   ],
   controllers: [ChatController],
   providers: [ChatService, ChatGateway],

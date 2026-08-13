@@ -25,6 +25,7 @@ function hoursAgo(hours: number): Date {
 function buildEscrow(state: EscrowState, updatedAt: Date, deliveredAt: Date | null = null): Escrow {
   return {
     id: '11111111-1111-4111-8111-111111111111',
+    code: 'ESC-000001',
     state,
     version: 1,
     trackingReference: null,

@@ -124,7 +124,10 @@ function buildHarness(
   const transactionSpy = jest
     .fn()
     .mockImplementation((cb: (m: EntityManager) => Promise<unknown>) => cb(manager));
-  const dataSource = { transaction: transactionSpy } as unknown as DataSource;
+  const dataSource = {
+    transaction: transactionSpy,
+    query: jest.fn().mockResolvedValue([{ value: '1' }]),
+  } as unknown as DataSource;
 
   const getDetail = jest.fn().mockResolvedValue({
     escrow: { id: ESCROW_ID, state: options.escrowState ?? EscrowState.AGREED, version: 3 },

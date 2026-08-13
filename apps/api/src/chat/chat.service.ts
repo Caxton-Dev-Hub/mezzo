@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { ChatMessage } from '../database/entities/chat-message.entity';
@@ -10,6 +10,7 @@ import { NotEscrowPartyError } from '../escrow/errors/not-escrow-party.error';
 import { AuthenticatedUser } from '../common/types/authenticated-user';
 import { UserRole } from '../users/entities/user-role.enum';
 import { EvidenceItemResponse, toEvidenceItemResponse } from '../evidence/dto/evidence-response';
+import { STORAGE_PROVIDER, StorageProvider } from '../evidence/storage/storage-provider.interface';
 import { SendMessageDto } from './dto/chat.schemas';
 import { ChatMessageResponse, ChatReadState, toChatMessageResponse } from './dto/chat-response';
 import { EvidenceAttachmentNotFoundError } from './errors/evidence-attachment-not-found.error';
@@ -26,6 +27,8 @@ export class ChatService {
     @InjectRepository(ChatRead)
     private readonly chatReads: Repository<ChatRead>,
     private readonly escrowService: EscrowService,
+    @Inject(STORAGE_PROVIDER)
+    private readonly storage: StorageProvider,
   ) {}
 
   async assertCanAccess(escrowId: string, user: AuthenticatedUser): Promise<void> {
@@ -56,8 +59,9 @@ export class ChatService {
         throw new EvidenceAttachmentNotFoundError();
       }
       const flags = await this.evidenceFlags.find({ where: { evidenceItemId: item.id } });
+      const url = await this.storage.getPresignedDownloadUrl(item.storageKey);
       attachmentEvidenceItemId = item.id;
-      attachment = toEvidenceItemResponse(item, flags);
+      attachment = toEvidenceItemResponse(item, flags, url);
     }
 
     const saved = await this.messages.save(
@@ -117,12 +121,17 @@ export class ChatService {
     const flags =
       itemIds.length > 0 ? await this.evidenceFlags.find({ where: { evidenceItemId: In(itemIds) } }) : [];
     const itemById = new Map(items.map((item) => [item.id, item]));
+    const urlById = new Map(
+      await Promise.all(
+        items.map(async (item) => [item.id, await this.storage.getPresignedDownloadUrl(item.storageKey)] as const),
+      ),
+    );
 
     return messages.map((message) => {
       const item = message.attachmentEvidenceItemId
         ? itemById.get(message.attachmentEvidenceItemId)
         : undefined;
-      const attachment = item ? toEvidenceItemResponse(item, flags) : null;
+      const attachment = item ? toEvidenceItemResponse(item, flags, urlById.get(item.id)) : null;
       return toChatMessageResponse(message, attachment);
     });
   }

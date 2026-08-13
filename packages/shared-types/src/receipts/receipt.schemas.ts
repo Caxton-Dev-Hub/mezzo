@@ -4,6 +4,7 @@ import { escrowStateSchema } from '../escrow/escrow.schemas';
 
 export const receiptResponseSchema = z.object({
   escrowId: z.string().uuid(),
+  escrowCode: z.string(),
   state: escrowStateSchema,
   itemDescription: z.string(),
   deliveryMethod: z.string(),

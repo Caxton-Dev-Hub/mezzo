@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
@@ -59,6 +58,13 @@ export class PaymentsService {
     private readonly webhookSignature: WebhookSignatureService,
   ) {}
 
+  private async generatePaymentReference(): Promise<string> {
+    const [{ value }] = await this.dataSource.query<[{ value: string }]>(
+      "SELECT nextval('payment_reference_seq') AS value",
+    );
+    return `PAY-${value.padStart(6, '0')}`;
+  }
+
   async initiateFunding(buyerId: string, escrowId: string): Promise<PaymentIntentResponse> {
     const { escrow, terms, parties } = await this.escrowService.getDetail(escrowId);
 
@@ -95,7 +101,7 @@ export class PaymentsService {
       throw new NotFoundException('Buyer not found');
     }
 
-    const reference = randomUUID();
+    const reference = await this.generatePaymentReference();
     const { authorizationUrl } = await this.paymentProvider.initializeTransaction({
       email: buyer.email,
       amountKobo: price.amount,

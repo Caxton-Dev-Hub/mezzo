@@ -11,6 +11,7 @@ import { EscrowParty } from '../database/entities/escrow-party.entity';
 function buildEscrow(state: EscrowState): Escrow {
   return {
     id: randomUUID(),
+    code: 'ESC-000001',
     state,
     version: 1,
     trackingReference: null,

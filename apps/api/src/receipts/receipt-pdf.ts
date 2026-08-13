@@ -27,7 +27,7 @@ export function renderReceiptPdf(receipt: ReceiptResponse): PDFKit.PDFDocument {
     doc.moveDown(0.4);
   };
 
-  line('Escrow ID', receipt.escrowId);
+  line('Escrow ID', receipt.escrowCode);
   line('Status', receipt.state);
   line('Item', receipt.itemDescription);
   line('Delivery method', receipt.deliveryMethod);

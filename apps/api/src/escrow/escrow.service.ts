@@ -3,7 +3,7 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import type { InvitePreviewResponse } from '@mezzo/shared-types';
 import { Escrow } from '../database/entities/escrow.entity';
 import { EscrowTerms } from '../database/entities/escrow-terms.entity';
@@ -65,11 +65,19 @@ export class EscrowService {
     private readonly storage: StorageProvider,
   ) {}
 
+  private async generateEscrowCode(manager: EntityManager): Promise<string> {
+    const [{ value }] = await manager.query<[{ value: string }]>(
+      "SELECT nextval('escrow_code_seq') AS value",
+    );
+    return `ESC-${value.padStart(6, '0')}`;
+  }
+
   async createDraft(initiatorId: string, dto: CreateEscrowDto): Promise<Escrow> {
     const price = Money.of(dto.price.amount, dto.price.currency);
 
     return this.dataSource.transaction(async (manager) => {
-      const escrow = await manager.save(Escrow, manager.create(Escrow, {}));
+      const code = await this.generateEscrowCode(manager);
+      const escrow = await manager.save(Escrow, manager.create(Escrow, { code }));
 
       await manager.save(
         EscrowTerms,

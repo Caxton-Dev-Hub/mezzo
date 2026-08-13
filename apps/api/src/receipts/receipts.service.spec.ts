@@ -22,6 +22,7 @@ const ESCROW_ID = 'escrow-1';
 function buildEscrow(): Escrow {
   return {
     id: ESCROW_ID,
+    code: 'ESC-000001',
     state: EscrowState.FUNDED,
     version: 1,
     trackingReference: null,

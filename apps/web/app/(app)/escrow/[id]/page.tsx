@@ -33,6 +33,17 @@ const RECEIPT_ELIGIBLE_STATES = new Set([
   'REFUNDED',
 ]);
 
+const SHIPMENT_EVIDENCE_VISIBLE_STATES = new Set([
+  'FUNDED',
+  'SHIPPED',
+  'DELIVERED',
+  'DISPUTED',
+  'RELEASED',
+  'RESOLVED_RELEASE',
+  'RESOLVED_REFUND',
+  'REFUNDED',
+]);
+
 const DISPUTE_LINK_STATES = new Set([
   'DISPUTED',
   'RESOLVED_RELEASE',
@@ -109,6 +120,8 @@ export default function EscrowDetailPage() {
   const termsFrozen = !NON_EDITABLE_STATES.has(escrow.state);
   const creationEvidence =
     evidenceQuery.data?.items.filter((item) => item.phase === 'AT_CREATION') ?? [];
+  const shipmentEvidence =
+    evidenceQuery.data?.items.filter((item) => item.phase === 'AT_SHIPMENT') ?? [];
   const dispute = disputesQuery.data?.[0];
   const counterparty = escrow.parties.find((party) => party.userId !== currentUserId);
 
@@ -152,6 +165,17 @@ export default function EscrowDetailPage() {
               <EvidenceViewer items={creationEvidence} emptyLabel="No creation evidence on file" />
             )}
           </section>
+
+          {SHIPMENT_EVIDENCE_VISIBLE_STATES.has(escrow.state) ? (
+            <section>
+              <h2 className="mb-3 text-sm font-medium text-vellum">Evidence at shipment</h2>
+              {evidenceQuery.isLoading ? (
+                <div className="h-32 animate-pulse rounded-xl bg-surface-2" />
+              ) : (
+                <EvidenceViewer items={shipmentEvidence} emptyLabel="No shipment evidence on file" />
+              )}
+            </section>
+          ) : null}
 
           <section>
             <h2 className="mb-3 text-sm font-medium text-vellum">Chat</h2>

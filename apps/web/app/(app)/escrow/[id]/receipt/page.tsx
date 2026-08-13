@@ -101,7 +101,7 @@ export default function EscrowReceiptPage() {
       <dl className="mt-6 space-y-3 rounded-xl border border-line-soft bg-surface shadow-card p-4 text-sm">
         <div className="flex justify-between gap-4">
           <dt className="text-fog">Escrow</dt>
-          <dd className="text-right font-mono text-[12px] text-vellum">{receipt.escrowId}</dd>
+          <dd className="text-right font-mono text-[12px] text-vellum">{receipt.escrowCode}</dd>
         </div>
         <div className="flex justify-between gap-4">
           <dt className="text-fog">Status</dt>

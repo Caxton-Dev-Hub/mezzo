@@ -34,6 +34,7 @@ const INVITE_EXPIRY_HOURS = 72;
 function buildEscrow(overrides: Partial<Escrow> = {}): Escrow {
   return {
     id: ESCROW_ID,
+    code: 'ESC-000001',
     state: EscrowState.PENDING_COUNTERPARTY,
     version: 2,
     trackingReference: null,
@@ -206,6 +207,7 @@ function buildHarness(
   const manager = {
     save: managerSave,
     create: (_entity: unknown, row: Record<string, unknown>) => row,
+    query: jest.fn().mockResolvedValue([{ value: '1' }]),
   } as unknown as EntityManager;
   const dataSource = {
     transaction: jest.fn().mockImplementation((cb: (m: EntityManager) => Promise<unknown>) => cb(manager)),

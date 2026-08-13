@@ -1,10 +1,21 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { EscrowState } from '../../escrow/entities/escrow-state.enum';
 
 @Entity('escrows')
 export class Escrow {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
+
+  @Index({ unique: true })
+  @Column({ type: 'varchar', length: 20 })
+  code!: string;
 
   @Column({ type: 'enum', enum: EscrowState, default: EscrowState.DRAFT })
   state!: EscrowState;

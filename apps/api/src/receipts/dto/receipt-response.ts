@@ -22,6 +22,7 @@ export function toReceiptResponse(source: ReceiptSource): ReceiptResponse {
 
   return {
     escrowId: source.escrow.id,
+    escrowCode: source.escrow.code,
     state: source.escrow.state,
     itemDescription: source.terms.itemDescription,
     deliveryMethod: source.terms.deliveryMethod,

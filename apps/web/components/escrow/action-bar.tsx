@@ -9,6 +9,7 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { ConfirmModal } from '../ui/confirm-modal';
 import { RaiseDisputeModal } from './raise-dispute-modal';
+import { EvidenceCapture } from '../evidence/evidence-capture';
 import {
   acceptEscrowTerms,
   cancelEscrow,
@@ -248,6 +249,12 @@ export function ActionBar({ escrow, currentUserId }: ActionBarProps) {
           onChange={(event) => setTrackingReference(event.target.value)}
           placeholder="e.g. courier tracking number"
         />
+        <div className="mt-4">
+          <Label>Photo evidence (optional)</Label>
+          <div className="mt-2">
+            <EvidenceCapture escrowId={escrow.id} phase="AT_SHIPMENT" />
+          </div>
+        </div>
       </ConfirmModal>
 
       <ConfirmModal

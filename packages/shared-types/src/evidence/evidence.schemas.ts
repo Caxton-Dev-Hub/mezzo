@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const evidencePhaseSchema = z.enum(['AT_CREATION', 'AT_DELIVERY', 'CHAT']);
+export const evidencePhaseSchema = z.enum(['AT_CREATION', 'AT_SHIPMENT', 'AT_DELIVERY', 'CHAT']);
 
 export type EvidencePhase = z.infer<typeof evidencePhaseSchema>;
 

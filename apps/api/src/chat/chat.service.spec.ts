@@ -12,6 +12,7 @@ import { EvidencePhase } from '../evidence/entities/evidence-phase.enum';
 import { EvidenceFlagType } from '../evidence/entities/evidence-flag-type.enum';
 import { AuthenticatedUser } from '../common/types/authenticated-user';
 import { UserRole } from '../users/entities/user-role.enum';
+import { StorageProvider } from '../evidence/storage/storage-provider.interface';
 
 const ESCROW_ID = 'escrow-1';
 const BUYER_ID = 'buyer-1';
@@ -68,6 +69,7 @@ interface Harness {
   readsValues: jest.Mock;
   getDetail: jest.Mock;
   hasEverBeenDisputed: jest.Mock;
+  getPresignedDownloadUrl: jest.Mock;
 }
 
 function buildHarness(
@@ -128,8 +130,11 @@ function buildHarness(
   const hasEverBeenDisputed = jest.fn().mockResolvedValue(options.disputed ?? false);
   const escrowService = { getDetail, hasEverBeenDisputed } as unknown as EscrowService;
 
+  const getPresignedDownloadUrl = jest.fn().mockImplementation((key: string) => Promise.resolve(`https://storage.test/${key}`));
+  const storage = { getPresignedDownloadUrl } as unknown as StorageProvider;
+
   return {
-    service: new ChatService(messages, evidenceItems, evidenceFlags, chatReads, escrowService),
+    service: new ChatService(messages, evidenceItems, evidenceFlags, chatReads, escrowService, storage),
     messagesFind,
     messagesSave,
     itemsFind,
@@ -139,6 +144,7 @@ function buildHarness(
     readsValues,
     getDetail,
     hasEverBeenDisputed,
+    getPresignedDownloadUrl,
   };
 }
 
@@ -226,6 +232,8 @@ describe('ChatService.send', () => {
 
     expect(message.attachment?.id).toBe('item-1');
     expect(message.attachment?.flags).toEqual([EvidenceFlagType.MISSING_METADATA]);
+    expect(message.attachment?.url).toBe('https://storage.test/evidence/one.jpg');
+    expect(harness.getPresignedDownloadUrl).toHaveBeenCalledWith('evidence/one.jpg');
   });
 
   it('looks the attachment up scoped to the escrow, not by id alone', async () => {
@@ -284,6 +292,7 @@ describe('ChatService.list', () => {
 
     expect(messages[0].attachment).toBeNull();
     expect(messages[1].attachment?.id).toBe('item-1');
+    expect(messages[1].attachment?.url).toBe('https://storage.test/evidence/one.jpg');
   });
 });
 
