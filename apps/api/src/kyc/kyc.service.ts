@@ -15,6 +15,8 @@ import { KycWebhookDto } from './dto/kyc.schemas';
 import { KycTierRequiredError } from './errors/kyc-tier-required.error';
 import { TransactionCapExceededError } from './errors/transaction-cap-exceeded.error';
 import { UnknownKycVerificationError } from './errors/unknown-kyc-verification.error';
+import { VerificationDisabledError } from './errors/verification-disabled.error';
+import { SettingsService } from '../settings/settings.service';
 
 @Injectable()
 export class KycService {
@@ -28,9 +30,14 @@ export class KycService {
     @Inject(KYC_PROVIDER)
     private readonly provider: KycProvider,
     private readonly caps: KycCapsService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   async submit(userId: string, tier: KycTier): Promise<KycVerification> {
+    if (!(await this.settingsService.isVerificationEnabled())) {
+      throw new VerificationDisabledError();
+    }
+
     const user = await this.getUserOrThrow(userId);
     const { providerReference } = await this.provider.submit({ userId, tier });
 
@@ -112,6 +119,10 @@ export class KycService {
   }
 
   async requireTier(userId: string, minTier: KycTier): Promise<void> {
+    if (!(await this.settingsService.isVerificationEnabled())) {
+      return;
+    }
+
     const tier = await this.getTier(userId);
     if (tierRank(tier) < tierRank(minTier)) {
       throw new KycTierRequiredError(minTier);
@@ -120,6 +131,10 @@ export class KycService {
 
   async assertCanFund(userId: string, amount: Money, requiresVerification: boolean): Promise<void> {
     if (!requiresVerification) {
+      return;
+    }
+
+    if (!(await this.settingsService.isVerificationEnabled())) {
       return;
     }
 

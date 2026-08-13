@@ -17,6 +17,7 @@ import { useAuthStore } from "../lib/auth-store";
 vi.mock("next/navigation", () => ({
   useParams: () => ({ id: "dispute-1" }),
   useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => "/admin",
 }));
 
 const BUYER_ID = "11111111-1111-4111-8111-111111111111";

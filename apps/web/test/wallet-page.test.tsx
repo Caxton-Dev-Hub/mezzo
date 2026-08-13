@@ -30,9 +30,16 @@ function stubFetch(
     payouts?: PayoutResponse[];
     onSubmitKyc?: () => Response;
     onRequestPayout?: () => Response;
+    verificationEnabled?: boolean;
   } = {},
 ) {
-  const { tier = 'TIER_1', payouts = [], onSubmitKyc, onRequestPayout } = options;
+  const {
+    tier = 'TIER_1',
+    payouts = [],
+    onSubmitKyc,
+    onRequestPayout,
+    verificationEnabled = true,
+  } = options;
   const requested: PayoutResponse[] = [];
 
   const fetchMock = vi.fn(async (input: string | URL, init?: RequestInit) => {
@@ -81,7 +88,7 @@ function stubFetch(
             201,
           );
     }
-    return jsonResponse({ tier, latestVerification: null });
+    return jsonResponse({ tier, latestVerification: null, verificationEnabled });
   });
 
   vi.stubGlobal('fetch', fetchMock);
@@ -123,6 +130,14 @@ describe('WalletPage', () => {
 
     expect(await screen.findByText('Pending confirmation')).toBeInTheDocument();
     expect(screen.getByText('Paid out')).toBeInTheDocument();
+  });
+
+  it('lets a sub-tier user withdraw while verification is set to coming soon', async () => {
+    stubFetch({ tier: 'TIER_0', verificationEnabled: false });
+    renderWithProviders(<WalletPage />);
+
+    expect(await screen.findByRole('button', { name: 'Withdraw' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Verify now' })).not.toBeInTheDocument();
   });
 
   it('blocks a sub-tier user from withdrawing and offers an inline verify path', async () => {

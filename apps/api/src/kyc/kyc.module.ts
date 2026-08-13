@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '../database/entities/user.entity';
 import { KycVerification } from '../database/entities/kyc-verification.entity';
 import { KycEvent } from '../database/entities/kyc-event.entity';
+import { SettingsModule } from '../settings/settings.module';
 import { KycController } from './kyc.controller';
 import { KycService } from './kyc.service';
 import { KycCapsService } from './kyc-caps.service';
@@ -14,7 +15,7 @@ import { FakeKycProvider } from './providers/fake-kyc.provider';
 import { DojahKycProvider } from './providers/dojah-kyc.provider';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, KycVerification, KycEvent])],
+  imports: [TypeOrmModule.forFeature([User, KycVerification, KycEvent]), SettingsModule],
   controllers: [KycController],
   providers: [
     KycService,

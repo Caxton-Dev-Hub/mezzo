@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { User } from '../database/entities/user.entity';
 import { UserRole } from './entities/user-role.enum';
 import { EmailAlreadyRegisteredError } from './errors/email-already-registered.error';
@@ -75,5 +75,18 @@ export class UsersService {
 
   findAll(): Promise<User[]> {
     return this.usersRepository.find({ order: { createdAt: 'ASC' } });
+  }
+
+  async findEmailsByIds(ids: string[]): Promise<Map<string, string>> {
+    if (ids.length === 0) {
+      return new Map();
+    }
+
+    const users = await this.usersRepository.find({
+      where: { id: In(ids) },
+      select: { id: true, email: true },
+    });
+
+    return new Map(users.map((user) => [user.id, user.email]));
   }
 }

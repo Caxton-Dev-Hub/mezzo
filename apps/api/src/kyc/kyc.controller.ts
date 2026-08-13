@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { KycService } from './kyc.service';
 import { KycWebhookSignatureService } from './webhook-signature.service';
+import { SettingsService } from '../settings/settings.service';
 import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
@@ -29,6 +30,7 @@ export class KycController {
   constructor(
     private readonly kycService: KycService,
     private readonly webhookSignature: KycWebhookSignatureService,
+    private readonly settingsService: SettingsService,
   ) {}
 
   @Post('submissions')
@@ -56,14 +58,16 @@ export class KycController {
 
   @Get('me')
   async me(@CurrentUser() currentUser: AuthenticatedUser): Promise<KycStatusResponse> {
-    const [tier, latestVerification] = await Promise.all([
+    const [tier, latestVerification, verificationEnabled] = await Promise.all([
       this.kycService.getTier(currentUser.id),
       this.kycService.getLatestVerification(currentUser.id),
+      this.settingsService.isVerificationEnabled(),
     ]);
 
     return {
       tier,
       latestVerification: latestVerification ? toKycVerificationResponse(latestVerification) : null,
+      verificationEnabled,
     };
   }
 }

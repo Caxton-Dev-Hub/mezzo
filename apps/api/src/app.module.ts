@@ -7,6 +7,7 @@ import { HealthModule } from './health/health.module';
 import { CommonModule } from './common/common.module';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
+import { SettingsModule } from './settings/settings.module';
 import { KycModule } from './kyc/kyc.module';
 import { EscrowModule } from './escrow/escrow.module';
 import { EvidenceModule } from './evidence/evidence.module';
@@ -36,6 +37,7 @@ const databaseBacked = isDatabaseConfigured();
     AuthModule,
     ...(databaseBacked
       ? [
+          SettingsModule,
           KycModule,
           NotificationsModule,
           EscrowModule,

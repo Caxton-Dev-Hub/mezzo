@@ -10,6 +10,8 @@ import { KycProvider } from './providers/kyc-provider.interface';
 import { KycTierRequiredError } from './errors/kyc-tier-required.error';
 import { TransactionCapExceededError } from './errors/transaction-cap-exceeded.error';
 import { UnknownKycVerificationError } from './errors/unknown-kyc-verification.error';
+import { VerificationDisabledError } from './errors/verification-disabled.error';
+import { SettingsService } from '../settings/settings.service';
 import { Money } from '../common/money/money';
 import { User } from '../database/entities/user.entity';
 import { KycVerification } from '../database/entities/kyc-verification.entity';
@@ -108,7 +110,7 @@ function buildUser(tier: KycTier): User {
   };
 }
 
-function buildHarness(): {
+function buildHarness(verificationEnabled = true): {
   service: KycService;
   users: InMemoryUserRepository;
   verifications: InMemoryVerificationRepository;
@@ -130,12 +132,17 @@ function buildHarness(): {
   const caps = new KycCapsService(configService);
   const provider = new StubKycProvider();
 
+  const settingsService = {
+    isVerificationEnabled: jest.fn().mockResolvedValue(verificationEnabled),
+  } as unknown as SettingsService;
+
   const service = new KycService(
     users as unknown as Repository<User>,
     verifications as unknown as Repository<KycVerification>,
     events as unknown as Repository<KycEvent>,
     provider,
     caps,
+    settingsService,
   );
 
   return { service, users, verifications, events };
@@ -319,6 +326,46 @@ describe('KycService', () => {
       await expect(
         service.handleProviderCallback({ providerReference: 'does-not-exist', status: 'APPROVED' }),
       ).rejects.toBeInstanceOf(UnknownKycVerificationError);
+    });
+  });
+
+  describe('when an admin has turned verification off', () => {
+    it('refuses new submissions', async () => {
+      const { service, users } = buildHarness(false);
+      const user = buildUser(KycTier.TIER_0);
+      await users.save(user);
+
+      await expect(service.submit(user.id, KycTier.TIER_1)).rejects.toBeInstanceOf(
+        VerificationDisabledError,
+      );
+    });
+
+    it('lets a TIER_0 user through a tier gate', async () => {
+      const { service, users } = buildHarness(false);
+      const user = buildUser(KycTier.TIER_0);
+      await users.save(user);
+
+      await expect(service.requireTier(user.id, KycTier.TIER_1)).resolves.toBeUndefined();
+    });
+
+    it('lets a TIER_0 user fund an escrow that requires verification', async () => {
+      const { service, users } = buildHarness(false);
+      const user = buildUser(KycTier.TIER_0);
+      await users.save(user);
+
+      await expect(
+        service.assertCanFund(user.id, Money.of(900_000_000, 'NGN'), true),
+      ).resolves.toBeUndefined();
+    });
+
+    it('still enforces gates once verification is turned back on', async () => {
+      const { service, users } = buildHarness(true);
+      const user = buildUser(KycTier.TIER_0);
+      await users.save(user);
+
+      await expect(service.requireTier(user.id, KycTier.TIER_1)).rejects.toBeInstanceOf(
+        KycTierRequiredError,
+      );
     });
   });
 });

@@ -39,7 +39,7 @@ function stubFetch(
     const method = init?.method ?? 'GET';
 
     if (url.includes('/kyc/me')) {
-      return new Response(JSON.stringify({ tier, latestVerification: null }), { status: 200 });
+      return new Response(JSON.stringify({ tier, latestVerification: null, verificationEnabled: true }), { status: 200 });
     }
 
     if (url.includes('/profiles/me') && method === 'PATCH') {

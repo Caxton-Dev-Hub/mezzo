@@ -16,7 +16,7 @@ export class AuditEvent {
   entityType!: string;
 
   @Index()
-  @Column({ name: 'entity_id', type: 'uuid' })
+  @Column({ name: 'entity_id', type: 'varchar', length: 64 })
   entityId!: string;
 
   @Column({ type: 'text', nullable: true })

@@ -44,6 +44,7 @@ function stubEscrows(
   kyc: {
     tier: KycTier;
     latestVerification?: KycVerificationResponse | null;
+    verificationEnabled?: boolean;
   } = {
     tier: 'TIER_1',
   },
@@ -56,6 +57,7 @@ function stubEscrows(
         JSON.stringify({
           tier: kyc.tier,
           latestVerification: kyc.latestVerification ?? null,
+          verificationEnabled: kyc.verificationEnabled ?? true,
         }),
         { status: 200 },
       );
@@ -223,6 +225,16 @@ describe('DashboardPage', () => {
     renderWithProviders(<DashboardPage />);
 
     expect(await screen.findByText(/Your verification is in review/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Verify now' })).not.toBeInTheDocument();
+  });
+
+  it('drops the verification nudge entirely when an admin has verification set to coming soon', async () => {
+    stubEscrows([], { tier: 'TIER_0', verificationEnabled: false });
+
+    renderWithProviders(<DashboardPage />);
+
+    await waitFor(() => expect(screen.queryByText('No escrows yet')).toBeInTheDocument());
+    expect(screen.queryByText('Verify your identity to continue')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Verify now' })).not.toBeInTheDocument();
   });
 

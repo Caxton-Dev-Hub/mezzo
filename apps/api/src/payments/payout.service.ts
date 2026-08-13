@@ -98,6 +98,10 @@ export class PayoutService {
     return payouts.map(toPayoutResponse);
   }
 
+  async listAllPayouts(status?: PayoutStatus): Promise<Payout[]> {
+    return this.payouts.find({ where: status ? { status } : {}, order: { createdAt: 'DESC' } });
+  }
+
   async handleTransferWebhook(event: PaymentWebhookEventInput): Promise<void> {
     const payout = await this.payouts.findOne({ where: { providerReference: event.reference } });
     if (!payout || payout.status !== PayoutStatus.PENDING) {

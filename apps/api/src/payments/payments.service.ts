@@ -130,6 +130,10 @@ export class PaymentsService {
     return { intent: intent ? toPaymentIntentResponse(intent) : null };
   }
 
+  async listAllIntents(status?: PaymentIntentStatus): Promise<PaymentIntent[]> {
+    return this.intents.find({ where: status ? { status } : {}, order: { createdAt: 'DESC' } });
+  }
+
   async handlePaystackWebhook(
     rawBody: Buffer,
     signatureHeader: string | undefined,

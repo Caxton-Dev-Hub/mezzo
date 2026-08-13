@@ -2,6 +2,7 @@
 
 import { ShieldAlert } from 'lucide-react';
 import { useAuthStore } from '../../../lib/auth-store';
+import { AdminNav } from '../../../components/admin/admin-nav';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const status = useAuthStore((state) => state.status);
@@ -23,5 +24,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <AdminNav isAdmin={role === 'ADMIN'} />
+      {children}
+    </>
+  );
 }

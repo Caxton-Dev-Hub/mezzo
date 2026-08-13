@@ -1,4 +1,4 @@
-import type { KycTier, SubmitKycDto } from '@mezzo/shared-types';
+import type { KycStatusResponse, KycTier, SubmitKycDto } from '@mezzo/shared-types';
 import { ApiError } from './api-error';
 
 type SubmittableTier = SubmitKycDto['tier'];
@@ -16,6 +16,10 @@ export const KYC_TIER_LABELS: Record<KycTier, string> = {
 
 export function meetsTier(tier: KycTier, minimum: KycTier): boolean {
   return TIER_ORDER.indexOf(tier) >= TIER_ORDER.indexOf(minimum);
+}
+
+export function verificationBlocks(status: KycStatusResponse, minimum: KycTier): boolean {
+  return status.verificationEnabled && !meetsTier(status.tier, minimum);
 }
 
 function isSubmittableTier(value: unknown): value is SubmittableTier {

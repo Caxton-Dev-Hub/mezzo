@@ -5,11 +5,24 @@ import { LedgerModule } from '../ledger/ledger.module';
 import { KycModule } from '../kyc/kyc.module';
 import { UsersModule } from '../users/users.module';
 import { AuditModule } from '../audit/audit.module';
+import { EscrowModule } from '../escrow/escrow.module';
+import { PaymentsModule } from '../payments/payments.module';
+import { SettingsModule } from '../settings/settings.module';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 
 @Module({
-  imports: [DisputeModule, ArbitrationModule, LedgerModule, KycModule, UsersModule, AuditModule],
+  imports: [
+    DisputeModule,
+    ArbitrationModule,
+    LedgerModule,
+    KycModule,
+    UsersModule,
+    AuditModule,
+    EscrowModule,
+    PaymentsModule,
+    SettingsModule,
+  ],
   controllers: [AdminController],
   providers: [AdminService],
 })

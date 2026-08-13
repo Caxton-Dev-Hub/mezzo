@@ -6,7 +6,7 @@ import { ShieldAlert } from 'lucide-react';
 import { useAuthStore } from '../../../lib/auth-store';
 import { getPayouts, getWalletActivity, getWalletBalances } from '../../../lib/payments-client';
 import { getKycStatus } from '../../../lib/kyc-client';
-import { KYC_TIER_LABELS, PAYOUT_MIN_TIER, meetsTier } from '../../../lib/kyc-tiers';
+import { KYC_TIER_LABELS, PAYOUT_MIN_TIER, verificationBlocks } from '../../../lib/kyc-tiers';
 import { ApiError } from '../../../lib/api-error';
 import { Button } from '../../../components/ui/button';
 import { VerifyPrompt } from '../../../components/kyc/verify-prompt';
@@ -65,7 +65,7 @@ export default function WalletPage() {
   }
 
   const kycStatus = kycQuery.data ?? null;
-  const canRequestPayout = kycStatus ? meetsTier(kycStatus.tier, PAYOUT_MIN_TIER) : false;
+  const canRequestPayout = kycStatus ? !verificationBlocks(kycStatus, PAYOUT_MIN_TIER) : false;
 
   return (
     <div>

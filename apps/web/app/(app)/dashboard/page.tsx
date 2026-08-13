@@ -7,7 +7,7 @@ import { useAuthStore } from '../../../lib/auth-store';
 import { useEscrowWizardStore } from '../../../lib/escrow-wizard-store';
 import { listEscrows } from '../../../lib/escrow-client';
 import { getKycStatus } from '../../../lib/kyc-client';
-import { meetsTier, PAYOUT_MIN_TIER } from '../../../lib/kyc-tiers';
+import { PAYOUT_MIN_TIER, verificationBlocks } from '../../../lib/kyc-tiers';
 import { ApiError } from '../../../lib/api-error';
 import { buttonVariants } from '../../../components/ui/button';
 import { EscrowList } from '../../../components/escrow/escrow-list';
@@ -36,7 +36,7 @@ export default function DashboardPage() {
   const started = escrows.filter((escrow) => escrow.state !== 'DRAFT');
 
   const kycStatus = kycQuery.data ?? null;
-  const needsVerification = kycStatus ? !meetsTier(kycStatus.tier, PAYOUT_MIN_TIER) : false;
+  const needsVerification = kycStatus ? verificationBlocks(kycStatus, PAYOUT_MIN_TIER) : false;
 
   return (
     <div>

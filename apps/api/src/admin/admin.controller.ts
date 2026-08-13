@@ -1,17 +1,29 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
 import { AdminService } from './admin.service';
-import { AdminDisputePacketResponse } from '@mezzo/shared-types';
+import {
+  AdminDisputePacketResponse,
+  PlatformSettingsResponse,
+  updateVerificationEnabledSchema,
+  UpdateVerificationEnabledDto,
+} from '@mezzo/shared-types';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { AuthenticatedUser } from '../common/types/authenticated-user';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { UserRole } from '../users/entities/user-role.enum';
 import { DisputeState } from '../disputes/entities/dispute-state.enum';
+import { EscrowState } from '../escrow/entities/escrow-state.enum';
 import { KycVerificationStatus } from '../kyc/entities/kyc-verification-status.enum';
+import { PayoutStatus } from '../payments/entities/payout-status.enum';
+import { PaymentIntentStatus } from '../payments/entities/payment-intent-status.enum';
 import { ReconciliationReport } from '../ledger/reconciliation.service';
 import {
   AdminDisputeSummaryResponse,
+  AdminEscrowResponse,
   AdminKycVerificationResponse,
+  AdminPaymentIntentResponse,
+  AdminPayoutResponse,
+  AdminRiskItemResponse,
   AdminUserResponse,
   AuditEventResponse,
   LedgerEntryResponse,
@@ -104,5 +116,47 @@ export class AdminController {
     @Query('entityId') entityId?: string,
   ): Promise<AuditEventResponse[]> {
     return this.adminService.listAuditEvents(entityType, entityId);
+  }
+
+  @Get('escrows')
+  @Roles(UserRole.ADMIN)
+  async listEscrows(@Query('state') state?: EscrowState): Promise<AdminEscrowResponse[]> {
+    return this.adminService.listEscrows(state);
+  }
+
+  @Get('escrows/at-risk')
+  @Roles(UserRole.ADMIN)
+  async listAtRisk(): Promise<AdminRiskItemResponse[]> {
+    return this.adminService.listAtRisk();
+  }
+
+  @Get('payouts')
+  @Roles(UserRole.ADMIN)
+  async listPayouts(@Query('status') status?: PayoutStatus): Promise<AdminPayoutResponse[]> {
+    return this.adminService.listPayouts(status);
+  }
+
+  @Get('payment-intents')
+  @Roles(UserRole.ADMIN)
+  async listPaymentIntents(
+    @Query('status') status?: PaymentIntentStatus,
+  ): Promise<AdminPaymentIntentResponse[]> {
+    return this.adminService.listPaymentIntents(status);
+  }
+
+  @Get('settings')
+  @Roles(UserRole.ADMIN)
+  async getSettings(): Promise<PlatformSettingsResponse> {
+    return this.adminService.getPlatformSettings();
+  }
+
+  @Post('settings/verification')
+  @HttpCode(HttpStatus.OK)
+  @Roles(UserRole.ADMIN)
+  async setVerificationEnabled(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Body(new ZodValidationPipe(updateVerificationEnabledSchema)) dto: UpdateVerificationEnabledDto,
+  ): Promise<PlatformSettingsResponse> {
+    return this.adminService.setVerificationEnabled(currentUser.id, dto);
   }
 }

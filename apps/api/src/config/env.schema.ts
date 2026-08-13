@@ -22,6 +22,10 @@ export const envSchema = z.object({
     .default('false')
     .transform((value) => value === 'true'),
   GOOGLE_CLIENT_ID: z.string().min(1).optional(),
+  VERIFICATION_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
   KYC_PROVIDER: z.enum(['fake', 'dojah']).default('fake'),
   KYC_TIER_1_CAP_KOBO: z.coerce.number().int().positive().default(50_000_000),
   KYC_TIER_2_CAP_KOBO: z.coerce.number().int().positive().default(500_000_000),
@@ -31,6 +35,10 @@ export const envSchema = z.object({
   DOJAH_PRIVATE_KEY: z.string().min(1).optional(),
   DOJAH_WEBHOOK_SECRET: z.string().min(1).optional(),
   ESCROW_INVITE_EXPIRY_HOURS: z.coerce.number().int().positive().default(72),
+  ADMIN_RISK_UNSHIPPED_HOURS: z.coerce.number().int().positive().default(48),
+  ADMIN_RISK_STALE_PAYOUT_HOURS: z.coerce.number().int().positive().default(24),
+  ADMIN_RISK_STALE_INTENT_HOURS: z.coerce.number().int().positive().default(6),
+  ADMIN_RISK_UNSETTLED_HOURS: z.coerce.number().int().positive().default(1),
   S3_ENDPOINT: z.string().url(),
   S3_REGION: z.string().min(1).default('us-east-1'),
   S3_ACCESS_KEY_ID: z.string().min(1),

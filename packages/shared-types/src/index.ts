@@ -11,4 +11,5 @@ export * from './chat';
 export * from './notifications';
 export * from './arbitration';
 export * from './admin';
+export * from './settings';
 export * from './receipts';

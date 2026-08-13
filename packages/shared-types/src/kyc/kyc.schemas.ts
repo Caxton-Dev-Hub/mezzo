@@ -27,6 +27,7 @@ export type KycVerificationResponse = z.infer<typeof kycVerificationResponseSche
 export const kycStatusResponseSchema = z.object({
   tier: kycTierSchema,
   latestVerification: kycVerificationResponseSchema.nullable(),
+  verificationEnabled: z.boolean(),
 });
 
 export type KycStatusResponse = z.infer<typeof kycStatusResponseSchema>;

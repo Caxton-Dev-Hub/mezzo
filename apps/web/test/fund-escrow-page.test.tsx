@@ -76,7 +76,7 @@ function stubFetch(
       return jsonResponse({ intent: currentIntent });
     }
     if (url.includes('/kyc/me')) {
-      return jsonResponse({ tier, latestVerification: null });
+      return jsonResponse({ tier, latestVerification: null, verificationEnabled: true });
     }
     if (url.includes('/evidence/')) {
       return jsonResponse({ escrowId: 'escrow-1', items: [] });
