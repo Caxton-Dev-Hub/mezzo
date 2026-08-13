@@ -17,6 +17,8 @@ export const envSchema = z.object({
   AUTH_RATE_LIMIT_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
   AUTH_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().positive().default(60),
   PASSWORD_RESET_TOKEN_TTL_MINUTES: z.coerce.number().int().positive().default(60),
+  EMAIL_VERIFICATION_CODE_TTL_MINUTES: z.coerce.number().int().positive().default(15),
+  EMAIL_VERIFICATION_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
   GOOGLE_AUTH_ENABLED: z
     .enum(['true', 'false'])
     .default('false')

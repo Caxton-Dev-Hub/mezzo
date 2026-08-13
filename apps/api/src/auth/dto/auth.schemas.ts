@@ -11,4 +11,8 @@ export {
   type ForgotPasswordDto,
   resetPasswordSchema,
   type ResetPasswordDto,
+  verifyEmailSchema,
+  type VerifyEmailDto,
+  resendVerificationSchema,
+  type ResendVerificationDto,
 } from '@mezzo/shared-types';

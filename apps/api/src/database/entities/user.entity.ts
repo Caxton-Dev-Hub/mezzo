@@ -46,6 +46,9 @@ export class User {
   @Column({ name: 'avatar_key', type: 'text', nullable: true })
   avatarKey!: string | null;
 
+  @Column({ name: 'email_verified_at', type: 'timestamptz', nullable: true })
+  emailVerifiedAt!: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 

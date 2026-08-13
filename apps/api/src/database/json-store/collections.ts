@@ -1,5 +1,6 @@
 import { KycTier } from '../../kyc/entities/kyc-tier.enum';
 import { UserRole } from '../../users/entities/user-role.enum';
+import { EmailVerificationCode } from '../entities/email-verification-code.entity';
 import { PasswordResetToken } from '../entities/password-reset-token.entity';
 import { RefreshToken } from '../entities/refresh-token.entity';
 import { User } from '../entities/user.entity';
@@ -20,10 +21,11 @@ export const USERS_COLLECTION: JsonCollectionSchema<User> = {
     'bio',
     'location',
     'avatarKey',
+    'emailVerifiedAt',
     'createdAt',
     'updatedAt',
   ],
-  dateFields: ['createdAt', 'updatedAt'],
+  dateFields: ['emailVerifiedAt', 'createdAt', 'updatedAt'],
   unique: [['email'], ['googleSub']],
   hasUpdatedAt: true,
   defaults: () => ({
@@ -36,6 +38,7 @@ export const USERS_COLLECTION: JsonCollectionSchema<User> = {
     bio: null,
     location: null,
     avatarKey: null,
+    emailVerifiedAt: null,
   }),
 };
 
@@ -57,4 +60,14 @@ export const PASSWORD_RESET_TOKENS_COLLECTION: JsonCollectionSchema<PasswordRese
   unique: [['tokenHash']],
   hasUpdatedAt: false,
   defaults: () => ({ usedAt: null }),
+};
+
+export const EMAIL_VERIFICATION_CODES_COLLECTION: JsonCollectionSchema<EmailVerificationCode> = {
+  table: 'email_verification_codes',
+  entity: 'EmailVerificationCode',
+  fields: ['id', 'userId', 'codeHash', 'attempts', 'expiresAt', 'usedAt', 'createdAt'],
+  dateFields: ['expiresAt', 'usedAt', 'createdAt'],
+  unique: [['userId']],
+  hasUpdatedAt: false,
+  defaults: () => ({ attempts: 0, usedAt: null }),
 };

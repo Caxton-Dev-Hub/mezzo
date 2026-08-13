@@ -1,6 +1,7 @@
 import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { PasswordResetService } from './password-reset.service';
+import { EmailVerificationService } from './email-verification.service';
 import { Public } from '../common/decorators/public.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { AuthRateLimitGuard } from './guards/auth-rate-limit.guard';
@@ -17,6 +18,10 @@ import {
   ForgotPasswordDto,
   resetPasswordSchema,
   ResetPasswordDto,
+  verifyEmailSchema,
+  VerifyEmailDto,
+  resendVerificationSchema,
+  ResendVerificationDto,
 } from './dto/auth.schemas';
 import { UserResponse } from '../users/dto/user-response';
 import { TokenPair } from './token.service';
@@ -26,6 +31,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly passwordResetService: PasswordResetService,
+    private readonly emailVerificationService: EmailVerificationService,
   ) {}
 
   @Public()
@@ -81,5 +87,23 @@ export class AuthController {
     @Body(new ZodValidationPipe(resetPasswordSchema)) dto: ResetPasswordDto,
   ): Promise<void> {
     return this.passwordResetService.reset(dto);
+  }
+
+  @Public()
+  @UseGuards(AuthRateLimitGuard)
+  @Post('verify-email')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  verifyEmail(@Body(new ZodValidationPipe(verifyEmailSchema)) dto: VerifyEmailDto): Promise<void> {
+    return this.emailVerificationService.verify(dto);
+  }
+
+  @Public()
+  @UseGuards(AuthRateLimitGuard)
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  resendVerification(
+    @Body(new ZodValidationPipe(resendVerificationSchema)) dto: ResendVerificationDto,
+  ): Promise<void> {
+    return this.emailVerificationService.resend(dto);
   }
 }

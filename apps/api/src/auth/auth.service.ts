@@ -4,9 +4,11 @@ import { toUserResponse, UserResponse } from '../users/dto/user-response';
 import { PasswordService } from './password.service';
 import { TokenService, TokenPair } from './token.service';
 import { GoogleTokenVerifier } from './google-token-verifier.service';
+import { EmailVerificationService } from './email-verification.service';
 import { RegisterDto, LoginDto, RefreshDto, GoogleLoginDto } from './dto/auth.schemas';
 import { InvalidCredentialsError } from './errors/invalid-credentials.error';
 import { GoogleEmailNotVerifiedError } from './errors/google-email-not-verified.error';
+import { EmailNotVerifiedError } from './errors/email-not-verified.error';
 
 @Injectable()
 export class AuthService {
@@ -15,11 +17,13 @@ export class AuthService {
     private readonly passwordService: PasswordService,
     private readonly tokenService: TokenService,
     private readonly googleTokenVerifier: GoogleTokenVerifier,
+    private readonly emailVerificationService: EmailVerificationService,
   ) {}
 
   async register(dto: RegisterDto): Promise<UserResponse> {
     const passwordHash = await this.passwordService.hash(dto.password);
     const user = await this.usersService.create(dto.email, passwordHash);
+    await this.emailVerificationService.sendCode(user);
     return toUserResponse(user);
   }
 
@@ -34,6 +38,10 @@ export class AuthService {
 
     if (!passwordValid) {
       throw new InvalidCredentialsError();
+    }
+
+    if (!user.emailVerifiedAt) {
+      throw new EmailNotVerifiedError();
     }
 
     const tokens = await this.tokenService.issueTokenPair(user);
