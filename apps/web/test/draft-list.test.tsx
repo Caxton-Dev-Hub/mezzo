@@ -47,7 +47,13 @@ describe('DraftList', () => {
     useAuthStore.setState({
       status: 'authenticated',
       accessToken: 'token',
-      user: { id: USER_ID, email: 'buyer@example.com', role: 'USER', createdAt: new Date() },
+      user: {
+        id: USER_ID,
+        email: 'buyer@example.com',
+        role: 'USER',
+        emailVerified: true,
+        createdAt: new Date(),
+      },
     });
   });
 

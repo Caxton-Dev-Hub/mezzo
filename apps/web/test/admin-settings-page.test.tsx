@@ -44,6 +44,7 @@ describe('AdminSettingsPage', () => {
         id: ADMIN_ID,
         email: 'admin@mezzo.app',
         role: 'ADMIN',
+        emailVerified: true,
         createdAt: new Date('2026-01-01T00:00:00Z'),
       },
     });

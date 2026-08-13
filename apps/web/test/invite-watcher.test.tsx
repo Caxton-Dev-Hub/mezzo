@@ -77,7 +77,13 @@ describe('InviteWatcher', () => {
     useAuthStore.setState({
       status: 'authenticated',
       accessToken: 'token',
-      user: { id: CREATOR_ID, email: 'creator@example.com', role: 'USER', createdAt: new Date() },
+      user: {
+        id: CREATOR_ID,
+        email: 'creator@example.com',
+        role: 'USER',
+        emailVerified: true,
+        createdAt: new Date(),
+      },
     });
   });
 

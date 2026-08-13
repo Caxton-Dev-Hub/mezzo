@@ -100,7 +100,13 @@ describe('WalletPage', () => {
     useAuthStore.setState({
       status: 'authenticated',
       accessToken: 'token',
-      user: { id: USER_ID, email: 'seller@example.com', role: 'USER', createdAt: new Date() },
+      user: {
+        id: USER_ID,
+        email: 'seller@example.com',
+        role: 'USER',
+        emailVerified: true,
+        createdAt: new Date(),
+      },
     });
   });
 

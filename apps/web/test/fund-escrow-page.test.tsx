@@ -93,7 +93,13 @@ describe('FundEscrowPage', () => {
     useAuthStore.setState({
       status: 'authenticated',
       accessToken: 'token',
-      user: { id: BUYER_ID, email: 'buyer@example.com', role: 'USER', createdAt: new Date() },
+      user: {
+        id: BUYER_ID,
+        email: 'buyer@example.com',
+        role: 'USER',
+        emailVerified: true,
+        createdAt: new Date(),
+      },
     });
   });
 
@@ -179,7 +185,13 @@ describe('FundEscrowPage', () => {
     useAuthStore.setState({
       status: 'authenticated',
       accessToken: 'token',
-      user: { id: SELLER_ID, email: 'seller@example.com', role: 'USER', createdAt: new Date() },
+      user: {
+        id: SELLER_ID,
+        email: 'seller@example.com',
+        role: 'USER',
+        emailVerified: true,
+        createdAt: new Date(),
+      },
     });
     stubFetch({ state: 'AGREED', intent: null });
 

@@ -99,6 +99,7 @@ describe("ChatPanel", () => {
         id: STRANGER_ID,
         email: "stranger@example.com",
         role: "USER",
+        emailVerified: true,
         createdAt: new Date(),
       },
     });
@@ -118,6 +119,7 @@ describe("ChatPanel", () => {
         id: BUYER_ID,
         email: "buyer@example.com",
         role: "USER",
+        emailVerified: true,
         createdAt: new Date(),
       },
     });
@@ -176,6 +178,7 @@ describe("ChatPanel", () => {
         id: BUYER_ID,
         email: "buyer@example.com",
         role: "USER",
+        emailVerified: true,
         createdAt: new Date(),
       },
     });
@@ -195,6 +198,7 @@ describe("ChatPanel", () => {
         id: BUYER_ID,
         email: "buyer@example.com",
         role: "USER",
+        emailVerified: true,
         createdAt: new Date(),
       },
     });

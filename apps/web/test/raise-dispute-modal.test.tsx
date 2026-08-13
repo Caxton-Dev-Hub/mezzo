@@ -34,7 +34,13 @@ describe('RaiseDisputeModal', () => {
     useAuthStore.setState({
       status: 'authenticated',
       accessToken: 'token',
-      user: { id: 'buyer-id', email: 'buyer@example.com', role: 'USER', createdAt: new Date() },
+      user: {
+        id: 'buyer-id',
+        email: 'buyer@example.com',
+        role: 'USER',
+        emailVerified: true,
+        createdAt: new Date(),
+      },
     });
     stubRaise();
   });

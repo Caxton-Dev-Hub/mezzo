@@ -103,6 +103,7 @@ describe('DashboardPage', () => {
         id: USER_ID,
         email: 'buyer@example.com',
         role: 'USER',
+        emailVerified: true,
         createdAt: new Date(),
       },
     });

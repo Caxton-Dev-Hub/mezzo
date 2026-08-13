@@ -38,6 +38,7 @@ function signIn(role: UserRole) {
       id: "arbiter-id",
       email: "arbiter@example.com",
       role,
+      emailVerified: true,
       createdAt: new Date(),
     },
   });

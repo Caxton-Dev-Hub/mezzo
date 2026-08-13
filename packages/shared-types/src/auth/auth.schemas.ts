@@ -40,6 +40,19 @@ export const resetPasswordSchema = z.object({
 
 export type ResetPasswordDto = z.infer<typeof resetPasswordSchema>;
 
+export const verifyEmailSchema = z.object({
+  email: z.string().email(),
+  code: z.string().length(6),
+});
+
+export type VerifyEmailDto = z.infer<typeof verifyEmailSchema>;
+
+export const resendVerificationSchema = z.object({
+  email: z.string().email(),
+});
+
+export type ResendVerificationDto = z.infer<typeof resendVerificationSchema>;
+
 export const tokenPairSchema = z.object({
   accessToken: z.string().min(1),
   refreshToken: z.string().min(1),

@@ -122,7 +122,13 @@ function signIn(userId: string) {
   useAuthStore.setState({
     status: 'authenticated',
     accessToken: 'token',
-    user: { id: userId, email: `${userId}@example.com`, role: 'USER', createdAt: new Date() },
+    user: {
+      id: userId,
+      email: `${userId}@example.com`,
+      role: 'USER',
+      emailVerified: true,
+      createdAt: new Date(),
+    },
   });
 }
 

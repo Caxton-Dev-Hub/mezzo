@@ -87,7 +87,13 @@ describe('InvitePreviewPage', () => {
     useAuthStore.setState({
       status: 'authenticated',
       accessToken: 'token',
-      user: { id: 'seller-id', email: 's@example.com', role: 'USER', createdAt: new Date() },
+      user: {
+        id: 'seller-id',
+        email: 's@example.com',
+        role: 'USER',
+        emailVerified: true,
+        createdAt: new Date(),
+      },
     });
 
     const user = userEvent.setup();
