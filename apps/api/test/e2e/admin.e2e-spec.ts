@@ -26,10 +26,18 @@ import { LedgerService } from '../../src/ledger/ledger.service';
 import { ReconciliationService } from '../../src/ledger/reconciliation.service';
 import { MetricsService } from '../../src/observability/metrics.service';
 import { LoggingAlertsService } from '../../src/observability/logging-alerts.service';
-import { escrowHoldingRef, userWalletRef, platformFeeRevenueRef, treasuryRef } from '../../src/ledger/account-refs';
+import {
+  escrowHoldingRef,
+  userWalletRef,
+  platformFeeRevenueRef,
+  treasuryRef,
+} from '../../src/ledger/account-refs';
 import { EntryDirection } from '../../src/ledger/entities/entry-direction.enum';
 import { Money } from '../../src/common/money/money';
-import { NOTIFICATION_QUEUE, NotificationDeliveryJobData } from '../../src/notifications/notification-queue.constants';
+import {
+  NOTIFICATION_QUEUE,
+  NotificationDeliveryJobData,
+} from '../../src/notifications/notification-queue.constants';
 import { NotificationEventType } from '../../src/notifications/entities/notification-event-type.enum';
 import { RedisService } from '../../src/redis/redis.service';
 
@@ -100,9 +108,12 @@ describe('Admin (e2e)', () => {
     return { Authorization: `Bearer ${token}` };
   }
 
-  async function registerAndLogin(role: UserRole = UserRole.USER): Promise<{ userId: string; accessToken: string }> {
+  async function registerAndLogin(
+    role: UserRole = UserRole.USER,
+  ): Promise<{ userId: string; accessToken: string }> {
     const email = uniqueEmail();
     await request(server).post('/auth/register').send({ email, password });
+    await users.update({ email }, { emailVerifiedAt: new Date() });
     if (role !== UserRole.USER) {
       await users.update({ email }, { role });
     }
@@ -115,7 +126,11 @@ describe('Admin (e2e)', () => {
     await users.update({ id: userId }, { kycTier: KycTier.TIER_1 });
   }
 
-  async function seedEvidence(escrowId: string, uploaderId: string, phase: EvidencePhase): Promise<void> {
+  async function seedEvidence(
+    escrowId: string,
+    uploaderId: string,
+    phase: EvidencePhase,
+  ): Promise<void> {
     await evidenceItems.save(
       evidenceItems.create({
         escrowId,
@@ -166,35 +181,61 @@ describe('Admin (e2e)', () => {
     const draftResponse = await request(server)
       .post('/escrows')
       .set(auth(buyer.accessToken))
-      .send({ ...defaultTerms, price: { amount: priceAmount, currency: 'NGN' }, role: EscrowRole.BUYER });
+      .send({
+        ...defaultTerms,
+        price: { amount: priceAmount, currency: 'NGN' },
+        role: EscrowRole.BUYER,
+      });
     const draft = draftResponse.body as EscrowDetailBody;
     await seedEvidence(draft.id, buyer.userId, EvidencePhase.AT_CREATION);
 
-    const inviteResponse = await request(server).post(`/escrows/${draft.id}/invite`).set(auth(buyer.accessToken));
+    const inviteResponse = await request(server)
+      .post(`/escrows/${draft.id}/invite`)
+      .set(auth(buyer.accessToken));
     const invite = inviteResponse.body as InviteBody;
     await request(server).post(`/invites/${invite.token}/accept`).set(auth(seller.accessToken));
     await request(server).post(`/escrows/${draft.id}/accept-terms`).set(auth(buyer.accessToken));
     await request(server).post(`/escrows/${draft.id}/accept-terms`).set(auth(seller.accessToken));
 
-    const fundResponse = await request(server).post(`/payments/escrows/${draft.id}/fund`).set(auth(buyer.accessToken));
+    const fundResponse = await request(server)
+      .post(`/payments/escrows/${draft.id}/fund`)
+      .set(auth(buyer.accessToken));
     const intent = fundResponse.body as PaymentIntentBody;
     const status = await postSignedWebhook({
       event: 'charge.success',
-      data: { id: `evt-${randomUUID()}`, reference: intent.reference, amount: priceAmount, currency: 'NGN', status: 'success' },
+      data: {
+        id: `evt-${randomUUID()}`,
+        reference: intent.reference,
+        amount: priceAmount,
+        currency: 'NGN',
+        status: 'success',
+      },
     });
     expect(status).toBe(200);
 
     await request(server).post(`/escrows/${draft.id}/ship`).set(auth(seller.accessToken)).send({});
-    await request(server).post(`/escrows/${draft.id}/confirm-delivery`).set(auth(buyer.accessToken));
+    await request(server)
+      .post(`/escrows/${draft.id}/confirm-delivery`)
+      .set(auth(buyer.accessToken));
 
     await seedEvidence(draft.id, buyer.userId, EvidencePhase.AT_DELIVERY);
     const disputeResponse = await request(server)
       .post(`/escrows/${draft.id}/disputes`)
       .set(auth(buyer.accessToken))
-      .send({ reasonCode: DisputeReasonCode.NOT_AS_DESCRIBED, statement: 'Item does not match listing.' });
+      .send({
+        reasonCode: DisputeReasonCode.NOT_AS_DESCRIBED,
+        statement: 'Item does not match listing.',
+      });
     const dispute = disputeResponse.body as DisputeBody;
 
-    return { escrowId: draft.id, disputeId: dispute.id, buyer, seller, priceAmount, feeBps: defaultTerms.feeBps };
+    return {
+      escrowId: draft.id,
+      disputeId: dispute.id,
+      buyer,
+      seller,
+      priceAmount,
+      feeBps: defaultTerms.feeBps,
+    };
   }
 
   beforeAll(async () => {
@@ -206,7 +247,9 @@ describe('Admin (e2e)', () => {
     evidenceItems = app.get<Repository<EvidenceItem>>(getRepositoryToken(EvidenceItem));
     ledgerAccounts = app.get<Repository<LedgerAccount>>(getRepositoryToken(LedgerAccount));
     auditEvents = app.get<Repository<AuditEvent>>(getRepositoryToken(AuditEvent));
-    arbitrationRecords = app.get<Repository<ArbitrationRecord>>(getRepositoryToken(ArbitrationRecord));
+    arbitrationRecords = app.get<Repository<ArbitrationRecord>>(
+      getRepositoryToken(ArbitrationRecord),
+    );
     ledger = app.get(LedgerService);
     reconciliation = app.get(ReconciliationService);
     metrics = app.get(MetricsService);
@@ -226,9 +269,12 @@ describe('Admin (e2e)', () => {
   });
 
   it('denies a plain USER access to execute a resolution, and executing one as ARBITER links the ArbitrationRecord and writes exactly one AuditEvent', async () => {
-    const { disputeId, escrowId, seller, priceAmount, feeBps, buyer } = await createDisputedEscrow(100_000);
+    const { disputeId, escrowId, seller, priceAmount, feeBps, buyer } =
+      await createDisputedEscrow(100_000);
     const arbiter = await registerAndLogin(UserRole.ARBITER);
-    await request(server).post(`/disputes/${disputeId}/close-evidence-window`).set(auth(arbiter.accessToken));
+    await request(server)
+      .post(`/disputes/${disputeId}/close-evidence-window`)
+      .set(auth(arbiter.accessToken));
 
     const deniedAttempt = await request(server)
       .post(`/disputes/${disputeId}/resolve`)
@@ -243,7 +289,9 @@ describe('Admin (e2e)', () => {
     expect(resolveResponse.status).toBe(200);
     expect((resolveResponse.body as DisputeBody).resolvedArbitrationRecordId).toBeNull();
 
-    const escrowResponse = await request(server).get(`/escrows/${escrowId}`).set(auth(buyer.accessToken));
+    const escrowResponse = await request(server)
+      .get(`/escrows/${escrowId}`)
+      .set(auth(buyer.accessToken));
     expect((escrowResponse.body as EscrowDetailBody).state).toBe(EscrowState.RELEASED);
 
     const feeAmount = Math.floor((priceAmount * feeBps) / 10_000);
@@ -252,7 +300,9 @@ describe('Admin (e2e)', () => {
       currency: 'NGN',
     });
 
-    const events = await auditEvents.find({ where: { entityType: 'dispute', entityId: disputeId } });
+    const events = await auditEvents.find({
+      where: { entityType: 'dispute', entityId: disputeId },
+    });
     expect(events).toHaveLength(1);
     expect(events[0].action).toBe('DISPUTE_RESOLUTION_EXECUTED');
   });
@@ -277,19 +327,26 @@ describe('Admin (e2e)', () => {
     expect(recommendResponse.status).toBe(201);
     const record = recommendResponse.body as { id: string };
 
-    await request(server).post(`/disputes/${disputeId}/close-evidence-window`).set(auth(arbiter.accessToken));
+    await request(server)
+      .post(`/disputes/${disputeId}/close-evidence-window`)
+      .set(auth(arbiter.accessToken));
 
     const resolveResponse = await request(server)
       .post(`/disputes/${disputeId}/resolve`)
       .set(auth(arbiter.accessToken))
-      .send({ outcome: DisputeResolutionOutcome.RELEASE_TO_SELLER, arbitrationRecordId: record.id });
+      .send({
+        outcome: DisputeResolutionOutcome.RELEASE_TO_SELLER,
+        arbitrationRecordId: record.id,
+      });
     expect(resolveResponse.status).toBe(200);
     expect((resolveResponse.body as DisputeBody).resolvedArbitrationRecordId).toBe(record.id);
 
     const persisted = await arbitrationRecords.findOneOrFail({ where: { id: record.id } });
     expect(persisted.disputeId).toBe(disputeId);
 
-    const events = await auditEvents.find({ where: { entityType: 'dispute', entityId: disputeId } });
+    const events = await auditEvents.find({
+      where: { entityType: 'dispute', entityId: disputeId },
+    });
     expect(events).toHaveLength(1);
     expect(events[0].reason).toContain(record.id);
   });
@@ -301,7 +358,10 @@ describe('Admin (e2e)', () => {
     const response = await request(server)
       .post(`/disputes/${disputeId}/resolve`)
       .set(auth(arbiter.accessToken))
-      .send({ outcome: DisputeResolutionOutcome.RELEASE_TO_SELLER, arbitrationRecordId: randomUUID() });
+      .send({
+        outcome: DisputeResolutionOutcome.RELEASE_TO_SELLER,
+        arbitrationRecordId: randomUUID(),
+      });
 
     expect(response.status).toBe(400);
   });
@@ -335,11 +395,17 @@ describe('Admin (e2e)', () => {
     expect(response.status).toBe(201);
     const posting = response.body as LedgerPostingBody;
     expect(posting.entries).toHaveLength(2);
-    const debitTotal = posting.entries.filter((e) => e.direction === 'DEBIT').reduce((sum, e) => sum + e.amount, 0);
-    const creditTotal = posting.entries.filter((e) => e.direction === 'CREDIT').reduce((sum, e) => sum + e.amount, 0);
+    const debitTotal = posting.entries
+      .filter((e) => e.direction === 'DEBIT')
+      .reduce((sum, e) => sum + e.amount, 0);
+    const creditTotal = posting.entries
+      .filter((e) => e.direction === 'CREDIT')
+      .reduce((sum, e) => sum + e.amount, 0);
     expect(debitTotal).toBe(creditTotal);
 
-    const events = await auditEvents.find({ where: { entityType: 'ledger_posting', entityId: posting.id } });
+    const events = await auditEvents.find({
+      where: { entityType: 'ledger_posting', entityId: posting.id },
+    });
     expect(events).toHaveLength(1);
     expect(events[0].action).toBe('LEDGER_ADJUSTMENT_POSTED');
   });
@@ -348,8 +414,16 @@ describe('Admin (e2e)', () => {
     const escrowId = randomUUID();
     await ledger.postTransaction(
       [
-        { accountRef: treasuryRef(), direction: EntryDirection.DEBIT, money: Money.of(10_000, 'NGN') },
-        { accountRef: escrowHoldingRef(escrowId), direction: EntryDirection.CREDIT, money: Money.of(10_000, 'NGN') },
+        {
+          accountRef: treasuryRef(),
+          direction: EntryDirection.DEBIT,
+          money: Money.of(10_000, 'NGN'),
+        },
+        {
+          accountRef: escrowHoldingRef(escrowId),
+          direction: EntryDirection.CREDIT,
+          money: Money.of(10_000, 'NGN'),
+        },
       ],
       { idempotencyKey: `drift-admin-${escrowId}` },
     );
@@ -360,7 +434,9 @@ describe('Admin (e2e)', () => {
 
     const before = await metrics.getLedgerDriftTotal();
     const admin = await registerAndLogin(UserRole.ADMIN);
-    const response = await request(server).get('/admin/ledger/reconciliation').set(auth(admin.accessToken));
+    const response = await request(server)
+      .get('/admin/ledger/reconciliation')
+      .set(auth(admin.accessToken));
     expect(response.status).toBe(200);
     expect((response.body as { driftedAccountRefs: string[] }).driftedAccountRefs).toContain(ref);
 
@@ -376,7 +452,9 @@ describe('Admin (e2e)', () => {
     const { disputeId, buyer, seller } = await createDisputedEscrow(20_000);
     const arbiter = await registerAndLogin(UserRole.ARBITER);
     const correlationId = randomUUID();
-    await request(server).post(`/disputes/${disputeId}/close-evidence-window`).set(auth(arbiter.accessToken));
+    await request(server)
+      .post(`/disputes/${disputeId}/close-evidence-window`)
+      .set(auth(arbiter.accessToken));
 
     const resolveResponse = await request(server)
       .post(`/disputes/${disputeId}/resolve`)

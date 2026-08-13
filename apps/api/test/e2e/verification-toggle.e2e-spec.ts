@@ -53,6 +53,7 @@ describe('Verification availability toggle (e2e)', () => {
   ): Promise<{ userId: string; accessToken: string }> {
     const email = uniqueEmail();
     await request(server).post('/auth/register').send({ email, password });
+    await users.update({ email }, { emailVerifiedAt: new Date() });
     if (role !== UserRole.USER) {
       await users.update({ email }, { role });
     }
@@ -138,10 +139,7 @@ describe('Verification availability toggle (e2e)', () => {
     const admin = await registerAndLogin(UserRole.ADMIN);
     const user = await registerAndLogin();
 
-    const blocked = await request(server)
-      .get('/payouts')
-      .set(auth(user.accessToken))
-      .send();
+    const blocked = await request(server).get('/payouts').set(auth(user.accessToken)).send();
     expect(blocked.status).toBe(200);
 
     const blockedPayout = await request(server)

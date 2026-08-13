@@ -21,7 +21,11 @@ import { DisputeService } from '../../src/disputes/dispute.service';
 import { SettlementService } from '../../src/escrow/settlement.service';
 import { LedgerService } from '../../src/ledger/ledger.service';
 import { ReconciliationService } from '../../src/ledger/reconciliation.service';
-import { escrowHoldingRef, userWalletRef, platformFeeRevenueRef } from '../../src/ledger/account-refs';
+import {
+  escrowHoldingRef,
+  userWalletRef,
+  platformFeeRevenueRef,
+} from '../../src/ledger/account-refs';
 import { RedisService } from '../../src/redis/redis.service';
 
 const PAYSTACK_SECRET = 'test-paystack-secret-key';
@@ -111,6 +115,7 @@ describe('Disputes (e2e)', () => {
   }> {
     const email = uniqueEmail();
     await request(server).post('/auth/register').send({ email, password });
+    await users.update({ email }, { emailVerifiedAt: new Date() });
     if (role !== UserRole.USER) {
       await users.update({ email }, { role });
     }
@@ -209,7 +214,9 @@ describe('Disputes (e2e)', () => {
     expect(status).toBe(200);
 
     await request(server).post(`/escrows/${draft.id}/ship`).set(auth(seller.accessToken)).send({});
-    await request(server).post(`/escrows/${draft.id}/confirm-delivery`).set(auth(buyer.accessToken));
+    await request(server)
+      .post(`/escrows/${draft.id}/confirm-delivery`)
+      .set(auth(buyer.accessToken));
 
     return { escrowId: draft.id, buyer, seller, priceAmount, feeBps: defaultTerms.feeBps };
   }
@@ -378,7 +385,10 @@ describe('Disputes (e2e)', () => {
       evidenceWindowElapsed: false,
     });
 
-    await disputes.update({ id: dispute.id }, { evidenceWindowExpiresAt: new Date(Date.now() - 1000) });
+    await disputes.update(
+      { id: dispute.id },
+      { evidenceWindowExpiresAt: new Date(Date.now() - 1000) },
+    );
 
     const elapsedPacket = await request(server)
       .get(`/disputes/${dispute.id}`)
@@ -405,8 +415,12 @@ describe('Disputes (e2e)', () => {
     await seedEvidence(escrowId, seller.userId, EvidencePhase.AT_DELIVERY);
     const arbiter = await registerAndLogin(UserRole.ARBITER);
 
-    const first = await request(server).get(`/disputes/${dispute.id}`).set(auth(arbiter.accessToken));
-    const second = await request(server).get(`/disputes/${dispute.id}`).set(auth(arbiter.accessToken));
+    const first = await request(server)
+      .get(`/disputes/${dispute.id}`)
+      .set(auth(arbiter.accessToken));
+    const second = await request(server)
+      .get(`/disputes/${dispute.id}`)
+      .set(auth(arbiter.accessToken));
 
     expect(first.body).toEqual(second.body);
     const serialized = JSON.stringify(first.body);
@@ -448,7 +462,10 @@ describe('Disputes (e2e)', () => {
 
     const feeAmount = Math.floor((priceAmount * feeBps) / 10_000);
     const sellerAmount = priceAmount - feeAmount;
-    expect(await ledger.getBalance(escrowHoldingRef(escrowId))).toEqual({ amount: 0, currency: 'NGN' });
+    expect(await ledger.getBalance(escrowHoldingRef(escrowId))).toEqual({
+      amount: 0,
+      currency: 'NGN',
+    });
     expect(await ledger.getBalance(userWalletRef(seller.userId))).toEqual({
       amount: sellerAmount,
       currency: 'NGN',
@@ -470,7 +487,10 @@ describe('Disputes (e2e)', () => {
     const escrow = await getEscrow(escrowId, buyer.accessToken);
     expect(escrow.state).toBe(EscrowState.REFUNDED);
 
-    expect(await ledger.getBalance(escrowHoldingRef(escrowId))).toEqual({ amount: 0, currency: 'NGN' });
+    expect(await ledger.getBalance(escrowHoldingRef(escrowId))).toEqual({
+      amount: 0,
+      currency: 'NGN',
+    });
     expect(await ledger.getBalance(userWalletRef(buyer.userId))).toEqual({
       amount: priceAmount,
       currency: 'NGN',

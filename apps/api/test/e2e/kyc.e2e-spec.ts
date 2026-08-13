@@ -6,6 +6,7 @@ import request from 'supertest';
 import { Repository } from 'typeorm';
 import { AppModule } from '../../src/app.module';
 import { KycEvent } from '../../src/database/entities/kyc-event.entity';
+import { User } from '../../src/database/entities/user.entity';
 import { KycTier } from '../../src/kyc/entities/kyc-tier.enum';
 import { KycEventType } from '../../src/kyc/entities/kyc-event-type.enum';
 import { RedisService } from '../../src/redis/redis.service';
@@ -31,6 +32,7 @@ describe('KYC (e2e)', () => {
   let app: INestApplication;
   let server: Server;
   let kycEvents: Repository<KycEvent>;
+  let users: Repository<User>;
   let redis: RedisService;
   let emailCounter = 0;
 
@@ -44,6 +46,7 @@ describe('KYC (e2e)', () => {
   async function registerAndLogin(): Promise<{ email: string; accessToken: string }> {
     const email = uniqueEmail();
     await request(server).post('/auth/register').send({ email, password });
+    await users.update({ email }, { emailVerifiedAt: new Date() });
     const loginResponse = await request(server).post('/auth/login').send({ email, password });
     const body = loginResponse.body as AuthTokensBody;
     return { email, accessToken: body.accessToken };
@@ -70,6 +73,7 @@ describe('KYC (e2e)', () => {
     await app.init();
     server = app.getHttpServer() as Server;
     kycEvents = app.get<Repository<KycEvent>>(getRepositoryToken(KycEvent));
+    users = app.get<Repository<User>>(getRepositoryToken(User));
     redis = app.get(RedisService);
   });
 
@@ -133,7 +137,9 @@ describe('KYC (e2e)', () => {
     expect(webhookResponse.status).toBe(200);
     expect((await getStatus(accessToken)).tier).toBe(KycTier.TIER_0);
 
-    const events = await kycEvents.find({ where: { providerReference: submitted.providerReference } });
+    const events = await kycEvents.find({
+      where: { providerReference: submitted.providerReference },
+    });
     expect(events.some((event) => event.type === KycEventType.REJECTED)).toBe(true);
   });
 

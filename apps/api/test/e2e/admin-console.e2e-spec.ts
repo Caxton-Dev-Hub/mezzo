@@ -65,6 +65,7 @@ describe('Admin console (e2e)', () => {
   ): Promise<{ userId: string; accessToken: string; email: string }> {
     const email = uniqueEmail();
     await request(server).post('/auth/register').send({ email, password });
+    await users.update({ email }, { emailVerifiedAt: new Date() });
     if (role !== UserRole.USER) {
       await users.update({ email }, { role });
     }
@@ -121,7 +122,11 @@ describe('Admin console (e2e)', () => {
 
       await ledger.postTransaction(
         [
-          { accountRef: treasuryRef(), direction: EntryDirection.DEBIT, money: Money.of(7_500, 'NGN') },
+          {
+            accountRef: treasuryRef(),
+            direction: EntryDirection.DEBIT,
+            money: Money.of(7_500, 'NGN'),
+          },
           { accountRef: ref, direction: EntryDirection.CREDIT, money: Money.of(7_500, 'NGN') },
         ],
         { idempotencyKey: `admin-console-seed:${randomUUID()}` },
@@ -136,7 +141,11 @@ describe('Admin console (e2e)', () => {
       const entries = response.body as LedgerEntryBody[];
       expect(entries).toHaveLength(1);
       expect(entries[0]).toEqual(
-        expect.objectContaining({ direction: EntryDirection.CREDIT, amount: 7_500, currency: 'NGN' }),
+        expect.objectContaining({
+          direction: EntryDirection.CREDIT,
+          amount: 7_500,
+          currency: 'NGN',
+        }),
       );
     });
 

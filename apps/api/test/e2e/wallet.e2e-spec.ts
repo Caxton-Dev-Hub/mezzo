@@ -82,6 +82,7 @@ describe('Wallet (e2e)', () => {
   async function registerAndLogin(): Promise<Party> {
     const email = uniqueEmail();
     await request(server).post('/auth/register').send({ email, password });
+    await users.update({ email }, { emailVerifiedAt: new Date() });
     const loginResponse = await request(server).post('/auth/login').send({ email, password });
     const body = loginResponse.body as AuthTokensBody;
     return { userId: body.user.id, accessToken: body.accessToken };
@@ -137,7 +138,13 @@ describe('Wallet (e2e)', () => {
   function transferPayload(event: string, reference: string, amount: number): unknown {
     return {
       event,
-      data: { id: uniqueEventId(), reference, amount, currency: 'NGN', status: event.split('.')[1] },
+      data: {
+        id: uniqueEventId(),
+        reference,
+        amount,
+        currency: 'NGN',
+        status: event.split('.')[1],
+      },
     };
   }
 
@@ -226,7 +233,9 @@ describe('Wallet (e2e)', () => {
     await fundEscrow(escrowId, buyer, 90_000);
 
     await request(server).post(`/escrows/${escrowId}/ship`).set(auth(seller.accessToken)).send({});
-    await request(server).post(`/escrows/${escrowId}/confirm-delivery`).set(auth(buyer.accessToken));
+    await request(server)
+      .post(`/escrows/${escrowId}/confirm-delivery`)
+      .set(auth(buyer.accessToken));
     await request(server).post(`/escrows/${escrowId}/release`).set(auth(buyer.accessToken));
 
     const sellerWallet = await getWallet(seller.accessToken);
@@ -239,7 +248,9 @@ describe('Wallet (e2e)', () => {
     const { escrowId, buyer, seller } = await createAgreedEscrow(70_000);
     await fundEscrow(escrowId, buyer, 70_000);
     await request(server).post(`/escrows/${escrowId}/ship`).set(auth(seller.accessToken)).send({});
-    await request(server).post(`/escrows/${escrowId}/confirm-delivery`).set(auth(buyer.accessToken));
+    await request(server)
+      .post(`/escrows/${escrowId}/confirm-delivery`)
+      .set(auth(buyer.accessToken));
     await request(server).post(`/escrows/${escrowId}/release`).set(auth(buyer.accessToken));
 
     const payoutResponse = await request(server)
@@ -280,7 +291,9 @@ describe('Wallet (e2e)', () => {
     const { escrowId, buyer, seller } = await createAgreedEscrow(50_000);
     await fundEscrow(escrowId, buyer, 50_000);
     await request(server).post(`/escrows/${escrowId}/ship`).set(auth(seller.accessToken)).send({});
-    await request(server).post(`/escrows/${escrowId}/confirm-delivery`).set(auth(buyer.accessToken));
+    await request(server)
+      .post(`/escrows/${escrowId}/confirm-delivery`)
+      .set(auth(buyer.accessToken));
     await request(server).post(`/escrows/${escrowId}/release`).set(auth(buyer.accessToken));
 
     const buyerActivity = await request(server)

@@ -96,6 +96,7 @@ describe('Profiles (e2e)', () => {
   async function registerAndLogin(): Promise<{ userId: string; accessToken: string }> {
     const email = uniqueEmail();
     await request(server).post('/auth/register').send({ email, password });
+    await users.update({ email }, { emailVerifiedAt: new Date() });
     const loginResponse = await request(server).post('/auth/login').send({ email, password });
     const body = loginResponse.body as AuthTokensBody;
     return { userId: body.user.id, accessToken: body.accessToken };
@@ -229,14 +230,11 @@ describe('Profiles (e2e)', () => {
   it('saves the profile fields the owner edits', async () => {
     const user = await registerAndLogin();
 
-    const response = await request(server)
-      .patch('/profiles/me')
-      .set(auth(user.accessToken))
-      .send({
-        businessName: 'Ada Electronics',
-        bio: 'Refurbished laptops, Lagos.',
-        location: 'Lagos',
-      });
+    const response = await request(server).patch('/profiles/me').set(auth(user.accessToken)).send({
+      businessName: 'Ada Electronics',
+      bio: 'Refurbished laptops, Lagos.',
+      location: 'Lagos',
+    });
 
     expect(response.status).toBe(200);
     const profile = response.body as ProfileBody;

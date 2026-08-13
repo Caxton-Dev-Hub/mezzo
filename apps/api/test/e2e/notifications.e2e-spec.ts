@@ -10,6 +10,7 @@ import { AppModule } from '../../src/app.module';
 import { EscrowRole } from '../../src/escrow/entities/escrow-role.enum';
 import { EvidencePhase } from '../../src/evidence/entities/evidence-phase.enum';
 import { Notification } from '../../src/database/entities/notification.entity';
+import { User } from '../../src/database/entities/user.entity';
 import { NotificationEventType } from '../../src/notifications/entities/notification-event-type.enum';
 import { NotificationChannelType } from '../../src/notifications/entities/notification-channel-type.enum';
 import { NotificationStatus } from '../../src/notifications/entities/notification-status.enum';
@@ -37,7 +38,11 @@ function readFixture(name: string): Buffer {
   return readFileSync(join(fixturesDir, name));
 }
 
-async function waitFor(predicate: () => Promise<boolean>, timeoutMs = 5000, intervalMs = 50): Promise<void> {
+async function waitFor(
+  predicate: () => Promise<boolean>,
+  timeoutMs = 5000,
+  intervalMs = 50,
+): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (await predicate()) {
@@ -53,6 +58,7 @@ describe('Notifications (e2e)', () => {
   let server: Server;
   let redis: RedisService;
   let notifications: Repository<Notification>;
+  let users: Repository<User>;
   let notificationsService: NotificationsService;
   let fakeChannel: FakeNotificationChannel;
   let userCounter = 0;
@@ -71,6 +77,7 @@ describe('Notifications (e2e)', () => {
   async function registerAndLogin(): Promise<{ userId: string; accessToken: string }> {
     const email = uniqueEmail();
     await request(server).post('/auth/register').send({ email, password });
+    await users.update({ email }, { emailVerifiedAt: new Date() });
     const loginResponse = await request(server).post('/auth/login').send({ email, password });
     const body = loginResponse.body as AuthTokensBody;
     return { userId: body.user.id, accessToken: body.accessToken };
@@ -107,15 +114,12 @@ describe('Notifications (e2e)', () => {
       headers: { 'Content-Type': 'image/jpeg' },
       body: readFixture('with-exif.jpg'),
     });
-    await request(server)
-      .post('/evidence/confirm')
-      .set(auth(buyer.accessToken))
-      .send({
-        escrowId: draft.id,
-        phase: EvidencePhase.AT_CREATION,
-        key: presign.key,
-        declaredMime: 'image/jpeg',
-      });
+    await request(server).post('/evidence/confirm').set(auth(buyer.accessToken)).send({
+      escrowId: draft.id,
+      phase: EvidencePhase.AT_CREATION,
+      key: presign.key,
+      declaredMime: 'image/jpeg',
+    });
 
     const inviteResponse = await request(server)
       .post(`/escrows/${draft.id}/invite`)
@@ -136,6 +140,7 @@ describe('Notifications (e2e)', () => {
     server = app.getHttpServer() as Server;
     redis = app.get(RedisService);
     notifications = app.get<Repository<Notification>>(getRepositoryToken(Notification));
+    users = app.get<Repository<User>>(getRepositoryToken(User));
     notificationsService = app.get(NotificationsService);
     fakeChannel = app.get(FakeNotificationChannel);
   });
@@ -172,7 +177,11 @@ describe('Notifications (e2e)', () => {
 
     await waitFor(async () => {
       const sentCount = await notifications.count({
-        where: { escrowId, eventType: NotificationEventType.AGREED, status: NotificationStatus.SENT },
+        where: {
+          escrowId,
+          eventType: NotificationEventType.AGREED,
+          status: NotificationStatus.SENT,
+        },
       });
       return sentCount === 4;
     });
@@ -207,7 +216,8 @@ describe('Notifications (e2e)', () => {
     expect(rows.every((row) => row.status === NotificationStatus.SENT)).toBe(true);
 
     const deliveredForBuyer = fakeChannel.sent.filter(
-      (delivery) => delivery.userId === buyer.userId && delivery.eventType === NotificationEventType.SHIPPED,
+      (delivery) =>
+        delivery.userId === buyer.userId && delivery.eventType === NotificationEventType.SHIPPED,
     );
     expect(deliveredForBuyer).toHaveLength(2);
   });

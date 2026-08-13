@@ -88,9 +88,14 @@ describe('Receipts (e2e)', () => {
     return { Authorization: `Bearer ${token}` };
   }
 
-  async function registerAndLogin(): Promise<{ userId: string; email: string; accessToken: string }> {
+  async function registerAndLogin(): Promise<{
+    userId: string;
+    email: string;
+    accessToken: string;
+  }> {
     const email = uniqueEmail();
     await request(server).post('/auth/register').send({ email, password });
+    await users.update({ email }, { emailVerifiedAt: new Date() });
     const loginResponse = await request(server).post('/auth/login').send({ email, password });
     const body = loginResponse.body as AuthTokensBody;
     return { userId: body.user.id, email, accessToken: body.accessToken };

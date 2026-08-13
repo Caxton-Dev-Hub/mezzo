@@ -112,6 +112,7 @@ describe('Chat (e2e)', () => {
   }> {
     const email = uniqueEmail();
     await request(server).post('/auth/register').send({ email, password });
+    await users.update({ email }, { emailVerifiedAt: new Date() });
     if (role !== UserRole.USER) {
       await users.update({ email }, { role });
     }
@@ -159,7 +160,13 @@ describe('Chat (e2e)', () => {
       });
     const draft = draftResponse.body as EscrowDetailBody;
 
-    await uploadEvidence(buyer.accessToken, draft.id, EvidencePhase.AT_CREATION, 'with-exif.jpg', 'image/jpeg');
+    await uploadEvidence(
+      buyer.accessToken,
+      draft.id,
+      EvidencePhase.AT_CREATION,
+      'with-exif.jpg',
+      'image/jpeg',
+    );
 
     const inviteResponse = await request(server)
       .post(`/escrows/${draft.id}/invite`)
@@ -189,9 +196,17 @@ describe('Chat (e2e)', () => {
     expect(webhookStatus).toBe(200);
 
     await request(server).post(`/escrows/${escrowId}/ship`).set(auth(seller.accessToken)).send({});
-    await request(server).post(`/escrows/${escrowId}/confirm-delivery`).set(auth(buyer.accessToken));
+    await request(server)
+      .post(`/escrows/${escrowId}/confirm-delivery`)
+      .set(auth(buyer.accessToken));
 
-    await uploadEvidence(buyer.accessToken, escrowId, EvidencePhase.AT_DELIVERY, 'with-exif.jpg', 'image/jpeg');
+    await uploadEvidence(
+      buyer.accessToken,
+      escrowId,
+      EvidencePhase.AT_DELIVERY,
+      'with-exif.jpg',
+      'image/jpeg',
+    );
     const disputeResponse = await request(server)
       .post(`/escrows/${escrowId}/disputes`)
       .set(auth(buyer.accessToken))
@@ -321,7 +336,10 @@ describe('Chat (e2e)', () => {
     const { escrowId, buyer } = await createAgreedEscrow();
     const arbiter = await registerAndLogin(UserRole.ARBITER);
 
-    await request(server).post(`/escrows/${escrowId}/chat`).set(auth(buyer.accessToken)).send({ body: 'hi' });
+    await request(server)
+      .post(`/escrows/${escrowId}/chat`)
+      .set(auth(buyer.accessToken))
+      .send({ body: 'hi' });
 
     const beforeDispute = await request(server)
       .get(`/escrows/${escrowId}/chat`)
@@ -393,7 +411,9 @@ describe('Chat (e2e)', () => {
     const bundleResponse = await request(server)
       .get(`/evidence/${escrowId}`)
       .set(auth(buyer.accessToken));
-    const bundleItemIds = (bundleResponse.body as { items: EvidenceItemBody[] }).items.map((item) => item.id);
+    const bundleItemIds = (bundleResponse.body as { items: EvidenceItemBody[] }).items.map(
+      (item) => item.id,
+    );
     expect(bundleItemIds).toContain(uploaded.id);
   });
 
@@ -491,7 +511,10 @@ describe('Chat (e2e)', () => {
 
   it('records read state via REST and broadcasts message:read over the socket', async () => {
     const { escrowId, buyer, seller } = await createAgreedEscrow();
-    await request(server).post(`/escrows/${escrowId}/chat`).set(auth(buyer.accessToken)).send({ body: 'hi' });
+    await request(server)
+      .post(`/escrows/${escrowId}/chat`)
+      .set(auth(buyer.accessToken))
+      .send({ body: 'hi' });
 
     const buyerSocket = await connectSocket({ token: buyer.accessToken, escrowId });
     const sellerSocket = await connectSocket({ token: seller.accessToken, escrowId });

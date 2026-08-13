@@ -85,6 +85,7 @@ describe('Payout (e2e)', () => {
   async function registerAndLogin(): Promise<{ userId: string; accessToken: string }> {
     const email = uniqueEmail();
     await request(server).post('/auth/register').send({ email, password });
+    await users.update({ email }, { emailVerifiedAt: new Date() });
     const loginResponse = await request(server).post('/auth/login').send({ email, password });
     const body = loginResponse.body as AuthTokensBody;
     return { userId: body.user.id, accessToken: body.accessToken };
@@ -140,7 +141,13 @@ describe('Payout (e2e)', () => {
   function transferPayload(event: string, reference: string, amount: number): unknown {
     return {
       event,
-      data: { id: uniqueEventId(), reference, amount, currency: 'NGN', status: event.split('.')[1] },
+      data: {
+        id: uniqueEventId(),
+        reference,
+        amount,
+        currency: 'NGN',
+        status: event.split('.')[1],
+      },
     };
   }
 
@@ -297,7 +304,9 @@ describe('Payout (e2e)', () => {
       });
     const payout = response.body as PayoutResponseBody;
 
-    const status = await postSignedWebhook(transferPayload('transfer.success', payout.reference, 20_000));
+    const status = await postSignedWebhook(
+      transferPayload('transfer.success', payout.reference, 20_000),
+    );
     expect(status).toBe(200);
 
     const confirmed = await payouts.findOneOrFail({ where: { id: payout.id } });
@@ -326,7 +335,9 @@ describe('Payout (e2e)', () => {
       currency: 'NGN',
     });
 
-    const status = await postSignedWebhook(transferPayload('transfer.failed', payout.reference, 20_000));
+    const status = await postSignedWebhook(
+      transferPayload('transfer.failed', payout.reference, 20_000),
+    );
     expect(status).toBe(200);
 
     const failed = await payouts.findOneOrFail({ where: { id: payout.id } });

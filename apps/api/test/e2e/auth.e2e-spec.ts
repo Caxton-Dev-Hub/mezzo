@@ -9,11 +9,13 @@ import { User } from '../../src/database/entities/user.entity';
 import { UserRole } from '../../src/users/entities/user-role.enum';
 import { RedisService } from '../../src/redis/redis.service';
 import { FakePasswordResetMailer } from '../../src/auth/mailers/fake-password-reset.mailer';
+import { FakeEmailVerificationMailer } from '../../src/auth/mailers/fake-email-verification.mailer';
 
 interface UserResponseBody {
   id: string;
   email: string;
   role: string;
+  emailVerified: boolean;
   createdAt: string;
 }
 
@@ -40,6 +42,7 @@ describe('Auth (e2e)', () => {
   let usersRepository: Repository<User>;
   let redis: RedisService;
   let passwordResetMailer: FakePasswordResetMailer;
+  let emailVerificationMailer: FakeEmailVerificationMailer;
   let emailCounter = 0;
 
   const password = 'super-secret-password';
@@ -49,9 +52,22 @@ describe('Auth (e2e)', () => {
     return `user-${Date.now()}-${emailCounter}@example.com`;
   }
 
-  async function register(email: string): Promise<UserResponseBody> {
+  function latestVerificationCode(email: string): string {
+    const sends = emailVerificationMailer.sent.filter((sent) => sent.recipientEmail === email);
+    return sends[sends.length - 1]?.code ?? '';
+  }
+
+  async function registerWithoutVerifying(email: string): Promise<UserResponseBody> {
     const response = await request(server).post('/auth/register').send({ email, password });
     return response.body as UserResponseBody;
+  }
+
+  async function register(email: string): Promise<UserResponseBody> {
+    const body = await registerWithoutVerifying(email);
+    await request(server)
+      .post('/auth/verify-email')
+      .send({ email, code: latestVerificationCode(email) });
+    return body;
   }
 
   async function login(email: string): Promise<AuthTokensBody> {
@@ -67,6 +83,7 @@ describe('Auth (e2e)', () => {
     usersRepository = app.get<Repository<User>>(getRepositoryToken(User));
     redis = app.get(RedisService);
     passwordResetMailer = app.get(FakePasswordResetMailer);
+    emailVerificationMailer = app.get(FakeEmailVerificationMailer);
   });
 
   afterAll(async () => {
@@ -76,6 +93,7 @@ describe('Auth (e2e)', () => {
   beforeEach(async () => {
     await redis.flushdb();
     passwordResetMailer.sent.length = 0;
+    emailVerificationMailer.sent.length = 0;
   });
 
   describe('register and login', () => {
@@ -293,6 +311,114 @@ describe('Auth (e2e)', () => {
         .send({ token: 'anything', password: 'short' });
 
       expect(response.status).toBe(400);
+    });
+  });
+
+  describe('email verification', () => {
+    it('emails a code on registration and blocks login until it is verified', async () => {
+      const email = uniqueEmail();
+      await registerWithoutVerifying(email);
+
+      expect(emailVerificationMailer.sent).toHaveLength(1);
+      expect(emailVerificationMailer.sent[0].recipientEmail).toBe(email);
+      expect(emailVerificationMailer.sent[0].code).toMatch(/^\d{6}$/);
+
+      const blockedLogin = await request(server).post('/auth/login').send({ email, password });
+      expect(blockedLogin.status).toBe(403);
+      expect((blockedLogin.body as ErrorBody).code).toBe('EMAIL_NOT_VERIFIED');
+
+      const verify = await request(server)
+        .post('/auth/verify-email')
+        .send({ email, code: latestVerificationCode(email) });
+      expect(verify.status).toBe(204);
+
+      const allowedLogin = await request(server).post('/auth/login').send({ email, password });
+      expect(allowedLogin.status).toBe(200);
+    });
+
+    it('rejects a wrong code without verifying the account', async () => {
+      const email = uniqueEmail();
+      await registerWithoutVerifying(email);
+
+      const response = await request(server)
+        .post('/auth/verify-email')
+        .send({ email, code: '000000' });
+
+      expect(response.status).toBe(400);
+      expect((response.body as ErrorBody).code).toBe('INVALID_VERIFICATION_CODE');
+
+      const login = await request(server).post('/auth/login').send({ email, password });
+      expect(login.status).toBe(403);
+    });
+
+    it('locks the code out after enough wrong attempts, requiring a resend', async () => {
+      const email = uniqueEmail();
+      await registerWithoutVerifying(email);
+      const maxAttempts = Number(process.env.EMAIL_VERIFICATION_MAX_ATTEMPTS ?? 5);
+
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        const response = await request(server)
+          .post('/auth/verify-email')
+          .send({ email, code: '000000' });
+        expect(response.status).toBe(400);
+      }
+
+      await redis.flushdb();
+      const correctCode = latestVerificationCode(email);
+      const lockedOut = await request(server)
+        .post('/auth/verify-email')
+        .send({ email, code: correctCode });
+      expect(lockedOut.status).toBe(400);
+
+      await redis.flushdb();
+      const resend = await request(server).post('/auth/resend-verification').send({ email });
+      expect(resend.status).toBe(204);
+
+      const verify = await request(server)
+        .post('/auth/verify-email')
+        .send({ email, code: latestVerificationCode(email) });
+      expect(verify.status).toBe(204);
+    });
+
+    it('invalidates an earlier code when verification is resent', async () => {
+      const email = uniqueEmail();
+      await registerWithoutVerifying(email);
+      const firstCode = latestVerificationCode(email);
+
+      await request(server).post('/auth/resend-verification').send({ email });
+      const secondCode = latestVerificationCode(email);
+      expect(secondCode).not.toBe(firstCode);
+
+      const stale = await request(server)
+        .post('/auth/verify-email')
+        .send({ email, code: firstCode });
+      expect(stale.status).toBe(400);
+
+      const current = await request(server)
+        .post('/auth/verify-email')
+        .send({ email, code: secondCode });
+      expect(current.status).toBe(204);
+    });
+
+    it('answers 204 for an unknown email on resend without sending anything', async () => {
+      const response = await request(server)
+        .post('/auth/resend-verification')
+        .send({ email: uniqueEmail() });
+
+      expect(response.status).toBe(204);
+      expect(emailVerificationMailer.sent).toHaveLength(0);
+    });
+
+    it('rejects verifying an already-verified account', async () => {
+      const email = uniqueEmail();
+      await register(email);
+
+      const response = await request(server)
+        .post('/auth/verify-email')
+        .send({ email, code: '123456' });
+
+      expect(response.status).toBe(400);
+      expect((response.body as ErrorBody).code).toBe('INVALID_VERIFICATION_CODE');
     });
   });
 

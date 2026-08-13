@@ -97,6 +97,7 @@ describe('Payments (e2e)', () => {
   async function registerAndLogin(): Promise<{ userId: string; accessToken: string }> {
     const email = uniqueEmail();
     await request(server).post('/auth/register').send({ email, password });
+    await users.update({ email }, { emailVerifiedAt: new Date() });
     const loginResponse = await request(server).post('/auth/login').send({ email, password });
     const body = loginResponse.body as AuthTokensBody;
     return { userId: body.user.id, accessToken: body.accessToken };
@@ -233,7 +234,9 @@ describe('Payments (e2e)', () => {
     users = app.get<Repository<User>>(getRepositoryToken(User));
     evidenceItems = app.get<Repository<EvidenceItem>>(getRepositoryToken(EvidenceItem));
     paymentIntents = app.get<Repository<PaymentIntent>>(getRepositoryToken(PaymentIntent));
-    webhookEvents = app.get<Repository<PaymentWebhookEvent>>(getRepositoryToken(PaymentWebhookEvent));
+    webhookEvents = app.get<Repository<PaymentWebhookEvent>>(
+      getRepositoryToken(PaymentWebhookEvent),
+    );
     fakePaystack = app.get(FakePaystackProvider);
     ledger = app.get(LedgerService);
     reconciliation = app.get(PaymentsReconciliationService);
@@ -382,7 +385,10 @@ describe('Payments (e2e)', () => {
     });
 
     const eventCount = await webhookEvents.count({
-      where: { provider: 'paystack', providerEventId: (payload as { data: { id: string } }).data.id },
+      where: {
+        provider: 'paystack',
+        providerEventId: (payload as { data: { id: string } }).data.id,
+      },
     });
     expect(eventCount).toBe(1);
   });

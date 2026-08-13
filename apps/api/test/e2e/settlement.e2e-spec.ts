@@ -16,7 +16,11 @@ import { EvidencePhase } from '../../src/evidence/entities/evidence-phase.enum';
 import { KycTier } from '../../src/kyc/entities/kyc-tier.enum';
 import { LedgerService } from '../../src/ledger/ledger.service';
 import { ReconciliationService } from '../../src/ledger/reconciliation.service';
-import { escrowHoldingRef, userWalletRef, platformFeeRevenueRef } from '../../src/ledger/account-refs';
+import {
+  escrowHoldingRef,
+  userWalletRef,
+  platformFeeRevenueRef,
+} from '../../src/ledger/account-refs';
 import { RedisService } from '../../src/redis/redis.service';
 
 const PAYSTACK_SECRET = 'test-paystack-secret-key';
@@ -86,6 +90,7 @@ describe('Settlement (e2e)', () => {
   async function registerAndLogin(): Promise<{ userId: string; accessToken: string }> {
     const email = uniqueEmail();
     await request(server).post('/auth/register').send({ email, password });
+    await users.update({ email }, { emailVerifiedAt: new Date() });
     const loginResponse = await request(server).post('/auth/login').send({ email, password });
     const body = loginResponse.body as AuthTokensBody;
     return { userId: body.user.id, accessToken: body.accessToken };
@@ -279,7 +284,9 @@ describe('Settlement (e2e)', () => {
     expect(sellerDelivers.status).toBe(403);
     expect((sellerDelivers.body as ErrorBody).code).toBe('ONLY_BUYER_MAY_ACT');
 
-    await request(server).post(`/escrows/${escrowId}/confirm-delivery`).set(auth(buyer.accessToken));
+    await request(server)
+      .post(`/escrows/${escrowId}/confirm-delivery`)
+      .set(auth(buyer.accessToken));
 
     const sellerReleases = await request(server)
       .post(`/escrows/${escrowId}/release`)
@@ -290,7 +297,9 @@ describe('Settlement (e2e)', () => {
   it('auto-release fires exactly once; a second firing is a no-op', async () => {
     const { escrowId, buyer, seller, priceAmount, feeBps } = await createFundedEscrow(100_000);
     await request(server).post(`/escrows/${escrowId}/ship`).set(auth(seller.accessToken)).send({});
-    await request(server).post(`/escrows/${escrowId}/confirm-delivery`).set(auth(buyer.accessToken));
+    await request(server)
+      .post(`/escrows/${escrowId}/confirm-delivery`)
+      .set(auth(buyer.accessToken));
 
     await settlementService.autoRelease(escrowId);
     const escrow = await getEscrow(escrowId, buyer.accessToken);
@@ -309,7 +318,9 @@ describe('Settlement (e2e)', () => {
   it('race: dispute vs auto-release resolves to exactly one outcome with no double payment', async () => {
     const { escrowId, buyer, seller, priceAmount, feeBps } = await createFundedEscrow(150_000);
     await request(server).post(`/escrows/${escrowId}/ship`).set(auth(seller.accessToken)).send({});
-    await request(server).post(`/escrows/${escrowId}/confirm-delivery`).set(auth(buyer.accessToken));
+    await request(server)
+      .post(`/escrows/${escrowId}/confirm-delivery`)
+      .set(auth(buyer.accessToken));
 
     const [autoReleaseResult, disputeResult] = await Promise.allSettled([
       settlementService.autoRelease(escrowId),
@@ -324,7 +335,9 @@ describe('Settlement (e2e)', () => {
     expect(autoReleaseResult.status).toBe('fulfilled');
     if (disputeResult.status === 'rejected') {
       expect(disputeResult.reason).toMatchObject({
-        code: expect.stringMatching(/^(ILLEGAL_ESCROW_TRANSITION|STALE_ESCROW_VERSION)$/) as unknown,
+        code: expect.stringMatching(
+          /^(ILLEGAL_ESCROW_TRANSITION|STALE_ESCROW_VERSION)$/,
+        ) as unknown,
       });
     }
 
@@ -360,7 +373,9 @@ describe('Settlement (e2e)', () => {
   it('double release: two concurrent release requests credit the seller exactly once', async () => {
     const { escrowId, buyer, seller, priceAmount, feeBps } = await createFundedEscrow(120_000);
     await request(server).post(`/escrows/${escrowId}/ship`).set(auth(seller.accessToken)).send({});
-    await request(server).post(`/escrows/${escrowId}/confirm-delivery`).set(auth(buyer.accessToken));
+    await request(server)
+      .post(`/escrows/${escrowId}/confirm-delivery`)
+      .set(auth(buyer.accessToken));
 
     const results = await Promise.allSettled([
       settlementService.release(escrowId, buyer.userId),
@@ -383,7 +398,9 @@ describe('Settlement (e2e)', () => {
   it('rejects a late confirm-delivery/release/refund on a RELEASED escrow and moves no money', async () => {
     const { escrowId, buyer, seller } = await createFundedEscrow(70_000);
     await request(server).post(`/escrows/${escrowId}/ship`).set(auth(seller.accessToken)).send({});
-    await request(server).post(`/escrows/${escrowId}/confirm-delivery`).set(auth(buyer.accessToken));
+    await request(server)
+      .post(`/escrows/${escrowId}/confirm-delivery`)
+      .set(auth(buyer.accessToken));
     await request(server).post(`/escrows/${escrowId}/release`).set(auth(buyer.accessToken));
 
     const balanceAfterRelease = await ledger.getBalance(userWalletRef(seller.userId));
@@ -431,7 +448,10 @@ describe('Settlement (e2e)', () => {
     for (let i = 0; i < 6; i += 1) {
       const amount = 10_000 + i * 5_000;
       const { escrowId } = await createFundedEscrow(amount, { buyer, seller });
-      await request(server).post(`/escrows/${escrowId}/ship`).set(auth(seller.accessToken)).send({});
+      await request(server)
+        .post(`/escrows/${escrowId}/ship`)
+        .set(auth(seller.accessToken))
+        .send({});
       await request(server)
         .post(`/escrows/${escrowId}/confirm-delivery`)
         .set(auth(buyer.accessToken));

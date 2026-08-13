@@ -107,6 +107,7 @@ describe('Arbitration (e2e)', () => {
   }> {
     const email = uniqueEmail();
     await request(server).post('/auth/register').send({ email, password });
+    await users.update({ email }, { emailVerifiedAt: new Date() });
     if (role !== UserRole.USER) {
       await users.update({ email }, { role });
     }
@@ -119,7 +120,11 @@ describe('Arbitration (e2e)', () => {
     await users.update({ id: userId }, { kycTier: KycTier.TIER_1 });
   }
 
-  async function seedEvidence(escrowId: string, uploaderId: string, phase: EvidencePhase): Promise<void> {
+  async function seedEvidence(
+    escrowId: string,
+    uploaderId: string,
+    phase: EvidencePhase,
+  ): Promise<void> {
     await evidenceItems.save(
       evidenceItems.create({
         escrowId,
@@ -178,10 +183,18 @@ describe('Arbitration (e2e)', () => {
 
     const rawBody = JSON.stringify({
       event: 'charge.success',
-      data: { id: `evt-${randomUUID()}`, reference: intent.reference, amount: 40_000, currency: 'NGN', status: 'success' },
+      data: {
+        id: `evt-${randomUUID()}`,
+        reference: intent.reference,
+        amount: 40_000,
+        currency: 'NGN',
+        status: 'success',
+      },
     });
     const { createHmac } = await import('node:crypto');
-    const signature = createHmac('sha512', 'test-paystack-secret-key').update(rawBody).digest('hex');
+    const signature = createHmac('sha512', 'test-paystack-secret-key')
+      .update(rawBody)
+      .digest('hex');
     await request(server)
       .post('/payments/webhook/paystack')
       .set('Content-Type', 'application/json')
@@ -189,13 +202,18 @@ describe('Arbitration (e2e)', () => {
       .send(rawBody);
 
     await request(server).post(`/escrows/${draft.id}/ship`).set(auth(seller.accessToken)).send({});
-    await request(server).post(`/escrows/${draft.id}/confirm-delivery`).set(auth(buyer.accessToken));
+    await request(server)
+      .post(`/escrows/${draft.id}/confirm-delivery`)
+      .set(auth(buyer.accessToken));
 
     await seedEvidence(draft.id, buyer.userId, EvidencePhase.AT_DELIVERY);
     const disputeResponse = await request(server)
       .post(`/escrows/${draft.id}/disputes`)
       .set(auth(buyer.accessToken))
-      .send({ reasonCode: DisputeReasonCode.NOT_AS_DESCRIBED, statement: 'Item does not match listing.' });
+      .send({
+        reasonCode: DisputeReasonCode.NOT_AS_DESCRIBED,
+        statement: 'Item does not match listing.',
+      });
     const dispute = disputeResponse.body as DisputeBody;
 
     return { escrowId: draft.id, disputeId: dispute.id, buyer, seller };
@@ -209,7 +227,9 @@ describe('Arbitration (e2e)', () => {
     disputeService = app.get(DisputeService);
     users = app.get<Repository<User>>(getRepositoryToken(User));
     evidenceItems = app.get<Repository<EvidenceItem>>(getRepositoryToken(EvidenceItem));
-    arbitrationRecords = app.get<Repository<ArbitrationRecord>>(getRepositoryToken(ArbitrationRecord));
+    arbitrationRecords = app.get<Repository<ArbitrationRecord>>(
+      getRepositoryToken(ArbitrationRecord),
+    );
     fakePrimary = app.get(FakePrimaryLlmProvider);
     fakeFallback = app.get(FakeFallbackLlmProvider);
     redis = app.get(RedisService);
@@ -311,7 +331,9 @@ describe('Arbitration (e2e)', () => {
     const { disputeId } = await createDisputedEscrow();
     const arbiter = await registerAndLogin(UserRole.ARBITER);
     fakePrimary.enqueueError(new Error('primary provider unavailable'));
-    fakeFallback.enqueueResponse(validRecommendation({ recommendedOutcome: DisputeResolutionOutcome.REFUND_TO_BUYER }));
+    fakeFallback.enqueueResponse(
+      validRecommendation({ recommendedOutcome: DisputeResolutionOutcome.REFUND_TO_BUYER }),
+    );
 
     const response = await request(server)
       .post(`/disputes/${disputeId}/arbitration-recommendations`)
@@ -340,7 +362,9 @@ describe('Arbitration (e2e)', () => {
     expect(body.abstentionReason).toBe('PROVIDER_ERROR');
     expect(body.recommendedOutcome).toBeNull();
 
-    const escrowResponse = await request(server).get(`/escrows/${escrowId}`).set(auth(buyer.accessToken));
+    const escrowResponse = await request(server)
+      .get(`/escrows/${escrowId}`)
+      .set(auth(buyer.accessToken));
     expect((escrowResponse.body as EscrowDetailBody).state).toBe(EscrowState.DISPUTED);
   });
 

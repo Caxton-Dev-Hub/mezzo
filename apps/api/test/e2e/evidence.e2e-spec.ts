@@ -4,11 +4,14 @@ import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import request from 'supertest';
+import { Repository } from 'typeorm';
 import { AppModule } from '../../src/app.module';
 import { EscrowRole } from '../../src/escrow/entities/escrow-role.enum';
 import { EvidencePhase } from '../../src/evidence/entities/evidence-phase.enum';
 import { EvidenceFlagType } from '../../src/evidence/entities/evidence-flag-type.enum';
+import { User } from '../../src/database/entities/user.entity';
 import { RedisService } from '../../src/redis/redis.service';
 
 interface AuthTokensBody {
@@ -65,6 +68,7 @@ describe('Evidence (e2e)', () => {
   let app: INestApplication;
   let server: Server;
   let redis: RedisService;
+  let users: Repository<User>;
   let userCounter = 0;
 
   const password = 'super-secret-password';
@@ -81,6 +85,7 @@ describe('Evidence (e2e)', () => {
   async function registerAndLogin(): Promise<{ userId: string; accessToken: string }> {
     const email = uniqueEmail();
     await request(server).post('/auth/register').send({ email, password });
+    await users.update({ email }, { emailVerifiedAt: new Date() });
     const loginResponse = await request(server).post('/auth/login').send({ email, password });
     const body = loginResponse.body as AuthTokensBody;
     return { userId: body.user.id, accessToken: body.accessToken };
@@ -126,7 +131,10 @@ describe('Evidence (e2e)', () => {
       .set(auth(accessToken))
       .send({ escrowId, phase, key: presign.key, declaredMime: mimeType });
 
-    return { status: confirmResponse.status, body: confirmResponse.body as EvidenceItemBody | ErrorBody };
+    return {
+      status: confirmResponse.status,
+      body: confirmResponse.body as EvidenceItemBody | ErrorBody,
+    };
   }
 
   async function uploadEvidence(
@@ -145,6 +153,7 @@ describe('Evidence (e2e)', () => {
     await app.init();
     server = app.getHttpServer() as Server;
     redis = app.get(RedisService);
+    users = app.get<Repository<User>>(getRepositoryToken(User));
   });
 
   afterAll(async () => {
@@ -286,7 +295,9 @@ describe('Evidence (e2e)', () => {
       .send({ escrowId, phase: EvidencePhase.AT_CREATION, mimeType: 'image/jpeg' });
     expect(presign.status).toBe(403);
 
-    const bundle = await request(server).get(`/evidence/${escrowId}`).set(auth(stranger.accessToken));
+    const bundle = await request(server)
+      .get(`/evidence/${escrowId}`)
+      .set(auth(stranger.accessToken));
     expect(bundle.status).toBe(403);
   });
 
@@ -353,7 +364,13 @@ describe('Evidence (e2e)', () => {
     const buyer = await registerAndLogin();
     const escrowId = await createDraft(buyer.accessToken);
 
-    await uploadEvidence(buyer.accessToken, escrowId, EvidencePhase.AT_CREATION, 'with-exif.jpg', 'image/jpeg');
+    await uploadEvidence(
+      buyer.accessToken,
+      escrowId,
+      EvidencePhase.AT_CREATION,
+      'with-exif.jpg',
+      'image/jpeg',
+    );
     await uploadEvidence(
       buyer.accessToken,
       escrowId,
@@ -361,7 +378,13 @@ describe('Evidence (e2e)', () => {
       'without-exif.jpg',
       'image/jpeg',
     );
-    await uploadEvidence(buyer.accessToken, escrowId, EvidencePhase.AT_DELIVERY, 'plain.png', 'image/png');
+    await uploadEvidence(
+      buyer.accessToken,
+      escrowId,
+      EvidencePhase.AT_DELIVERY,
+      'plain.png',
+      'image/png',
+    );
 
     const first = await request(server).get(`/evidence/${escrowId}`).set(auth(buyer.accessToken));
     const second = await request(server).get(`/evidence/${escrowId}`).set(auth(buyer.accessToken));
@@ -376,8 +399,10 @@ describe('Evidence (e2e)', () => {
       EvidencePhase.AT_CREATION,
       EvidencePhase.AT_DELIVERY,
     ]);
-    expect(firstBody.items.every((item) => typeof item.contentHash === 'string' && item.contentHash.length === 64)).toBe(
-      true,
-    );
+    expect(
+      firstBody.items.every(
+        (item) => typeof item.contentHash === 'string' && item.contentHash.length === 64,
+      ),
+    ).toBe(true);
   });
 });

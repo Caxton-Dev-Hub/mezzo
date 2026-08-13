@@ -13,6 +13,7 @@ import { EscrowEvent } from '../../src/database/entities/escrow-event.entity';
 import { EscrowParty } from '../../src/database/entities/escrow-party.entity';
 import { Invite } from '../../src/database/entities/invite.entity';
 import { EvidenceItem } from '../../src/database/entities/evidence-item.entity';
+import { User } from '../../src/database/entities/user.entity';
 import { EvidencePhase } from '../../src/evidence/entities/evidence-phase.enum';
 import { RedisService } from '../../src/redis/redis.service';
 
@@ -75,6 +76,7 @@ describe('Escrow (e2e)', () => {
   let escrowParties: Repository<EscrowParty>;
   let invites: Repository<Invite>;
   let evidenceItems: Repository<EvidenceItem>;
+  let users: Repository<User>;
   let redis: RedisService;
   let userCounter = 0;
 
@@ -95,6 +97,7 @@ describe('Escrow (e2e)', () => {
   async function registerAndLogin(): Promise<{ userId: string; accessToken: string }> {
     const email = uniqueEmail();
     await request(server).post('/auth/register').send({ email, password });
+    await users.update({ email }, { emailVerifiedAt: new Date() });
     const loginResponse = await request(server).post('/auth/login').send({ email, password });
     const body = loginResponse.body as AuthTokensBody;
     return { userId: body.user.id, accessToken: body.accessToken };
@@ -172,6 +175,7 @@ describe('Escrow (e2e)', () => {
     escrowParties = app.get<Repository<EscrowParty>>(getRepositoryToken(EscrowParty));
     invites = app.get<Repository<Invite>>(getRepositoryToken(Invite));
     evidenceItems = app.get<Repository<EvidenceItem>>(getRepositoryToken(EvidenceItem));
+    users = app.get<Repository<User>>(getRepositoryToken(User));
     redis = app.get(RedisService);
   });
 

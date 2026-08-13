@@ -6,6 +6,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { RedisService } from '../../src/redis/redis.service';
+import { FakeEmailVerificationMailer } from '../../src/auth/mailers/fake-email-verification.mailer';
 
 interface UserResponseBody {
   id: string;
@@ -63,6 +64,12 @@ describe('JSON store persistence (e2e)', () => {
     await app.get(RedisService).flushdb();
   });
 
+  async function verifyEmail(): Promise<void> {
+    const mailer = app.get(FakeEmailVerificationMailer);
+    const code = mailer.sent[mailer.sent.length - 1]?.code ?? '';
+    await request(server).post('/auth/verify-email').send({ email, code });
+  }
+
   afterAll(async () => {
     await app.close();
 
@@ -88,6 +95,8 @@ describe('JSON store persistence (e2e)', () => {
     const response = await request(server).post('/auth/register').send({ email, password });
 
     expect(response.status).toBe(201);
+
+    await verifyEmail();
 
     const document = await readStore();
     expect(document.version).toBe(1);
