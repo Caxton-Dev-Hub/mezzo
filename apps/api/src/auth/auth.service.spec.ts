@@ -1,12 +1,14 @@
 import { AuthService } from './auth.service';
 import { TokenService } from './token.service';
 import { GoogleTokenVerifier, type GoogleIdentity } from './google-token-verifier.service';
+import { EmailVerificationService } from './email-verification.service';
 import { UsersService } from '../users/users.service';
 import { User } from '../database/entities/user.entity';
 import { UserRole } from '../users/entities/user-role.enum';
 import { KycTier } from '../kyc/entities/kyc-tier.enum';
 import { InvalidCredentialsError } from './errors/invalid-credentials.error';
 import { GoogleEmailNotVerifiedError } from './errors/google-email-not-verified.error';
+import { EmailNotVerifiedError } from './errors/email-not-verified.error';
 
 function buildUser(overrides: Partial<User> = {}): User {
   return {
@@ -21,6 +23,7 @@ function buildUser(overrides: Partial<User> = {}): User {
     bio: null,
     location: null,
     avatarKey: null,
+    emailVerifiedAt: new Date(),
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
@@ -29,15 +32,17 @@ function buildUser(overrides: Partial<User> = {}): User {
 
 interface Harness {
   authService: AuthService;
-  usersService: { findByEmail: jest.Mock; linkOrCreateGoogleUser: jest.Mock };
+  usersService: { findByEmail: jest.Mock; linkOrCreateGoogleUser: jest.Mock; create: jest.Mock };
   passwordService: { verify: jest.Mock; hash: jest.Mock };
   googleTokenVerifier: { verify: jest.Mock };
+  emailVerificationService: { sendCode: jest.Mock };
 }
 
 function buildHarness(): Harness {
   const usersService = {
     findByEmail: jest.fn(),
     linkOrCreateGoogleUser: jest.fn(),
+    create: jest.fn(),
   };
   const passwordService = {
     verify: jest.fn().mockResolvedValue(true),
@@ -47,15 +52,23 @@ function buildHarness(): Harness {
     issueTokenPair: jest.fn().mockResolvedValue({ accessToken: 'access', refreshToken: 'refresh' }),
   };
   const googleTokenVerifier = { verify: jest.fn() };
+  const emailVerificationService = { sendCode: jest.fn().mockResolvedValue(undefined) };
 
   const authService = new AuthService(
     usersService as unknown as UsersService,
     passwordService,
     tokenService as unknown as TokenService,
     googleTokenVerifier as unknown as GoogleTokenVerifier,
+    emailVerificationService as unknown as EmailVerificationService,
   );
 
-  return { authService, usersService, passwordService, googleTokenVerifier };
+  return {
+    authService,
+    usersService,
+    passwordService,
+    googleTokenVerifier,
+    emailVerificationService,
+  };
 }
 
 function googleIdentity(overrides: Partial<GoogleIdentity> = {}): GoogleIdentity {
@@ -99,6 +112,29 @@ describe('AuthService', () => {
 
       expect(result.accessToken).toBe('access');
       expect(result.user.email).toBe('buyer@example.com');
+    });
+
+    it('rejects login for an account whose email has not been verified', async () => {
+      const { authService, usersService } = buildHarness();
+      usersService.findByEmail.mockResolvedValue(buildUser({ emailVerifiedAt: null }));
+
+      await expect(
+        authService.login({ email: 'buyer@example.com', password: 'secret123' }),
+      ).rejects.toBeInstanceOf(EmailNotVerifiedError);
+    });
+  });
+
+  describe('register', () => {
+    it('sends a verification code to the new user', async () => {
+      const { authService, usersService, passwordService, emailVerificationService } =
+        buildHarness();
+      const created = buildUser({ emailVerifiedAt: null });
+      usersService.create.mockResolvedValue(created);
+      passwordService.hash.mockResolvedValue('argon2-hash');
+
+      await authService.register({ email: 'buyer@example.com', password: 'secret123' });
+
+      expect(emailVerificationService.sendCode).toHaveBeenCalledWith(created);
     });
   });
 

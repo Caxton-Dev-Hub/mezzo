@@ -19,7 +19,7 @@ import { KycEvent } from '../database/entities/kyc-event.entity';
 import { UserRole } from '../users/entities/user-role.enum';
 
 class InMemoryUserRepository {
-  constructor(readonly users: Map<string, User>) { }
+  constructor(readonly users: Map<string, User>) {}
 
   findOne({ where }: { where: { id: string } }): Promise<User | null> {
     return Promise.resolve(this.users.get(where.id) ?? null);
@@ -105,6 +105,7 @@ function buildUser(tier: KycTier): User {
     bio: null,
     location: null,
     avatarKey: null,
+    emailVerifiedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -309,7 +310,10 @@ describe('KycService', () => {
       await users.save(user);
       const verification = await service.submit(user.id, KycTier.TIER_1);
 
-      const payload = { providerReference: verification.providerReference, status: 'APPROVED' as const };
+      const payload = {
+        providerReference: verification.providerReference,
+        status: 'APPROVED' as const,
+      };
       await service.handleProviderCallback(payload);
       const eventCountAfterFirst = events.rows.length;
 

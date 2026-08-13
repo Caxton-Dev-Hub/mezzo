@@ -24,6 +24,7 @@ function buildUser(overrides: Partial<User> = {}): User {
     bio: null,
     location: null,
     avatarKey: null,
+    emailVerifiedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
@@ -67,9 +68,7 @@ function buildHarness(): Harness {
   const resetTokens = {
     findOne: jest.fn().mockResolvedValue(null),
     create: jest.fn((partial: Partial<PasswordResetToken>) => partial),
-    save: jest.fn((entity: PasswordResetToken) =>
-      Promise.resolve(entity),
-    ) as SaveResetTokenMock,
+    save: jest.fn((entity: PasswordResetToken) => Promise.resolve(entity)) as SaveResetTokenMock,
     update: jest.fn().mockResolvedValue(undefined),
   };
   const refreshTokens = { update: jest.fn().mockResolvedValue(undefined) };
@@ -139,9 +138,9 @@ describe('PasswordResetService', () => {
 
       await service.request({ email: 'buyer@example.com' });
 
-      expect(mailer.sent[0].resetUrl.startsWith('https://app.mezzo.test/reset-password?token=')).toBe(
-        true,
-      );
+      expect(
+        mailer.sent[0].resetUrl.startsWith('https://app.mezzo.test/reset-password?token='),
+      ).toBe(true);
       expect(mailer.sent[0].recipientEmail).toBe('buyer@example.com');
     });
 
@@ -193,9 +192,9 @@ describe('PasswordResetService', () => {
       const { service, resetTokens, users } = buildHarness();
       resetTokens.findOne.mockResolvedValue(null);
 
-      await expect(service.reset({ token: 'nope', password: 'a-brand-new-password' })).rejects.toThrow(
-        InvalidPasswordResetTokenError,
-      );
+      await expect(
+        service.reset({ token: 'nope', password: 'a-brand-new-password' }),
+      ).rejects.toThrow(InvalidPasswordResetTokenError);
       expect(users.save).not.toHaveBeenCalled();
     });
 

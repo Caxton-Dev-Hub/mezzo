@@ -51,8 +51,22 @@ function buildTerms(): EscrowTerms {
 
 function buildParties(): EscrowParty[] {
   return [
-    { id: randomUUID(), escrowId: ESCROW_ID, userId: BUYER_ID, role: EscrowRole.BUYER, termsAcceptedAt: new Date(), createdAt: new Date() } as EscrowParty,
-    { id: randomUUID(), escrowId: ESCROW_ID, userId: SELLER_ID, role: EscrowRole.SELLER, termsAcceptedAt: new Date(), createdAt: new Date() } as EscrowParty,
+    {
+      id: randomUUID(),
+      escrowId: ESCROW_ID,
+      userId: BUYER_ID,
+      role: EscrowRole.BUYER,
+      termsAcceptedAt: new Date(),
+      createdAt: new Date(),
+    } as EscrowParty,
+    {
+      id: randomUUID(),
+      escrowId: ESCROW_ID,
+      userId: SELLER_ID,
+      role: EscrowRole.SELLER,
+      termsAcceptedAt: new Date(),
+      createdAt: new Date(),
+    } as EscrowParty,
   ];
 }
 
@@ -69,6 +83,7 @@ function buildUser(id: string, email: string): User {
     bio: null,
     location: null,
     avatarKey: null,
+    emailVerifiedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };

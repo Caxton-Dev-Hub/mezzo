@@ -33,6 +33,7 @@ function buildUser(overrides: Partial<User> = {}): User {
     bio: null,
     location: null,
     avatarKey: null,
+    emailVerifiedAt: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
     ...overrides,
@@ -148,7 +149,9 @@ describe('ProfileService.getPublicProfile', () => {
   it('throws NotFoundException for an unknown user', async () => {
     const harness = buildHarness({ user: null });
 
-    await expect(harness.service.getPublicProfile(USER_ID)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(harness.service.getPublicProfile(USER_ID)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 
   it('does not leak the account email to the public view', async () => {

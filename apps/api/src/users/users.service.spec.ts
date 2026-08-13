@@ -18,6 +18,7 @@ function buildUser(overrides: Partial<User> = {}): User {
     bio: null,
     location: null,
     avatarKey: null,
+    emailVerifiedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,

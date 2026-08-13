@@ -45,7 +45,7 @@ class InMemoryRefreshTokenRepository {
 }
 
 class InMemoryUserRepository {
-  constructor(private readonly users: Map<string, User>) { }
+  constructor(private readonly users: Map<string, User>) {}
 
   findOne({ where }: { where: { id: string } }): Promise<User | null> {
     return Promise.resolve(this.users.get(where.id) ?? null);
@@ -83,6 +83,7 @@ describe('TokenService', () => {
     bio: null,
     location: null,
     avatarKey: null,
+    emailVerifiedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
