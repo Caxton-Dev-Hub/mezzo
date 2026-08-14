@@ -22,6 +22,7 @@ import { ObservabilityModule } from './observability/observability.module';
 import { AuditModule } from './audit/audit.module';
 import { AdminModule } from './admin/admin.module';
 import { ReceiptsModule } from './receipts/receipts.module';
+import { WhatsappModule } from './whatsapp/whatsapp.module';
 
 const databaseBacked = isDatabaseConfigured();
 
@@ -49,6 +50,7 @@ const databaseBacked = isDatabaseConfigured();
           ArbitrationModule,
           AdminModule,
           ReceiptsModule,
+          WhatsappModule,
         ]
       : []),
   ],
