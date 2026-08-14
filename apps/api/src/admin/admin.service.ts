@@ -12,7 +12,7 @@ import { PaymentsService } from '../payments/payments.service';
 import { PayoutStatus } from '../payments/entities/payout-status.enum';
 import { PaymentIntentStatus } from '../payments/entities/payment-intent-status.enum';
 import { SettingsService } from '../settings/settings.service';
-import { VERIFICATION_FLAG_KEY } from '../settings/platform-flag-key';
+import { VERIFICATION_FLAG_KEY, WHATSAPP_TRANSACTIONAL_FLAG_KEY } from '../settings/platform-flag-key';
 import { computeRiskItems } from './escrow-risk';
 import { DisputeService } from '../disputes/dispute.service';
 import { DisputeState } from '../disputes/entities/dispute-state.enum';
@@ -48,8 +48,13 @@ import {
   toAuditEventResponse,
   toLedgerEntryResponse,
   toLedgerPostingResponse,
+  WhatsappTransactionalSettingsResponse,
 } from './dto/admin-response';
-import { OverrideKycTierDto, PostAdjustmentDto } from './dto/admin.schemas';
+import {
+  OverrideKycTierDto,
+  PostAdjustmentDto,
+  UpdateWhatsappTransactionalEnabledDto,
+} from './dto/admin.schemas';
 
 export type { AdminDisputePacketResponse };
 
@@ -247,5 +252,29 @@ export class AdminService {
     });
 
     return this.settingsService.getPlatformSettings();
+  }
+
+  async setWhatsappTransactionalEnabled(
+    actorId: string,
+    dto: UpdateWhatsappTransactionalEnabledDto,
+  ): Promise<WhatsappTransactionalSettingsResponse> {
+    const correlationId = this.requestContext.correlationId();
+    const { before, after } = await this.settingsService.setWhatsappTransactionalEnabled(
+      actorId,
+      dto.enabled,
+    );
+
+    await this.auditService.record({
+      actorId,
+      action: 'WHATSAPP_TRANSACTIONAL_AVAILABILITY_CHANGED',
+      entityType: 'platform_flag',
+      entityId: WHATSAPP_TRANSACTIONAL_FLAG_KEY,
+      reason: dto.reason,
+      before: { whatsappTransactionalEnabled: before },
+      after: { whatsappTransactionalEnabled: after },
+      correlationId,
+    });
+
+    return { whatsappTransactionalEnabled: after };
   }
 }

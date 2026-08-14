@@ -17,3 +17,12 @@ export const overrideKycTierSchema = z.object({
 });
 
 export type OverrideKycTierDto = z.infer<typeof overrideKycTierSchema>;
+
+export const updateWhatsappTransactionalEnabledSchema = z.object({
+  enabled: z.boolean(),
+  reason: z.string().trim().min(1).max(2000),
+});
+
+export type UpdateWhatsappTransactionalEnabledDto = z.infer<
+  typeof updateWhatsappTransactionalEnabledSchema
+>;

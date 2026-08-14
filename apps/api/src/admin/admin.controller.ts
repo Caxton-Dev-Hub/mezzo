@@ -34,7 +34,10 @@ import {
   OverrideKycTierDto,
   postAdjustmentSchema,
   PostAdjustmentDto,
+  updateWhatsappTransactionalEnabledSchema,
+  UpdateWhatsappTransactionalEnabledDto,
 } from './dto/admin.schemas';
+import { WhatsappTransactionalSettingsResponse } from './dto/admin-response';
 
 @Controller('admin')
 export class AdminController {
@@ -158,5 +161,16 @@ export class AdminController {
     @Body(new ZodValidationPipe(updateVerificationEnabledSchema)) dto: UpdateVerificationEnabledDto,
   ): Promise<PlatformSettingsResponse> {
     return this.adminService.setVerificationEnabled(currentUser.id, dto);
+  }
+
+  @Post('settings/whatsapp-transactional')
+  @HttpCode(HttpStatus.OK)
+  @Roles(UserRole.ADMIN)
+  async setWhatsappTransactionalEnabled(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Body(new ZodValidationPipe(updateWhatsappTransactionalEnabledSchema))
+    dto: UpdateWhatsappTransactionalEnabledDto,
+  ): Promise<WhatsappTransactionalSettingsResponse> {
+    return this.adminService.setWhatsappTransactionalEnabled(currentUser.id, dto);
   }
 }

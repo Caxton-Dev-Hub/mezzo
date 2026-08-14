@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PlatformSettingsResponse } from '@mezzo/shared-types';
 import { PlatformFlag } from '../database/entities/platform-flag.entity';
-import { VERIFICATION_FLAG_KEY } from './platform-flag-key';
+import { VERIFICATION_FLAG_KEY, WHATSAPP_TRANSACTIONAL_FLAG_KEY } from './platform-flag-key';
 
 @Injectable()
 export class SettingsService {
@@ -44,5 +44,27 @@ export class SettingsService {
 
   private defaultVerificationEnabled(): boolean {
     return this.configService.get<boolean>('VERIFICATION_ENABLED') ?? true;
+  }
+
+  async isWhatsappTransactionalEnabled(): Promise<boolean> {
+    const flag = await this.flags.findOne({ where: { key: WHATSAPP_TRANSACTIONAL_FLAG_KEY } });
+    return flag ? flag.enabled : this.defaultWhatsappTransactionalEnabled();
+  }
+
+  async setWhatsappTransactionalEnabled(
+    actorId: string,
+    enabled: boolean,
+  ): Promise<{ before: boolean; after: boolean }> {
+    const before = await this.isWhatsappTransactionalEnabled();
+
+    await this.flags.save(
+      this.flags.create({ key: WHATSAPP_TRANSACTIONAL_FLAG_KEY, enabled, updatedById: actorId }),
+    );
+
+    return { before, after: enabled };
+  }
+
+  private defaultWhatsappTransactionalEnabled(): boolean {
+    return this.configService.get<boolean>('WHATSAPP_TRANSACTIONAL_ENABLED') ?? false;
   }
 }

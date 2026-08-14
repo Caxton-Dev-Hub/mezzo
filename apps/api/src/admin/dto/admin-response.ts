@@ -26,6 +26,10 @@ import { KycVerificationStatus } from '../../kyc/entities/kyc-verification-statu
 import { Currency } from '../../common/money/currency';
 import { EntryDirection } from '../../ledger/entities/entry-direction.enum';
 
+export interface WhatsappTransactionalSettingsResponse {
+  whatsappTransactionalEnabled: boolean;
+}
+
 export interface AdminUserResponse {
   id: string;
   email: string;
