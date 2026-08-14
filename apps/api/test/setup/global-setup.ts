@@ -55,6 +55,17 @@ export default async function globalSetup(): Promise<void> {
   process.env.BOOTSTRAP_ADMIN_EMAILS ??= 'bootstrap-admin@example.com';
   process.env.GOOGLE_AUTH_ENABLED ??= 'true';
   process.env.GOOGLE_CLIENT_ID ??= 'test-client-id.apps.googleusercontent.com';
+  process.env.WHATSAPP_ENABLED ??= 'true';
+  process.env.WHATSAPP_TRANSACTIONAL_ENABLED ??= 'true';
+  process.env.WHATSAPP_CLIENT_PROVIDER ??= 'fake';
+  process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN ??= 'test-whatsapp-verify-token';
+  process.env.WHATSAPP_APP_SECRET ??= 'test-whatsapp-app-secret';
+  process.env.WHATSAPP_LINK_CODE_TTL_MINUTES ??= '10';
+  process.env.WHATSAPP_LINK_MAX_ATTEMPTS ??= '5';
+  process.env.WHATSAPP_PIN_MAX_ATTEMPTS ??= '3';
+  process.env.WHATSAPP_PIN_LOCKOUT_MINUTES ??= '15';
+  process.env.WHATSAPP_SESSION_TTL_SECONDS ??= '600';
+  process.env.WHATSAPP_MESSAGE_DEDUPE_TTL_SECONDS ??= '300';
 
   execSync('pnpm typeorm migration:run', {
     cwd: join(__dirname, '..', '..'),
