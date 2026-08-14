@@ -82,6 +82,27 @@ export const envSchema = z.object({
     .default('false')
     .transform((value) => value === 'true'),
   OTEL_SERVICE_NAME: z.string().min(1).default('mezzo-api'),
+  WHATSAPP_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  WHATSAPP_TRANSACTIONAL_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
+  WHATSAPP_CLIENT_PROVIDER: z.enum(['fake', 'meta']).default('fake'),
+  WHATSAPP_API_BASE_URL: z.string().url().default('https://graph.facebook.com/v20.0'),
+  WHATSAPP_ACCESS_TOKEN: z.string().min(1).optional(),
+  WHATSAPP_PHONE_NUMBER_ID: z.string().min(1).optional(),
+  WHATSAPP_BUSINESS_ACCOUNT_ID: z.string().min(1).optional(),
+  WHATSAPP_WEBHOOK_VERIFY_TOKEN: z.string().min(1).optional(),
+  WHATSAPP_APP_SECRET: z.string().min(1).optional(),
+  WHATSAPP_LINK_CODE_TTL_MINUTES: z.coerce.number().int().positive().default(10),
+  WHATSAPP_LINK_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
+  WHATSAPP_PIN_MAX_ATTEMPTS: z.coerce.number().int().positive().default(3),
+  WHATSAPP_PIN_LOCKOUT_MINUTES: z.coerce.number().int().positive().default(15),
+  WHATSAPP_SESSION_TTL_SECONDS: z.coerce.number().int().positive().default(600),
+  WHATSAPP_MESSAGE_DEDUPE_TTL_SECONDS: z.coerce.number().int().positive().default(300),
 });
 
 type PaymentProviderSetting = z.infer<typeof envSchema>['PAYMENT_PROVIDER'];
@@ -126,6 +147,30 @@ export const configSchema = envSchema.superRefine((env, ctx) => {
       path: ['DOJAH_WEBHOOK_SECRET'],
       message: 'DOJAH_WEBHOOK_SECRET is required when KYC_PROVIDER is "dojah"',
     });
+  }
+
+  if (env.WHATSAPP_ENABLED) {
+    for (const key of ['WHATSAPP_WEBHOOK_VERIFY_TOKEN', 'WHATSAPP_APP_SECRET'] as const) {
+      if (!env[key]) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: `${key} is required when WHATSAPP_ENABLED is "true"`,
+        });
+      }
+    }
+  }
+
+  if (env.WHATSAPP_CLIENT_PROVIDER === 'meta') {
+    for (const key of ['WHATSAPP_ACCESS_TOKEN', 'WHATSAPP_PHONE_NUMBER_ID'] as const) {
+      if (!env[key]) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: `${key} is required when WHATSAPP_CLIENT_PROVIDER is "meta"`,
+        });
+      }
+    }
   }
 });
 
