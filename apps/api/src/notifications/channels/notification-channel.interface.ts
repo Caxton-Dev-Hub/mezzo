@@ -8,6 +8,7 @@ export interface NotificationDeliveryRequest {
   channel: NotificationChannelType;
   recipientEmail: string;
   recipientPhone: string | null;
+  recipientWhatsapp: string | null;
 }
 
 export interface NotificationChannel {
@@ -17,3 +18,4 @@ export interface NotificationChannel {
 
 export const EMAIL_CHANNEL = Symbol('EMAIL_CHANNEL');
 export const SMS_CHANNEL = Symbol('SMS_CHANNEL');
+export const WHATSAPP_CHANNEL = Symbol('WHATSAPP_CHANNEL');

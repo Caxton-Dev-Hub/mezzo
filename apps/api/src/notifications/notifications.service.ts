@@ -3,9 +3,10 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { Queue } from 'bullmq';
 import { Notification } from '../database/entities/notification.entity';
+import { WhatsAppAccount } from '../database/entities/whatsapp-account.entity';
 import { NotificationEventType } from './entities/notification-event-type.enum';
 import { NotificationChannelType } from './entities/notification-channel-type.enum';
 import {
@@ -29,6 +30,8 @@ export class NotificationsService {
   constructor(
     @InjectRepository(Notification)
     private readonly notifications: Repository<Notification>,
+    @InjectRepository(WhatsAppAccount)
+    private readonly whatsappAccounts: Repository<WhatsAppAccount>,
     @InjectQueue(NOTIFICATION_QUEUE)
     private readonly queue: Queue,
     private readonly configService: ConfigService,
@@ -47,7 +50,14 @@ export class NotificationsService {
     });
 
     for (const userId of uniqueRecipients) {
-      for (const channel of [NotificationChannelType.EMAIL, NotificationChannelType.SMS]) {
+      const hasWhatsapp = await this.whatsappAccounts.exists({
+        where: { userId, notificationsOptedOutAt: IsNull() },
+      });
+      const channels = hasWhatsapp
+        ? [NotificationChannelType.EMAIL, NotificationChannelType.SMS, NotificationChannelType.WHATSAPP]
+        : [NotificationChannelType.EMAIL, NotificationChannelType.SMS];
+
+      for (const channel of channels) {
         const dedupeKey = notificationDedupeKey(input.sourceEventId, channel, userId);
         await this.queue.add(
           NOTIFICATION_DELIVERY_JOB,

@@ -8,6 +8,7 @@ import { NotificationEventType } from './entities/notification-event-type.enum';
 import { NotificationNotFoundError } from './errors/notification-not-found.error';
 import { notificationDedupeKey } from './notification-queue.constants';
 import { Notification } from '../database/entities/notification.entity';
+import { WhatsAppAccount } from '../database/entities/whatsapp-account.entity';
 import { callArg, callArgs } from '../../test/support/mock-calls';
 
 const ESCROW_ID = 'escrow-1';
@@ -41,7 +42,11 @@ interface Harness {
 }
 
 function buildHarness(
-  options: { rows?: Notification[]; row?: Notification | null } = {},
+  options: {
+    rows?: Notification[];
+    row?: Notification | null;
+    hasWhatsapp?: boolean;
+  } = {},
 ): Harness {
   const find = jest.fn().mockResolvedValue(options.rows ?? []);
   const findOne = jest
@@ -55,6 +60,10 @@ function buildHarness(
     save,
     update,
   } as unknown as Repository<Notification>;
+
+  const whatsappAccounts = {
+    exists: jest.fn().mockResolvedValue(options.hasWhatsapp ?? false),
+  } as unknown as Repository<WhatsAppAccount>;
 
   const queueAdd = jest.fn().mockResolvedValue(undefined);
   const queue = { add: queueAdd } as unknown as Queue;
@@ -75,7 +84,13 @@ function buildHarness(
   const eventEmitter = { emit } as unknown as EventEmitter2;
 
   return {
-    service: new NotificationsService(notifications, queue, configService, eventEmitter),
+    service: new NotificationsService(
+      notifications,
+      whatsappAccounts,
+      queue,
+      configService,
+      eventEmitter,
+    ),
     queueAdd,
     emit,
     find,
@@ -167,6 +182,21 @@ describe('NotificationsService.notify', () => {
 
     expect(harness.emit).toHaveBeenCalledTimes(1);
     expect(harness.queueAdd).not.toHaveBeenCalled();
+  });
+
+  it('adds a whatsapp job when the recipient has a linked, opted-in account', async () => {
+    const harness = buildHarness({ hasWhatsapp: true });
+
+    await harness.service.notify(notifyInput);
+
+    const channels = callArgs(harness.queueAdd).map(
+      (call) => (call[1] as { channel: NotificationChannelType }).channel,
+    );
+    expect(channels).toEqual([
+      NotificationChannelType.EMAIL,
+      NotificationChannelType.SMS,
+      NotificationChannelType.WHATSAPP,
+    ]);
   });
 
   it('carries the correlation id onto every queued job', async () => {

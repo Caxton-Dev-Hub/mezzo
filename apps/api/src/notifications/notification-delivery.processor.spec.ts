@@ -9,6 +9,7 @@ import { NotificationDeliveryJobData } from './notification-queue.constants';
 import { NotificationsGateway } from './notifications.gateway';
 import { Notification } from '../database/entities/notification.entity';
 import { User } from '../database/entities/user.entity';
+import { WhatsAppAccount } from '../database/entities/whatsapp-account.entity';
 
 const USER_ID = 'user-1';
 const ESCROW_ID = 'escrow-1';
@@ -62,6 +63,7 @@ interface Harness {
   usersFindOne: jest.Mock;
   emailSend: jest.Mock;
   smsSend: jest.Mock;
+  whatsappSend: jest.Mock;
   emitNotification: jest.Mock;
 }
 
@@ -82,11 +84,16 @@ function buildHarness(
     .fn()
     .mockResolvedValue(options.user === undefined ? buildUser() : options.user);
   const users = { findOne: usersFindOne } as unknown as Repository<User>;
+  const whatsappAccounts = {
+    findOne: jest.fn().mockResolvedValue(null),
+  } as unknown as Repository<WhatsAppAccount>;
 
   const emailSend = jest.fn().mockResolvedValue(undefined);
   const emailChannel = { send: emailSend } as unknown as NotificationChannel;
   const smsSend = jest.fn().mockResolvedValue(undefined);
   const smsChannel = { send: smsSend } as unknown as NotificationChannel;
+  const whatsappSend = jest.fn().mockResolvedValue(undefined);
+  const whatsappChannel = { send: whatsappSend } as unknown as NotificationChannel;
 
   const emitNotification = jest.fn();
   const gateway = { emitNotification } as unknown as NotificationsGateway;
@@ -95,8 +102,10 @@ function buildHarness(
     processor: new NotificationDeliveryProcessor(
       notifications,
       users,
+      whatsappAccounts,
       emailChannel,
       smsChannel,
+      whatsappChannel,
       gateway,
     ),
     findOne,
@@ -104,6 +113,7 @@ function buildHarness(
     usersFindOne,
     emailSend,
     smsSend,
+    whatsappSend,
     emitNotification,
   };
 }
