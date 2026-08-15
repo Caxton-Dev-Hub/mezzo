@@ -4,7 +4,7 @@ import { Job } from 'bullmq';
 import { WhatsAppCommandDispatcherService } from './whatsapp-command-dispatcher.service';
 import { WHATSAPP_INBOUND_QUEUE, WhatsAppInboundJobData } from './whatsapp-inbound-queue.constants';
 
-@Processor(WHATSAPP_INBOUND_QUEUE)
+@Processor(WHATSAPP_INBOUND_QUEUE, { drainDelay: 20_000 })
 export class WhatsAppInboundMessageProcessor extends WorkerHost {
   private readonly logger = new Logger(WhatsAppInboundMessageProcessor.name);
 

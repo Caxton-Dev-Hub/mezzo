@@ -6,7 +6,7 @@ import {
 } from './inspection-ending-soon-queue.constants';
 import { SettlementService } from './settlement.service';
 
-@Processor(INSPECTION_ENDING_SOON_QUEUE)
+@Processor(INSPECTION_ENDING_SOON_QUEUE, { drainDelay: 300_000 })
 export class InspectionEndingSoonProcessor extends WorkerHost {
   constructor(private readonly settlementService: SettlementService) {
     super();

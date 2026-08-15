@@ -3,7 +3,7 @@ import { Job } from 'bullmq';
 import { DISPUTE_EVIDENCE_WINDOW_QUEUE, DisputeEvidenceWindowJobData } from './dispute-evidence-window-queue.constants';
 import { DisputeService } from './dispute.service';
 
-@Processor(DISPUTE_EVIDENCE_WINDOW_QUEUE)
+@Processor(DISPUTE_EVIDENCE_WINDOW_QUEUE, { drainDelay: 300_000 })
 export class DisputeEvidenceWindowProcessor extends WorkerHost {
   constructor(private readonly disputeService: DisputeService) {
     super();

@@ -24,7 +24,7 @@ function isUniqueViolation(error: unknown): boolean {
   return typeof error === 'object' && error !== null && (error as { code?: string }).code === POSTGRES_UNIQUE_VIOLATION;
 }
 
-@Processor(NOTIFICATION_QUEUE)
+@Processor(NOTIFICATION_QUEUE, { drainDelay: 30_000 })
 export class NotificationDeliveryProcessor extends WorkerHost {
   private readonly logger = new Logger(NotificationDeliveryProcessor.name);
 
