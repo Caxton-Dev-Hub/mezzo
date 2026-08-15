@@ -88,4 +88,25 @@ describe('AuthRateLimitGuard', () => {
 
     expect(harness.incr).toHaveBeenCalledWith('ratelimit:auth:register:203.0.113.7');
   });
+
+  it('allows the request through when redis is unavailable', async () => {
+    const incr = jest.fn().mockRejectedValue(new Error('ERR max requests limit exceeded'));
+    const expire = jest.fn().mockResolvedValue(undefined);
+    const redis = { incr, expire } as unknown as RedisService;
+    const configService = {
+      getOrThrow: jest.fn().mockImplementation((key: string) => {
+        if (key === 'AUTH_RATE_LIMIT_MAX_ATTEMPTS') {
+          return MAX_ATTEMPTS;
+        }
+        if (key === 'AUTH_RATE_LIMIT_WINDOW_SECONDS') {
+          return WINDOW_SECONDS;
+        }
+        throw new Error(`Unexpected config key ${key}`);
+      }),
+    } as unknown as ConfigService;
+    const guard = new AuthRateLimitGuard(redis, configService);
+
+    await expect(guard.canActivate(buildContext())).resolves.toBe(true);
+    expect(expire).not.toHaveBeenCalled();
+  });
 });
