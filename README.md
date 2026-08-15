@@ -22,6 +22,7 @@ Mezzo enables buyers and sellers — often located in different cities or states
 - [Testing](#testing)
 - [Development Roadmap](#development-roadmap)
 - [Security](#security)
+- [Social](#social)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -411,6 +412,12 @@ The complete milestone breakdown, including per-milestone build prompts and acce
 - Transaction limits are tiered according to KYC verification level to limit exposure from unverified accounts.
 
 To report a security vulnerability, please disclose it privately rather than through a public issue. See `SECURITY.md` for contact details (to be added prior to public release).
+
+## Social
+
+Short bio used for social/business profiles (e.g. Facebook Page):
+
+> Secure escrow for every transaction. Your money, protected until the deal is done.
 
 ## Contributing
 

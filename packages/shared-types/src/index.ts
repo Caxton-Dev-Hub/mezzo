@@ -13,3 +13,4 @@ export * from './arbitration';
 export * from './admin';
 export * from './settings';
 export * from './receipts';
+export * from './waitlist';

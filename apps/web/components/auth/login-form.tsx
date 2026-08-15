@@ -3,6 +3,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { loginSchema, type LoginDto } from '@mezzo/shared-types';
 import { useLogin } from '../../hooks/use-login';
 import { ApiError } from '../../lib/api-error';
@@ -21,6 +22,7 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
   const {
     register,
     handleSubmit,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<LoginDto>({ resolver: zodResolver(loginSchema) });
 
@@ -33,6 +35,15 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
   });
 
   const busy = isSubmitting || mutation.isPending;
+  const needsVerification =
+    mutation.error instanceof ApiError && mutation.error.code === 'EMAIL_NOT_VERIFIED';
+  const verifyEmailHref = (() => {
+    const query = new URLSearchParams({ email: getValues('email') });
+    if (redirectTo) {
+      query.set('redirectTo', redirectTo);
+    }
+    return `/verify-email?${query.toString()}`;
+  })();
   const serverError =
     mutation.error instanceof ApiError
       ? mutation.error.message
@@ -67,6 +78,15 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
       {serverError ? (
         <p role="alert" className="text-[13px] text-danger">
           {serverError}
+          {needsVerification ? (
+            <>
+              {' '}
+              <Link href={verifyEmailHref} className="underline underline-offset-4">
+                Verify it now
+              </Link>
+              .
+            </>
+          ) : null}
         </p>
       ) : null}
       <Button type="submit" loading={busy} className="w-full">

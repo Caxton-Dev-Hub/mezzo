@@ -1,10 +1,12 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { cookies } from 'next/headers';
-import { ArrowRight, Fingerprint, Scale, Layers } from 'lucide-react';
+import { Fingerprint, Scale, Layers } from 'lucide-react';
 import { REFRESH_COOKIE_NAME } from '../lib/server-config';
 import { Wordmark } from '../components/shell/wordmark';
 import { buttonVariants } from '../components/ui/button';
 import { EscrowOrb } from '../components/landing/escrow-orb';
+import { WaitlistForm } from '../components/landing/waitlist-form';
 import { faqSchema, jsonLdGraph, serviceSchema } from '../lib/site';
 
 const NAV_LINKS = [
@@ -16,6 +18,11 @@ const NAV_LINKS = [
 ];
 
 const FAQS = [
+  {
+    question: 'Is Mezzo open yet?',
+    answer:
+      'Not to the public. We are letting in a small first group so every early escrow gets our full attention. Join the waitlist and we will email you when it is your turn — early sign-ups get priority.',
+  },
   {
     question: 'How does Mezzo hold the money?',
     answer:
@@ -138,7 +145,10 @@ export default async function LandingPage() {
     <div className="min-h-screen">
       <header className="sticky top-0 z-50 border-b border-line-soft bg-ink/70 shadow-hairline backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-          <Link href="/" className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint focus-visible:ring-offset-4 focus-visible:ring-offset-ink">
+          <Link
+            href="/"
+            className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint focus-visible:ring-offset-4 focus-visible:ring-offset-ink"
+          >
             <Wordmark className="text-base" />
           </Link>
           <nav className="hidden items-center gap-8 md:flex">
@@ -162,9 +172,9 @@ export default async function LandingPage() {
                 <Link href="/login" className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
                   Log in
                 </Link>
-                <Link href="/register" className={buttonVariants({ size: 'sm' })}>
-                  Start an escrow
-                </Link>
+                <a href="#waitlist" className={buttonVariants({ size: 'sm' })}>
+                  Join the waitlist
+                </a>
               </>
             )}
           </div>
@@ -199,21 +209,21 @@ export default async function LandingPage() {
                 condition, timestamps. The funds move when both sides agree, or when an arbiter
                 decides. Never on a promise.
               </p>
-              <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                <Link href="/register" className={buttonVariants({ className: 'w-full sm:w-auto' })}>
-                  Start an escrow
-                  <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
-                </Link>
+              <div id="waitlist" className="mx-auto mt-9 max-w-md scroll-mt-24">
+                <WaitlistForm />
+                <p className="mt-4 text-[13px] text-mute">
+                  Mezzo isn&rsquo;t open yet. Join the waitlist and we&rsquo;ll email you when
+                  it&rsquo;s your turn — no spam, one email.
+                </p>
+              </div>
+              <div className="mt-5 flex justify-center">
                 <a
                   href="#how"
-                  className={buttonVariants({ variant: 'secondary', className: 'w-full sm:w-auto' })}
+                  className="rounded-sm text-[13px] text-fog underline decoration-line underline-offset-4 transition-colors hover:text-vellum focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint focus-visible:ring-offset-4 focus-visible:ring-offset-ink"
                 >
                   See how it works
                 </a>
               </div>
-              <p className="mt-5 text-[13px] text-mute">
-                Identity verification is required before you can receive a payout.
-              </p>
             </div>
 
             <div className="mt-10 px-10 sm:mt-12 sm:px-16">
@@ -315,11 +325,17 @@ export default async function LandingPage() {
                     verified
                   </span>
                 </div>
-                <div className="flex aspect-[4/3] items-center justify-center border-b border-line-soft bg-gradient-to-br from-surface-2 to-ink">
-                  <div className="text-center">
-                    <Fingerprint className="mx-auto h-8 w-8 text-line" strokeWidth={1.25} />
-                    <p className="mt-3 font-mono text-[11px] text-mute">IMG_0114 · 3.2 MB</p>
-                  </div>
+                <div className="relative aspect-[4/3] overflow-hidden border-b border-line-soft bg-surface-2">
+                  <Image
+                    src="/evidence-item-sample.jpg"
+                    alt="Item photographed inside the app before it ships"
+                    fill
+                    sizes="(min-width: 1024px) 480px, 100vw"
+                    className="object-cover"
+                  />
+                  <p className="absolute bottom-3 right-4 rounded-full bg-ink/85 px-2.5 py-1 font-mono text-[11px] text-mute backdrop-blur-sm">
+                    IMG_0114 · 3.2 MB
+                  </p>
                 </div>
                 <dl className="divide-y divide-line-soft">
                   {EVIDENCE_RECORD.map((row) => (
@@ -432,23 +448,24 @@ export default async function LandingPage() {
           />
           <div className="relative mx-auto max-w-2xl px-6 py-28 text-center">
             <h2 className="font-display text-4xl leading-tight text-vellum sm:text-5xl">
-              Send the next one through Mezzo
+              Be first in line
             </h2>
             <p className="mx-auto mt-5 max-w-md leading-relaxed text-fog">
-              Set the terms, share a link, and let the money sit still until the item checks out.
+              We&rsquo;re opening Mezzo to a small first group. Join the waitlist and set the terms
+              on the next one through Mezzo as soon as your invite lands.
             </p>
-            <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Link href="/register" className={buttonVariants({ className: 'w-full sm:w-auto' })}>
-                Start an escrow
-                <ArrowRight className="h-4 w-4" strokeWidth={1.75} />
-              </Link>
+            <div className="mx-auto mt-9 max-w-md">
+              <WaitlistForm />
+            </div>
+            <p className="mt-6 text-[13px] text-mute">
+              Already have an account?{' '}
               <Link
                 href="/login"
-                className={buttonVariants({ variant: 'secondary', className: 'w-full sm:w-auto' })}
+                className="rounded-sm text-vellum underline decoration-line underline-offset-4 transition-colors hover:text-mint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint focus-visible:ring-offset-4 focus-visible:ring-offset-ink"
               >
                 Log in
               </Link>
-            </div>
+            </p>
           </div>
         </section>
       </main>
@@ -486,12 +503,12 @@ export default async function LandingPage() {
               </h2>
               <ul className="mt-4 space-y-2.5">
                 <li>
-                  <Link
-                    href="/register"
+                  <a
+                    href="#waitlist"
                     className="rounded-sm text-[13px] text-fog transition-colors hover:text-vellum focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint focus-visible:ring-offset-4 focus-visible:ring-offset-ink"
                   >
-                    Start an escrow
-                  </Link>
+                    Join the waitlist
+                  </a>
                 </li>
                 <li>
                   <Link

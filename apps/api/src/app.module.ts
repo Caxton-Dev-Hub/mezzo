@@ -23,6 +23,7 @@ import { AuditModule } from './audit/audit.module';
 import { AdminModule } from './admin/admin.module';
 import { ReceiptsModule } from './receipts/receipts.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
+import { WaitlistModule } from './waitlist/waitlist.module';
 
 const databaseBacked = isDatabaseConfigured();
 
@@ -51,6 +52,7 @@ const databaseBacked = isDatabaseConfigured();
           AdminModule,
           ReceiptsModule,
           WhatsappModule,
+          WaitlistModule,
         ]
       : []),
   ],

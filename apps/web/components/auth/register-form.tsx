@@ -27,11 +27,11 @@ export function RegisterForm({ redirectTo }: RegisterFormProps) {
   const onSubmit = handleSubmit((dto) => {
     mutation.mutate(dto, {
       onSuccess: () => {
-        const query = new URLSearchParams({ registered: '1' });
+        const query = new URLSearchParams({ email: dto.email });
         if (redirectTo) {
           query.set('redirectTo', redirectTo);
         }
-        router.push(`/login?${query.toString()}`);
+        router.push(`/verify-email?${query.toString()}`);
       },
     });
   });

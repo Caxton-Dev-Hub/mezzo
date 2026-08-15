@@ -13,9 +13,13 @@ export const metadata: Metadata = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ registered?: string; reset?: string; redirectTo?: string }>;
+  searchParams: Promise<{
+    reset?: string;
+    verified?: string;
+    redirectTo?: string;
+  }>;
 }) {
-  const { registered, reset, redirectTo } = await searchParams;
+  const { reset, verified, redirectTo } = await searchParams;
   const registerHref = redirectTo
     ? `/register?redirectTo=${encodeURIComponent(redirectTo)}`
     : '/register';
@@ -26,9 +30,9 @@ export default async function LoginPage({
         Sign in
       </h1>
       <p className="mt-2 text-sm text-fog">Welcome back. Your escrows are waiting.</p>
-      {registered ? (
+      {verified ? (
         <p className="mt-4 rounded-lg border border-mint/30 bg-mint/10 px-3.5 py-2.5 text-[13px] text-mint">
-          Account created — sign in to continue.
+          Email verified — sign in to continue.
         </p>
       ) : null}
       {reset ? (
