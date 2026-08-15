@@ -209,12 +209,17 @@ export class WhatsAppCommandDispatcherService {
   }
 
   private async handleList(phoneNumber: string, userId: string): Promise<void> {
-    const rows = await this.escrowService.listForUser(userId);
-    if (rows.length === 0) {
+    const { items } = await this.escrowService.listForUser(userId, {
+      page: 1,
+      pageSize: 100,
+      sortBy: 'updatedAt',
+      sortDir: 'desc',
+    });
+    if (items.length === 0) {
       await this.client.sendText(phoneNumber, 'You have no escrows yet.');
       return;
     }
-    const lines = rows.map((row) => `${row.escrow.code}: ${row.escrow.state}`);
+    const lines = items.map((row) => `${row.escrow.code}: ${row.escrow.state}`);
     await this.client.sendText(phoneNumber, ['Your escrows:', ...lines].join('\n'));
   }
 

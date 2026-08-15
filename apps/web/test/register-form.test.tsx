@@ -51,7 +51,9 @@ describe('RegisterForm', () => {
     expect(await screen.findByRole('button', { name: 'Create account' })).toBeDisabled();
 
     resolveFetch(new Response(JSON.stringify({ id: '1' }), { status: 201 }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/login?registered=1'));
+    await waitFor(() =>
+      expect(push).toHaveBeenCalledWith('/verify-email?email=buyer%40example.com'),
+    );
   });
 
   it('surfaces a readable server error', async () => {

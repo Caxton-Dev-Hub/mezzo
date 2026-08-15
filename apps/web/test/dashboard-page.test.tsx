@@ -13,6 +13,18 @@ vi.mock('next/navigation', () => ({
 const USER_ID = '11111111-1111-4111-8111-111111111111';
 const COUNTERPARTY_ID = '22222222-2222-4222-8222-222222222222';
 
+function makeTerms(itemDescription: string): NonNullable<EscrowDetailResponse['terms']> {
+  return {
+    price: { amount: 70_000_000, currency: 'NGN' },
+    inspectionWindowHours: 48,
+    deliveryMethod: 'GIG',
+    itemDescription,
+    feeBps: 250,
+    requiresVerification: false,
+    agreementText: null,
+  };
+}
+
 function makeEscrow(
   id: string,
   overrides: Partial<EscrowDetailResponse> = {},
@@ -21,15 +33,7 @@ function makeEscrow(
     id,
     state: 'PENDING_COUNTERPARTY',
     version: 1,
-    terms: {
-      price: { amount: 70_000_000, currency: 'NGN' },
-      inspectionWindowHours: 48,
-      deliveryMethod: 'GIG',
-      itemDescription: `Item ${id}`,
-      feeBps: 250,
-      requiresVerification: false,
-      agreementText: null,
-    },
+    terms: makeTerms(`Item ${id}`),
     parties: [{ userId: USER_ID, role: 'BUYER', termsAcceptedAt: null }],
     trackingReference: null,
     deliveredAt: null,
@@ -86,7 +90,37 @@ function stubEscrows(
         { status: escrows.status },
       );
     }
-    return new Response(JSON.stringify(escrows), { status: 200 });
+
+    const params = new URL(url, 'http://localhost').searchParams;
+    const search = params.get('search')?.toLowerCase();
+    const state = params.get('state');
+    const page = Number(params.get('page') ?? '1');
+    const pageSize = Number(params.get('pageSize') ?? '20');
+
+    let filtered = escrows;
+    if (search) {
+      filtered = filtered.filter((escrow) =>
+        escrow.terms?.itemDescription.toLowerCase().includes(search),
+      );
+    }
+    if (state) {
+      filtered = filtered.filter((escrow) => escrow.state === state);
+    }
+
+    const total = filtered.length;
+    const start = (page - 1) * pageSize;
+    const items = filtered.slice(start, start + pageSize);
+
+    return new Response(
+      JSON.stringify({
+        items,
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      }),
+      { status: 200 },
+    );
   });
 
   vi.stubGlobal('fetch', fetchMock);
@@ -246,5 +280,116 @@ describe('DashboardPage', () => {
 
     expect(await screen.findByText('No escrows yet')).toBeInTheDocument();
     expect(screen.queryByText('Verify your identity to continue')).not.toBeInTheDocument();
+  });
+
+  describe('search, filter, sort, and pagination', () => {
+    it('debounces search input and narrows the list to matching item descriptions', async () => {
+      stubEscrows([
+        makeEscrow('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', {
+          terms: makeTerms('A vintage camera'),
+        }),
+        makeEscrow('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', {
+          terms: makeTerms('A pair of sneakers'),
+        }),
+      ]);
+
+      renderWithProviders(<DashboardPage />);
+
+      await screen.findByText('A vintage camera');
+      expect(screen.getByText('A pair of sneakers')).toBeInTheDocument();
+
+      await userEvent.type(screen.getByLabelText('Search escrows'), 'camera');
+
+      await waitFor(
+        () => {
+          expect(screen.queryByText('A pair of sneakers')).not.toBeInTheDocument();
+        },
+        { timeout: 2000 },
+      );
+      expect(screen.getByText('A vintage camera')).toBeInTheDocument();
+    });
+
+    it('filters by status and sends the state in the request', async () => {
+      const fetchMock = stubEscrows([
+        makeEscrow('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', { state: 'FUNDED' }),
+        makeEscrow('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', { state: 'SHIPPED' }),
+      ]);
+
+      renderWithProviders(<DashboardPage />);
+      await screen.findByText('Item aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+
+      await userEvent.selectOptions(screen.getByLabelText('Filter by status'), 'FUNDED');
+
+      await waitFor(() => {
+        expect(
+          screen.queryByText('Item bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'),
+        ).not.toBeInTheDocument();
+      });
+      expect(screen.getByText('Item aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(
+          fetchMock.mock.calls.some(([input]) => input.toString().includes('state=FUNDED')),
+        ).toBe(true);
+      });
+    });
+
+    it('sends the selected sort option with the request', async () => {
+      const fetchMock = stubEscrows([makeEscrow('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')]);
+
+      renderWithProviders(<DashboardPage />);
+      await screen.findByText('Item aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+
+      await userEvent.selectOptions(screen.getByLabelText('Sort escrows'), 'price:desc');
+
+      await waitFor(() => {
+        expect(
+          fetchMock.mock.calls.some(
+            ([input]) =>
+              input.toString().includes('sortBy=price') &&
+              input.toString().includes('sortDir=desc'),
+          ),
+        ).toBe(true);
+      });
+    });
+
+    it('paginates through results using the Next page control', async () => {
+      const escrowsList = Array.from({ length: 21 }, (_, index) =>
+        makeEscrow(`escrow-${index.toString().padStart(2, '0')}`),
+      );
+      const fetchMock = stubEscrows(escrowsList);
+
+      renderWithProviders(<DashboardPage />);
+
+      await screen.findByText('Showing 1–20 of 21');
+      expect(screen.getByRole('button', { name: 'Next page' })).not.toBeDisabled();
+
+      await userEvent.click(screen.getByRole('button', { name: 'Next page' }));
+
+      await screen.findByText('Showing 21–21 of 21');
+      await waitFor(() => {
+        expect(fetchMock.mock.calls.some(([input]) => input.toString().includes('page=2'))).toBe(
+          true,
+        );
+      });
+    });
+
+    it('clears filters from the empty state when a search matches nothing', async () => {
+      stubEscrows([makeEscrow('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')]);
+
+      renderWithProviders(<DashboardPage />);
+      await screen.findByText('Item aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+
+      await userEvent.type(screen.getByLabelText('Search escrows'), 'nonexistent item');
+
+      expect(
+        await screen.findByText('No escrows match your filters', {}, { timeout: 2000 }),
+      ).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+
+      expect(
+        await screen.findByText('Item aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
+      ).toBeInTheDocument();
+    });
   });
 });

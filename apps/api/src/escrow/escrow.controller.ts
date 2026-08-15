@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
 import { EscrowService } from './escrow.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
@@ -6,16 +6,20 @@ import { AuthenticatedUser } from '../common/types/authenticated-user';
 import {
   createEscrowSchema,
   CreateEscrowDto,
+  listEscrowsQuerySchema,
+  ListEscrowsQuery,
   updateEscrowTermsSchema,
   UpdateEscrowTermsDto,
 } from './dto/escrow.schemas';
 import {
   EscrowDetailResponse,
   EscrowEventResponse,
+  EscrowListResponse,
   EscrowTermsResponse,
   InviteResponse,
   toEscrowDetailResponse,
   toEscrowEventResponse,
+  toEscrowListResponse,
   toEscrowTermsResponse,
   toInviteResponse,
 } from './dto/escrow-response';
@@ -36,9 +40,12 @@ export class EscrowController {
   }
 
   @Get()
-  async list(@CurrentUser() currentUser: AuthenticatedUser): Promise<EscrowDetailResponse[]> {
-    const escrows = await this.escrowService.listForUser(currentUser.id);
-    return escrows.map((item) => toEscrowDetailResponse(item.escrow, item.terms, item.parties));
+  async list(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Query(new ZodValidationPipe(listEscrowsQuerySchema)) query: ListEscrowsQuery,
+  ): Promise<EscrowListResponse> {
+    const { items, total } = await this.escrowService.listForUser(currentUser.id, query);
+    return toEscrowListResponse(items, query.page, query.pageSize, total);
   }
 
   @Get(':id')

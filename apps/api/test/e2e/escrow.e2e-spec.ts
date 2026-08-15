@@ -38,6 +38,14 @@ interface EscrowDetailBody {
   parties: { userId: string; role: EscrowRole; termsAcceptedAt: string | null }[];
 }
 
+interface EscrowListBody {
+  items: EscrowDetailBody[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
 interface InviteBody {
   token: string;
   expiresAt: string;
@@ -129,11 +137,14 @@ describe('Escrow (e2e)', () => {
     );
   }
 
-  async function createDraft(accessToken: string): Promise<EscrowDetailBody> {
+  async function createDraft(
+    accessToken: string,
+    overrides: Partial<typeof validTerms> = {},
+  ): Promise<EscrowDetailBody> {
     const response = await request(server)
       .post('/escrows')
       .set(auth(accessToken))
-      .send({ role: EscrowRole.BUYER, ...validTerms });
+      .send({ role: EscrowRole.BUYER, ...validTerms, ...overrides });
     const draft = response.body as EscrowDetailBody;
     await seedCreationEvidence(draft.id, draft.parties[0].userId);
     return draft;
@@ -355,10 +366,11 @@ describe('Escrow (e2e)', () => {
       const response = await request(server).get('/escrows').set(auth(buyer.accessToken));
 
       expect(response.status).toBe(200);
-      const list = response.body as EscrowDetailBody[];
-      expect(list.map((escrow) => escrow.id)).toEqual([second.id, first.id]);
-      expect(list[0].terms?.itemDescription).toBe(validTerms.itemDescription);
-      expect(list[0].parties).toHaveLength(1);
+      const body = response.body as EscrowListBody;
+      expect(body.items.map((escrow) => escrow.id)).toEqual([second.id, first.id]);
+      expect(body.items[0].terms?.itemDescription).toBe(validTerms.itemDescription);
+      expect(body.items[0].parties).toHaveLength(1);
+      expect(body).toMatchObject({ page: 1, pageSize: 20, total: 2, totalPages: 1 });
     });
 
     it('includes an escrow the caller joined as the counterparty', async () => {
@@ -366,9 +378,9 @@ describe('Escrow (e2e)', () => {
 
       const response = await request(server).get('/escrows').set(auth(seller.accessToken));
 
-      const list = response.body as EscrowDetailBody[];
-      expect(list.map((escrow) => escrow.id)).toContain(escrowId);
-      expect(list.find((escrow) => escrow.id === escrowId)?.parties).toHaveLength(2);
+      const body = response.body as EscrowListBody;
+      expect(body.items.map((escrow) => escrow.id)).toContain(escrowId);
+      expect(body.items.find((escrow) => escrow.id === escrowId)?.parties).toHaveLength(2);
     });
 
     it('never leaks an escrow the caller is not a party to', async () => {
@@ -378,16 +390,125 @@ describe('Escrow (e2e)', () => {
       const response = await request(server).get('/escrows').set(auth(stranger.accessToken));
 
       expect(response.status).toBe(200);
-      expect(response.body).toEqual([]);
-      expect((response.body as EscrowDetailBody[]).map((escrow) => escrow.id)).not.toContain(
-        escrowId,
-      );
+      const body = response.body as EscrowListBody;
+      expect(body.items).toEqual([]);
+      expect(body.total).toBe(0);
+      expect(body.items.map((escrow) => escrow.id)).not.toContain(escrowId);
     });
 
     it('requires authentication', async () => {
       const response = await request(server).get('/escrows');
 
       expect(response.status).toBe(401);
+    });
+
+    it('paginates using page and pageSize', async () => {
+      const buyer = await registerAndLogin();
+      const first = await createDraft(buyer.accessToken);
+      const second = await createDraft(buyer.accessToken);
+      const third = await createDraft(buyer.accessToken);
+
+      const pageOne = await request(server)
+        .get('/escrows')
+        .query({ page: 1, pageSize: 2 })
+        .set(auth(buyer.accessToken));
+      const pageTwo = await request(server)
+        .get('/escrows')
+        .query({ page: 2, pageSize: 2 })
+        .set(auth(buyer.accessToken));
+
+      const bodyOne = pageOne.body as EscrowListBody;
+      const bodyTwo = pageTwo.body as EscrowListBody;
+      expect(bodyOne.items.map((escrow) => escrow.id)).toEqual([third.id, second.id]);
+      expect(bodyOne).toMatchObject({ page: 1, pageSize: 2, total: 3, totalPages: 2 });
+      expect(bodyTwo.items.map((escrow) => escrow.id)).toEqual([first.id]);
+      expect(bodyTwo).toMatchObject({ page: 2, pageSize: 2, total: 3, totalPages: 2 });
+    });
+
+    it('searches by item description', async () => {
+      const buyer = await registerAndLogin();
+      const camera = await createDraft(buyer.accessToken, { itemDescription: 'A vintage camera' });
+      await createDraft(buyer.accessToken, { itemDescription: 'A pair of sneakers' });
+
+      const response = await request(server)
+        .get('/escrows')
+        .query({ search: 'camera' })
+        .set(auth(buyer.accessToken));
+
+      const body = response.body as EscrowListBody;
+      expect(body.items.map((escrow) => escrow.id)).toEqual([camera.id]);
+      expect(body.total).toBe(1);
+    });
+
+    it('searches by escrow code', async () => {
+      const buyer = await registerAndLogin();
+      const draft = await createDraft(buyer.accessToken);
+      await createDraft(buyer.accessToken);
+      const row = await escrows.findOneByOrFail({ id: draft.id });
+
+      const response = await request(server)
+        .get('/escrows')
+        .query({ search: row.code })
+        .set(auth(buyer.accessToken));
+
+      const body = response.body as EscrowListBody;
+      expect(body.items.map((escrow) => escrow.id)).toEqual([draft.id]);
+    });
+
+    it('filters by state', async () => {
+      const buyer = await registerAndLogin();
+      const draft = await createDraft(buyer.accessToken);
+      const funded = await createDraft(buyer.accessToken);
+      await stateMachine.transition(funded.id, EscrowState.PENDING_COUNTERPARTY, {
+        actorId: buyer.userId,
+      });
+      await stateMachine.transition(funded.id, EscrowState.AGREED, { actorId: null });
+      await stateMachine.transition(funded.id, EscrowState.FUNDED, { actorId: null });
+
+      const response = await request(server)
+        .get('/escrows')
+        .query({ state: EscrowState.FUNDED })
+        .set(auth(buyer.accessToken));
+
+      const body = response.body as EscrowListBody;
+      expect(body.items.map((escrow) => escrow.id)).toEqual([funded.id]);
+      expect(body.items.map((escrow) => escrow.id)).not.toContain(draft.id);
+    });
+
+    it('sorts oldest first when asked', async () => {
+      const buyer = await registerAndLogin();
+      const first = await createDraft(buyer.accessToken);
+      const second = await createDraft(buyer.accessToken);
+
+      const response = await request(server)
+        .get('/escrows')
+        .query({ sortBy: 'createdAt', sortDir: 'asc' })
+        .set(auth(buyer.accessToken));
+
+      const body = response.body as EscrowListBody;
+      expect(body.items.map((escrow) => escrow.id)).toEqual([first.id, second.id]);
+    });
+
+    it('rejects an invalid page number', async () => {
+      const buyer = await registerAndLogin();
+
+      const response = await request(server)
+        .get('/escrows')
+        .query({ page: 0 })
+        .set(auth(buyer.accessToken));
+
+      expect(response.status).toBe(400);
+    });
+
+    it('rejects an unknown state filter', async () => {
+      const buyer = await registerAndLogin();
+
+      const response = await request(server)
+        .get('/escrows')
+        .query({ state: 'NOT_A_REAL_STATE' })
+        .set(auth(buyer.accessToken));
+
+      expect(response.status).toBe(400);
     });
   });
 

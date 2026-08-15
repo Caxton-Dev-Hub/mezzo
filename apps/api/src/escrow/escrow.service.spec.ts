@@ -6,6 +6,7 @@ import { EscrowService } from './escrow.service';
 import { EscrowStateMachine } from './escrow-state-machine';
 import { EscrowState } from './entities/escrow-state.enum';
 import { EscrowRole } from './entities/escrow-role.enum';
+import { ListEscrowsQuery } from './dto/escrow.schemas';
 import { NotEscrowPartyError } from './errors/not-escrow-party.error';
 import { TermsFrozenError } from './errors/terms-frozen.error';
 import { EscrowFullError } from './errors/escrow-full.error';
@@ -106,10 +107,37 @@ function buildEvidenceItem(overrides: Partial<EvidenceItem> = {}): EvidenceItem 
   } as EvidenceItem;
 }
 
+interface QueryBuilderMock {
+  innerJoin: jest.Mock;
+  leftJoin: jest.Mock;
+  andWhere: jest.Mock;
+  orderBy: jest.Mock;
+  addOrderBy: jest.Mock;
+  skip: jest.Mock;
+  take: jest.Mock;
+  getCount: jest.Mock;
+  getMany: jest.Mock;
+}
+
+function buildQueryBuilderMock(rows: Escrow[], total: number): QueryBuilderMock {
+  const qb: Partial<QueryBuilderMock> = {};
+  qb.innerJoin = jest.fn().mockReturnValue(qb);
+  qb.leftJoin = jest.fn().mockReturnValue(qb);
+  qb.andWhere = jest.fn().mockReturnValue(qb);
+  qb.orderBy = jest.fn().mockReturnValue(qb);
+  qb.addOrderBy = jest.fn().mockReturnValue(qb);
+  qb.skip = jest.fn().mockReturnValue(qb);
+  qb.take = jest.fn().mockReturnValue(qb);
+  qb.getCount = jest.fn().mockResolvedValue(total);
+  qb.getMany = jest.fn().mockResolvedValue(rows);
+  return qb as QueryBuilderMock;
+}
+
 interface Harness {
   service: EscrowService;
   escrowsFindOne: jest.Mock;
   escrowsFind: jest.Mock;
+  escrowsQueryBuilder: QueryBuilderMock;
   termsFindOne: jest.Mock;
   termsFind: jest.Mock;
   termsSave: jest.Mock;
@@ -144,13 +172,23 @@ function buildHarness(
     evidenceItems?: EvidenceItem[];
     events?: EscrowEvent[];
     eventsCount?: number;
+    queryBuilderTotal?: number;
   } = {},
 ): Harness {
   const escrowsFindOne = jest
     .fn()
     .mockResolvedValue(options.escrow === undefined ? buildEscrow() : options.escrow);
   const escrowsFind = jest.fn().mockResolvedValue(options.escrows ?? []);
-  const escrows = { findOne: escrowsFindOne, find: escrowsFind } as unknown as Repository<Escrow>;
+  const escrowsQueryBuilder = buildQueryBuilderMock(
+    options.escrows ?? [],
+    options.queryBuilderTotal ?? (options.escrows ?? []).length,
+  );
+  const escrowsCreateQueryBuilder = jest.fn().mockReturnValue(escrowsQueryBuilder);
+  const escrows = {
+    findOne: escrowsFindOne,
+    find: escrowsFind,
+    createQueryBuilder: escrowsCreateQueryBuilder,
+  } as unknown as Repository<Escrow>;
 
   const termsFindOne = jest
     .fn()
@@ -254,6 +292,7 @@ function buildHarness(
     service,
     escrowsFindOne,
     escrowsFind,
+    escrowsQueryBuilder,
     termsFindOne,
     termsFind,
     termsSave,
@@ -734,40 +773,122 @@ describe('EscrowService.getDetail', () => {
 });
 
 describe('EscrowService.listForUser', () => {
-  it('returns an empty list when the user is party to nothing', async () => {
-    const harness = buildHarness({ parties: [] });
+  const defaultQuery: ListEscrowsQuery = {
+    page: 1,
+    pageSize: 20,
+    sortBy: 'updatedAt',
+    sortDir: 'desc',
+  };
 
-    await expect(harness.service.listForUser(INITIATOR_ID)).resolves.toEqual([]);
-    expect(harness.escrowsFind).not.toHaveBeenCalled();
+  it('returns an empty page when the query matches nothing', async () => {
+    const harness = buildHarness({ escrows: [], queryBuilderTotal: 0 });
+
+    await expect(harness.service.listForUser(INITIATOR_ID, defaultQuery)).resolves.toEqual({
+      items: [],
+      total: 0,
+    });
+    expect(harness.termsFind).not.toHaveBeenCalled();
+    expect(harness.partiesFind).not.toHaveBeenCalled();
+  });
+
+  it('scopes the query to escrows the caller is a party to', async () => {
+    const harness = buildHarness({ escrows: [buildEscrow()] });
+
+    await harness.service.listForUser(INITIATOR_ID, defaultQuery);
+
+    expect(harness.escrowsQueryBuilder.innerJoin).toHaveBeenCalledWith(
+      EscrowParty,
+      'party',
+      'party.escrowId = escrow.id AND party.userId = :userId',
+      { userId: INITIATOR_ID },
+    );
   });
 
   it('groups terms and parties onto each escrow it returns', async () => {
     const other = buildEscrow({ id: 'escrow-2' });
     const harness = buildHarness({
-      parties: [buildParty(), buildParty({ escrowId: 'escrow-2', userId: JOINER_ID })],
       escrows: [buildEscrow(), other],
+      parties: [buildParty(), buildParty({ escrowId: 'escrow-2', userId: JOINER_ID })],
       termsList: [buildTerms(), buildTerms({ id: 'terms-2', escrowId: 'escrow-2' })],
     });
 
-    const list = await harness.service.listForUser(INITIATOR_ID);
+    const { items, total } = await harness.service.listForUser(INITIATOR_ID, defaultQuery);
 
-    expect(list).toHaveLength(2);
-    expect(list[0].terms?.escrowId).toBe(ESCROW_ID);
-    expect(list[0].parties.map((party) => party.escrowId)).toEqual([ESCROW_ID]);
-    expect(list[1].terms?.escrowId).toBe('escrow-2');
+    expect(total).toBe(2);
+    expect(items).toHaveLength(2);
+    expect(items[0].terms?.escrowId).toBe(ESCROW_ID);
+    expect(items[0].parties.map((party) => party.escrowId)).toEqual([ESCROW_ID]);
+    expect(items[1].terms?.escrowId).toBe('escrow-2');
   });
 
   it('leaves terms null for an escrow that has none', async () => {
     const harness = buildHarness({
-      parties: [buildParty()],
       escrows: [buildEscrow()],
+      parties: [buildParty()],
       termsList: [],
     });
 
-    const [entry] = await harness.service.listForUser(INITIATOR_ID);
+    const {
+      items: [entry],
+    } = await harness.service.listForUser(INITIATOR_ID, defaultQuery);
 
     expect(entry.terms).toBeNull();
     expect(entry.parties).toEqual([expect.objectContaining({ escrowId: ESCROW_ID })]);
+  });
+
+  it('filters by state when provided', async () => {
+    const harness = buildHarness({ escrows: [buildEscrow({ state: EscrowState.FUNDED })] });
+
+    await harness.service.listForUser(INITIATOR_ID, { ...defaultQuery, state: EscrowState.FUNDED });
+
+    expect(harness.escrowsQueryBuilder.andWhere).toHaveBeenCalledWith('escrow.state = :state', {
+      state: EscrowState.FUNDED,
+    });
+  });
+
+  it('does not filter by state when omitted', async () => {
+    const harness = buildHarness({ escrows: [buildEscrow()] });
+
+    await harness.service.listForUser(INITIATOR_ID, defaultQuery);
+
+    expect(harness.escrowsQueryBuilder.andWhere).not.toHaveBeenCalledWith(
+      expect.stringContaining('escrow.state'),
+      expect.anything(),
+    );
+  });
+
+  it('searches escrow code and item description with a wildcard match', async () => {
+    const harness = buildHarness({ escrows: [buildEscrow()] });
+
+    await harness.service.listForUser(INITIATOR_ID, { ...defaultQuery, search: 'camera' });
+
+    expect(harness.escrowsQueryBuilder.andWhere).toHaveBeenCalledWith(
+      '(escrow.code ILIKE :search OR terms.itemDescription ILIKE :search)',
+      { search: '%camera%' },
+    );
+  });
+
+  it.each([
+    ['updatedAt', 'desc', 'escrow.updatedAt', 'DESC'],
+    ['updatedAt', 'asc', 'escrow.updatedAt', 'ASC'],
+    ['createdAt', 'desc', 'escrow.createdAt', 'DESC'],
+    ['price', 'asc', 'terms.priceAmount', 'ASC'],
+  ] as const)('sorts by %s %s', async (sortBy, sortDir, column, direction) => {
+    const harness = buildHarness({ escrows: [buildEscrow()] });
+
+    await harness.service.listForUser(INITIATOR_ID, { ...defaultQuery, sortBy, sortDir });
+
+    expect(harness.escrowsQueryBuilder.orderBy).toHaveBeenCalledWith(column, direction);
+    expect(harness.escrowsQueryBuilder.addOrderBy).toHaveBeenCalledWith('escrow.id', 'ASC');
+  });
+
+  it('paginates using skip/take derived from page and pageSize', async () => {
+    const harness = buildHarness({ escrows: [buildEscrow()] });
+
+    await harness.service.listForUser(INITIATOR_ID, { ...defaultQuery, page: 3, pageSize: 10 });
+
+    expect(harness.escrowsQueryBuilder.skip).toHaveBeenCalledWith(20);
+    expect(harness.escrowsQueryBuilder.take).toHaveBeenCalledWith(10);
   });
 });
 

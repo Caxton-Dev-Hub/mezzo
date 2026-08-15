@@ -15,7 +15,7 @@ import { EscrowEvent } from '../database/entities/escrow-event.entity';
 import { EscrowState } from './entities/escrow-state.enum';
 import { EscrowRole, opposite } from './entities/escrow-role.enum';
 import { EscrowStateMachine } from './escrow-state-machine';
-import { CreateEscrowDto, UpdateEscrowTermsDto } from './dto/escrow.schemas';
+import { CreateEscrowDto, ListEscrowsQuery, UpdateEscrowTermsDto } from './dto/escrow.schemas';
 import { Money } from '../common/money/money';
 import { NotEscrowPartyError } from './errors/not-escrow-party.error';
 import { TermsFrozenError } from './errors/terms-frozen.error';
@@ -348,14 +348,50 @@ export class EscrowService {
 
   async listForUser(
     userId: string,
-  ): Promise<{ escrow: Escrow; terms: EscrowTerms | null; parties: EscrowParty[] }[]> {
-    const escrowIds = await this.listEscrowIdsForUser(userId);
-    if (escrowIds.length === 0) {
-      return [];
+    query: ListEscrowsQuery,
+  ): Promise<{
+    items: { escrow: Escrow; terms: EscrowTerms | null; parties: EscrowParty[] }[];
+    total: number;
+  }> {
+    const qb = this.escrows
+      .createQueryBuilder('escrow')
+      .innerJoin(EscrowParty, 'party', 'party.escrowId = escrow.id AND party.userId = :userId', {
+        userId,
+      })
+      .leftJoin(EscrowTerms, 'terms', 'terms.escrowId = escrow.id');
+
+    if (query.state) {
+      qb.andWhere('escrow.state = :state', { state: query.state });
     }
 
-    const [escrows, terms, parties] = await Promise.all([
-      this.escrows.find({ where: { id: In(escrowIds) }, order: { updatedAt: 'DESC' } }),
+    if (query.search) {
+      qb.andWhere('(escrow.code ILIKE :search OR terms.itemDescription ILIKE :search)', {
+        search: `%${query.search}%`,
+      });
+    }
+
+    const total = await qb.getCount();
+
+    const sortColumn =
+      query.sortBy === 'price'
+        ? 'terms.priceAmount'
+        : query.sortBy === 'createdAt'
+          ? 'escrow.createdAt'
+          : 'escrow.updatedAt';
+
+    const escrows = await qb
+      .orderBy(sortColumn, query.sortDir === 'asc' ? 'ASC' : 'DESC')
+      .addOrderBy('escrow.id', 'ASC')
+      .skip((query.page - 1) * query.pageSize)
+      .take(query.pageSize)
+      .getMany();
+
+    if (escrows.length === 0) {
+      return { items: [], total };
+    }
+
+    const escrowIds = escrows.map((escrow) => escrow.id);
+    const [terms, parties] = await Promise.all([
       this.terms.find({ where: { escrowId: In(escrowIds) } }),
       this.parties.find({ where: { escrowId: In(escrowIds) } }),
     ]);
@@ -371,11 +407,14 @@ export class EscrowService {
       }
     }
 
-    return escrows.map((escrow) => ({
-      escrow,
-      terms: termsByEscrow.get(escrow.id) ?? null,
-      parties: partiesByEscrow.get(escrow.id) ?? [],
-    }));
+    return {
+      items: escrows.map((escrow) => ({
+        escrow,
+        terms: termsByEscrow.get(escrow.id) ?? null,
+        parties: partiesByEscrow.get(escrow.id) ?? [],
+      })),
+      total,
+    };
   }
 
   async listAll(

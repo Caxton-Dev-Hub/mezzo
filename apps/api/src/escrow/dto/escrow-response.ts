@@ -1,6 +1,7 @@
 import {
   EscrowDetailResponse,
   EscrowEventResponse,
+  EscrowListResponse,
   EscrowPartyResponse,
   EscrowTermsResponse,
   InviteResponse,
@@ -14,6 +15,7 @@ import { Invite } from '../../database/entities/invite.entity';
 export type {
   EscrowDetailResponse,
   EscrowEventResponse,
+  EscrowListResponse,
   EscrowPartyResponse,
   EscrowTermsResponse,
   InviteResponse,
@@ -50,6 +52,21 @@ export function toEscrowDetailResponse(
     deliveredAt: escrow.deliveredAt,
     createdAt: escrow.createdAt,
     updatedAt: escrow.updatedAt,
+  };
+}
+
+export function toEscrowListResponse(
+  items: { escrow: Escrow; terms: EscrowTerms | null; parties: EscrowParty[] }[],
+  page: number,
+  pageSize: number,
+  total: number,
+): EscrowListResponse {
+  return {
+    items: items.map((item) => toEscrowDetailResponse(item.escrow, item.terms, item.parties)),
+    page,
+    pageSize,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
   };
 }
 

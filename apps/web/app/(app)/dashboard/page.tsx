@@ -1,8 +1,10 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Plus, ShieldAlert } from 'lucide-react';
+import type { EscrowState } from '@mezzo/shared-types';
 import { useAuthStore } from '../../../lib/auth-store';
 import { useEscrowWizardStore } from '../../../lib/escrow-wizard-store';
 import { listEscrows } from '../../../lib/escrow-client';
@@ -10,19 +12,44 @@ import { getKycStatus } from '../../../lib/kyc-client';
 import { PAYOUT_MIN_TIER, verificationBlocks } from '../../../lib/kyc-tiers';
 import { ApiError } from '../../../lib/api-error';
 import { buttonVariants } from '../../../components/ui/button';
+import { Pagination } from '../../../components/ui/pagination';
 import { EscrowList } from '../../../components/escrow/escrow-list';
 import { DraftList } from '../../../components/escrow/draft-list';
+import { EscrowFilters, type EscrowSortOption } from '../../../components/escrow/escrow-filters';
 import { VerifyPrompt } from '../../../components/kyc/verify-prompt';
+
+const PAGE_SIZE = 20;
 
 export default function DashboardPage() {
   const status = useAuthStore((state) => state.status);
   const user = useAuthStore((state) => state.user);
   const resetWizard = useEscrowWizardStore((state) => state.reset);
 
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const [stateFilter, setStateFilter] = useState<EscrowState | 'ALL'>('ALL');
+  const [sort, setSort] = useState<EscrowSortOption>('updatedAt:desc');
+
+  const [sortBy, sortDir] = useMemo(() => {
+    const [by, dir] = sort.split(':');
+    return [by as 'updatedAt' | 'createdAt' | 'price', dir as 'asc' | 'desc'];
+  }, [sort]);
+
+  const hasActiveFilters = search.trim() !== '' || stateFilter !== 'ALL';
+
   const escrowsQuery = useQuery({
-    queryKey: ['escrows'],
-    queryFn: listEscrows,
+    queryKey: ['escrows', { page, search, stateFilter, sortBy, sortDir }],
+    queryFn: () =>
+      listEscrows({
+        page,
+        pageSize: PAGE_SIZE,
+        search: search.trim() || undefined,
+        state: stateFilter === 'ALL' ? undefined : stateFilter,
+        sortBy,
+        sortDir,
+      }),
     enabled: status === 'authenticated',
+    placeholderData: keepPreviousData,
   });
 
   const kycQuery = useQuery({
@@ -31,12 +58,35 @@ export default function DashboardPage() {
     enabled: status === 'authenticated',
   });
 
-  const escrows = escrowsQuery.data ?? [];
+  const escrows = escrowsQuery.data?.items ?? [];
+  const total = escrowsQuery.data?.total ?? 0;
+  const totalPages = escrowsQuery.data?.totalPages ?? 1;
   const drafts = escrows.filter((escrow) => escrow.state === 'DRAFT');
   const started = escrows.filter((escrow) => escrow.state !== 'DRAFT');
 
   const kycStatus = kycQuery.data ?? null;
   const needsVerification = kycStatus ? verificationBlocks(kycStatus, PAYOUT_MIN_TIER) : false;
+
+  function updateSearch(value: string) {
+    setSearch(value);
+    setPage(1);
+  }
+
+  function updateStateFilter(value: EscrowState | 'ALL') {
+    setStateFilter(value);
+    setPage(1);
+  }
+
+  function updateSort(value: EscrowSortOption) {
+    setSort(value);
+    setPage(1);
+  }
+
+  function clearFilters() {
+    setSearch('');
+    setStateFilter('ALL');
+    setPage(1);
+  }
 
   return (
     <div>
@@ -75,7 +125,18 @@ export default function DashboardPage() {
       ) : null}
 
       <div className="mt-8">
-        {status === 'pending' || escrowsQuery.isLoading ? (
+        <EscrowFilters
+          search={search}
+          onSearchChange={updateSearch}
+          state={stateFilter}
+          onStateChange={updateStateFilter}
+          sort={sort}
+          onSortChange={updateSort}
+        />
+      </div>
+
+      <div className="mt-4">
+        {status === 'pending' || (escrowsQuery.isLoading && !escrowsQuery.data) ? (
           <div className="space-y-2">
             <div className="h-16 animate-pulse rounded-xl bg-surface-2" />
             <div className="h-16 animate-pulse rounded-xl bg-surface-2" />
@@ -98,17 +159,31 @@ export default function DashboardPage() {
           </div>
         ) : escrows.length === 0 ? (
           <div className="flex flex-col items-center rounded-2xl border border-dashed border-line px-6 py-14 text-center sm:py-20">
-            <p className="text-sm text-fog">No escrows yet</p>
-            <p className="mt-1.5 max-w-xs text-[13px] text-mute">
-              Start one to document an item&apos;s condition and invite the other party.
+            <p className="text-sm text-fog">
+              {hasActiveFilters ? 'No escrows match your filters' : 'No escrows yet'}
             </p>
-            <Link
-              href="/escrow/new"
-              onClick={resetWizard}
-              className="mt-4 text-sm text-mint underline underline-offset-4"
-            >
-              Create an escrow
-            </Link>
+            <p className="mt-1.5 max-w-xs text-[13px] text-mute">
+              {hasActiveFilters
+                ? 'Try a different search term or clear the filters below.'
+                : "Start one to document an item's condition and invite the other party."}
+            </p>
+            {hasActiveFilters ? (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="mt-4 text-sm text-mint underline underline-offset-4"
+              >
+                Clear filters
+              </button>
+            ) : (
+              <Link
+                href="/escrow/new"
+                onClick={resetWizard}
+                className="mt-4 text-sm text-mint underline underline-offset-4"
+              >
+                Create an escrow
+              </Link>
+            )}
           </div>
         ) : (
           <div className="space-y-8">
@@ -116,6 +191,13 @@ export default function DashboardPage() {
             {started.length > 0 ? (
               <EscrowList escrows={started} currentUserId={user?.id ?? ''} />
             ) : null}
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              total={total}
+              pageSize={PAGE_SIZE}
+              onPageChange={setPage}
+            />
           </div>
         )}
       </div>

@@ -74,6 +74,35 @@ export const escrowDetailResponseSchema = z.object({
 
 export type EscrowDetailResponse = z.infer<typeof escrowDetailResponseSchema>;
 
+export const escrowSortBySchema = z.enum(['updatedAt', 'createdAt', 'price']);
+
+export type EscrowSortBy = z.infer<typeof escrowSortBySchema>;
+
+export const escrowSortDirSchema = z.enum(['asc', 'desc']);
+
+export type EscrowSortDir = z.infer<typeof escrowSortDirSchema>;
+
+export const listEscrowsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(50).default(20),
+  state: escrowStateSchema.optional(),
+  search: z.string().trim().min(1).max(200).optional(),
+  sortBy: escrowSortBySchema.default('updatedAt'),
+  sortDir: escrowSortDirSchema.default('desc'),
+});
+
+export type ListEscrowsQuery = z.infer<typeof listEscrowsQuerySchema>;
+
+export const escrowListResponseSchema = z.object({
+  items: z.array(escrowDetailResponseSchema),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+  total: z.number().int(),
+  totalPages: z.number().int(),
+});
+
+export type EscrowListResponse = z.infer<typeof escrowListResponseSchema>;
+
 export const inviteResponseSchema = z.object({
   token: z.string().min(1),
   expiresAt: z.coerce.date(),

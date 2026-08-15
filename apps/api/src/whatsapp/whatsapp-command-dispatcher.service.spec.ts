@@ -110,7 +110,7 @@ function buildHarness(
   const escrowService = {
     assertIsParty: jest.fn().mockResolvedValue(undefined),
     getDetail: jest.fn().mockResolvedValue(buildDetail()),
-    listForUser: jest.fn().mockResolvedValue([]),
+    listForUser: jest.fn().mockResolvedValue({ items: [], total: 0 }),
   };
   const settlementService = {
     release: jest.fn().mockResolvedValue(buildEscrow({ state: EscrowState.RELEASED })),
@@ -225,7 +225,12 @@ describe('WhatsAppCommandDispatcherService — release step-up', () => {
     expect(harness.settlementService.release).not.toHaveBeenCalled();
 
     await harness.dispatcher.handle({ waMessageId: 'm2', from: PHONE, text: 'LIST', buttonReplyId: null });
-    expect(harness.escrowService.listForUser).toHaveBeenCalledWith(USER_ID);
+    expect(harness.escrowService.listForUser).toHaveBeenCalledWith(USER_ID, {
+      page: 1,
+      pageSize: 100,
+      sortBy: 'updatedAt',
+      sortDir: 'desc',
+    });
 
     await harness.dispatcher.handle({
       waMessageId: 'm3',
