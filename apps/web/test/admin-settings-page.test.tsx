@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AdminSettingsPage from '../app/(app)/admin/settings/page';
 import { renderWithProviders } from './render-with-providers';
@@ -74,8 +74,14 @@ describe('AdminSettingsPage', () => {
     const fetchMock = stubFetch(true);
     renderWithProviders(<AdminSettingsPage />);
 
+    const verificationHeading = await screen.findByText('Identity verification');
+    const verificationSection = verificationHeading.closest('section');
+    if (!verificationSection) {
+      throw new Error('Expected the verification section to render');
+    }
+
     await userEvent.type(
-      await screen.findByLabelText('Reason'),
+      within(verificationSection).getByLabelText('Reason'),
       'Provider integration is not live yet',
     );
     await userEvent.click(screen.getByRole('button', { name: 'Set to coming soon' }));

@@ -2,17 +2,23 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ShieldAlert } from 'lucide-react';
 import type { AdminEscrowResponse, EscrowState } from '@mezzo/shared-types';
 import { useAuthStore } from '../../../../lib/auth-store';
-import { listAdminEscrows } from '../../../../lib/admin-client';
+import {
+  forceReleaseEscrow,
+  forceRefundEscrow,
+  listAdminEscrows,
+} from '../../../../lib/admin-client';
 import { ApiError } from '../../../../lib/api-error';
 import { ESCROW_STATE_LABELS } from '../../../../lib/escrow-state-labels';
 import { formatDateTime } from '../../../../lib/format-date';
 import { formatMoney } from '../../../../lib/money';
 import { Label } from '../../../../components/ui/label';
 import { Select } from '../../../../components/ui/select';
+import { Textarea } from '../../../../components/ui/textarea';
+import { ConfirmModal } from '../../../../components/ui/confirm-modal';
 
 const STATE_FILTERS: (EscrowState | 'ALL')[] = [
   'ALL',
@@ -31,18 +37,50 @@ const STATE_FILTERS: (EscrowState | 'ALL')[] = [
   'EXPIRED',
 ];
 
+const TERMINAL_STATES: ReadonlySet<EscrowState> = new Set([
+  'RELEASED',
+  'REFUNDED',
+  'CANCELLED',
+  'EXPIRED',
+  'DRAFT',
+  'PENDING_COUNTERPARTY',
+]);
+
 function partyEmail(escrow: AdminEscrowResponse, role: 'BUYER' | 'SELLER'): string {
   return escrow.parties.find((party) => party.role === role)?.email ?? '—';
 }
 
+type ForceAction = 'release' | 'refund';
+
 export default function AdminEscrowsPage() {
   const sessionStatus = useAuthStore((state) => state.status);
+  const queryClient = useQueryClient();
   const [stateFilter, setStateFilter] = useState<EscrowState | 'ALL'>('ALL');
+
+  const [forceTarget, setForceTarget] = useState<{
+    escrow: AdminEscrowResponse;
+    action: ForceAction;
+  } | null>(null);
+  const [forceReason, setForceReason] = useState('');
 
   const escrowsQuery = useQuery({
     queryKey: ['admin-escrows', stateFilter],
     queryFn: () => listAdminEscrows(stateFilter === 'ALL' ? undefined : stateFilter),
     enabled: sessionStatus === 'authenticated',
+  });
+
+  const forceMutation = useMutation({
+    mutationFn: () => {
+      const dto = { reason: forceReason.trim() };
+      return forceTarget!.action === 'release'
+        ? forceReleaseEscrow(forceTarget!.escrow.id, dto)
+        : forceRefundEscrow(forceTarget!.escrow.id, dto);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-escrows'] });
+      setForceTarget(null);
+      setForceReason('');
+    },
   });
 
   const escrows = escrowsQuery.data ?? [];
@@ -123,17 +161,68 @@ export default function AdminEscrowsPage() {
                   {escrow.requiresVerification ? <span>Verification required</span> : null}
                 </div>
 
-                <Link
-                  href={`/escrow/${escrow.id}`}
-                  className="mt-3 inline-block text-[13px] text-mint hover:underline"
-                >
-                  Open escrow
-                </Link>
+                <div className="mt-3 flex flex-wrap items-center gap-4">
+                  <Link
+                    href={`/escrow/${escrow.id}`}
+                    className="inline-block text-[13px] text-mint hover:underline"
+                  >
+                    Open escrow
+                  </Link>
+                  {!TERMINAL_STATES.has(escrow.state) ? (
+                    <>
+                      <button
+                        type="button"
+                        className="text-[13px] text-mint hover:underline"
+                        onClick={() => setForceTarget({ escrow, action: 'release' })}
+                      >
+                        Force release
+                      </button>
+                      <button
+                        type="button"
+                        className="text-[13px] text-danger hover:underline"
+                        onClick={() => setForceTarget({ escrow, action: 'refund' })}
+                      >
+                        Force refund
+                      </button>
+                    </>
+                  ) : null}
+                </div>
               </li>
             ))}
           </ul>
         )}
       </div>
+
+      <ConfirmModal
+        open={forceTarget !== null}
+        title={forceTarget?.action === 'release' ? 'Force release to seller' : 'Force refund to buyer'}
+        description="This bypasses the normal dispute flow and moves funds immediately, if the escrow is in a state that allows it. Written to the audit trail."
+        confirmLabel={forceTarget?.action === 'release' ? 'Force release' : 'Force refund'}
+        destructive={forceTarget?.action === 'refund'}
+        loading={forceMutation.isPending}
+        confirmDisabled={forceReason.trim().length === 0}
+        error={
+          forceMutation.error instanceof ApiError
+            ? forceMutation.error.message
+            : forceMutation.error
+              ? 'Could not complete this action.'
+              : null
+        }
+        onConfirm={() => forceMutation.mutate()}
+        onClose={() => {
+          setForceTarget(null);
+          setForceReason('');
+        }}
+      >
+        <Label htmlFor="force-reason">Reason</Label>
+        <Textarea
+          id="force-reason"
+          rows={2}
+          value={forceReason}
+          onChange={(event) => setForceReason(event.target.value)}
+          placeholder="Why is this being forced outside the normal flow?"
+        />
+      </ConfirmModal>
     </div>
   );
 }

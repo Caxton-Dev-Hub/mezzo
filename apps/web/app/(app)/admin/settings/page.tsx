@@ -4,7 +4,12 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ShieldAlert } from 'lucide-react';
 import { useAuthStore } from '../../../../lib/auth-store';
-import { getPlatformSettings, setVerificationEnabled } from '../../../../lib/admin-client';
+import {
+  getPlatformSettings,
+  getWhatsappTransactionalSetting,
+  setVerificationEnabled,
+  setWhatsappTransactionalEnabled,
+} from '../../../../lib/admin-client';
 import { ApiError } from '../../../../lib/api-error';
 import { formatDateTime } from '../../../../lib/format-date';
 import { Button } from '../../../../components/ui/button';
@@ -18,9 +23,18 @@ export default function AdminSettingsPage() {
   const [reason, setReason] = useState('');
   const [reasonError, setReasonError] = useState<string | null>(null);
 
+  const [whatsappReason, setWhatsappReason] = useState('');
+  const [whatsappReasonError, setWhatsappReasonError] = useState<string | null>(null);
+
   const settingsQuery = useQuery({
     queryKey: ['admin-settings'],
     queryFn: getPlatformSettings,
+    enabled: sessionStatus === 'authenticated',
+  });
+
+  const whatsappQuery = useQuery({
+    queryKey: ['admin-whatsapp-transactional'],
+    queryFn: getWhatsappTransactionalSetting,
     enabled: sessionStatus === 'authenticated',
   });
 
@@ -33,8 +47,18 @@ export default function AdminSettingsPage() {
     },
   });
 
+  const whatsappToggle = useMutation({
+    mutationFn: (enabled: boolean) =>
+      setWhatsappTransactionalEnabled({ enabled, reason: whatsappReason.trim() }),
+    onSuccess: (settings) => {
+      queryClient.setQueryData(['admin-whatsapp-transactional'], settings);
+      setWhatsappReason('');
+    },
+  });
+
   const settings = settingsQuery.data ?? null;
   const enabled = settings?.verificationEnabled ?? false;
+  const whatsappEnabled = whatsappQuery.data?.whatsappTransactionalEnabled ?? false;
 
   const submit = () => {
     if (reason.trim().length === 0) {
@@ -44,6 +68,16 @@ export default function AdminSettingsPage() {
 
     setReasonError(null);
     toggle.mutate(!enabled);
+  };
+
+  const submitWhatsapp = () => {
+    if (whatsappReason.trim().length === 0) {
+      setWhatsappReasonError('Say why you are making this change — it goes into the audit trail.');
+      return;
+    }
+
+    setWhatsappReasonError(null);
+    whatsappToggle.mutate(!whatsappEnabled);
   };
 
   return (
@@ -130,6 +164,71 @@ export default function AdminSettingsPage() {
               <p role="alert" className="mt-3 text-[13px] text-danger">
                 {toggle.error instanceof ApiError
                   ? toggle.error.message
+                  : 'Could not change this setting. Please try again.'}
+              </p>
+            ) : null}
+          </>
+        )}
+      </section>
+
+      <section className="mt-6 max-w-2xl rounded-2xl border border-line-soft bg-surface p-5 shadow-card">
+        {whatsappQuery.isLoading ? (
+          <div className="h-32 animate-pulse rounded-xl bg-surface-2" />
+        ) : whatsappQuery.isError ? (
+          <div className="flex flex-col items-center px-6 py-10 text-center">
+            <ShieldAlert className="h-6 w-6 text-mute" />
+            <p className="mt-3 text-sm text-vellum">
+              {whatsappQuery.error instanceof ApiError
+                ? whatsappQuery.error.message
+                : 'Could not load the WhatsApp setting.'}
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="min-w-0">
+                <h2 className="text-sm font-medium text-vellum">WhatsApp transactional messages</h2>
+                <p className="mt-1 max-w-md text-[13px] text-fog">
+                  {whatsappEnabled
+                    ? 'Live. Transactional notifications are sent over WhatsApp.'
+                    : 'Off. Transactional notifications are not sent over WhatsApp.'}
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full bg-surface-2 px-3 py-1 font-mono text-[12px] uppercase tracking-wide text-vellum">
+                {whatsappEnabled ? 'Live' : 'Off'}
+              </span>
+            </div>
+
+            <div className="mt-5">
+              <Label htmlFor="whatsapp-reason">Reason</Label>
+              <Textarea
+                id="whatsapp-reason"
+                rows={2}
+                value={whatsappReason}
+                onChange={(event) => setWhatsappReason(event.target.value)}
+                placeholder={
+                  whatsappEnabled
+                    ? 'Why are you turning WhatsApp messages off?'
+                    : 'Why are you turning WhatsApp messages on?'
+                }
+              />
+              <FieldError message={whatsappReasonError ?? undefined} />
+            </div>
+
+            <Button
+              type="button"
+              variant={whatsappEnabled ? 'secondary' : 'primary'}
+              className="mt-4"
+              loading={whatsappToggle.isPending}
+              onClick={submitWhatsapp}
+            >
+              {whatsappEnabled ? 'Turn off' : 'Turn on'}
+            </Button>
+
+            {whatsappToggle.error ? (
+              <p role="alert" className="mt-3 text-[13px] text-danger">
+                {whatsappToggle.error instanceof ApiError
+                  ? whatsappToggle.error.message
                   : 'Could not change this setting. Please try again.'}
               </p>
             ) : null}

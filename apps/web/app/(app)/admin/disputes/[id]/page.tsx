@@ -1,11 +1,16 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ShieldAlert } from 'lucide-react';
 import { useAuthStore } from '../../../../../lib/auth-store';
-import { getAdminDisputePacket, requestArbitrationRecommendation } from '../../../../../lib/admin-client';
+import {
+  getAdminDisputePacket,
+  hideChatMessage,
+  requestArbitrationRecommendation,
+} from '../../../../../lib/admin-client';
 import { getEscrow } from '../../../../../lib/escrow-client';
 import { ApiError } from '../../../../../lib/api-error';
 import {
@@ -23,6 +28,9 @@ import { PacketEvidenceGrid } from '../../../../../components/admin/packet-evide
 import { PacketTimeline } from '../../../../../components/admin/packet-timeline';
 import { PacketChatTranscript } from '../../../../../components/admin/packet-chat-transcript';
 import { AuditTrail } from '../../../../../components/admin/audit-trail';
+import { Label } from '../../../../../components/ui/label';
+import { Textarea } from '../../../../../components/ui/textarea';
+import { ConfirmModal } from '../../../../../components/ui/confirm-modal';
 
 export default function AdminDisputePage() {
   const params = useParams<{ id: string }>();
@@ -30,6 +38,9 @@ export default function AdminDisputePage() {
   const queryClient = useQueryClient();
   const sessionStatus = useAuthStore((state) => state.status);
   const accountRole = useAuthStore((state) => state.user?.role);
+
+  const [hideTargetId, setHideTargetId] = useState<string | null>(null);
+  const [hideReason, setHideReason] = useState('');
 
   const packetQuery = useQuery({
     queryKey: ['admin-dispute', disputeId],
@@ -48,6 +59,15 @@ export default function AdminDisputePage() {
     mutationFn: () => requestArbitrationRecommendation(disputeId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['admin-dispute', disputeId] });
+    },
+  });
+
+  const hideMessageMutation = useMutation({
+    mutationFn: () => hideChatMessage(hideTargetId!, { reason: hideReason.trim() }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-dispute', disputeId] });
+      setHideTargetId(null);
+      setHideReason('');
     },
   });
 
@@ -140,7 +160,12 @@ export default function AdminDisputePage() {
           <section className="rounded-xl border border-line-soft bg-surface shadow-card p-4">
             <h2 className="text-sm font-medium text-vellum">Chat transcript</h2>
             <div className="mt-3">
-              <PacketChatTranscript messages={packet.chatTranscript} buyerId={buyerId} />
+              <PacketChatTranscript
+                messages={packet.chatTranscript}
+                buyerId={buyerId}
+                canModerate={accountRole === 'ADMIN'}
+                onHide={(messageId) => setHideTargetId(messageId)}
+              />
             </div>
           </section>
 
@@ -213,6 +238,37 @@ export default function AdminDisputePage() {
           <AuditTrail disputeId={disputeId} visible={accountRole === 'ADMIN'} />
         </div>
       </div>
+
+      <ConfirmModal
+        open={hideTargetId !== null}
+        title="Hide this message"
+        description="Removes the message from what the buyer and seller see, but keeps it visible here for arbiter review. Written to the audit trail."
+        confirmLabel="Hide message"
+        destructive
+        loading={hideMessageMutation.isPending}
+        confirmDisabled={hideReason.trim().length === 0}
+        error={
+          hideMessageMutation.error instanceof ApiError
+            ? hideMessageMutation.error.message
+            : hideMessageMutation.error
+              ? 'Could not hide this message.'
+              : null
+        }
+        onConfirm={() => hideMessageMutation.mutate()}
+        onClose={() => {
+          setHideTargetId(null);
+          setHideReason('');
+        }}
+      >
+        <Label htmlFor="hide-reason">Reason</Label>
+        <Textarea
+          id="hide-reason"
+          rows={2}
+          value={hideReason}
+          onChange={(event) => setHideReason(event.target.value)}
+          placeholder="Why is this message being hidden?"
+        />
+      </ConfirmModal>
     </div>
   );
 }

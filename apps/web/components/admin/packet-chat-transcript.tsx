@@ -5,9 +5,16 @@ import { formatDateTime } from '../../lib/format-date';
 interface PacketChatTranscriptProps {
   messages: ChatMessageResponse[];
   buyerId: string | null;
+  canModerate?: boolean;
+  onHide?: (messageId: string) => void;
 }
 
-export function PacketChatTranscript({ messages, buyerId }: PacketChatTranscriptProps) {
+export function PacketChatTranscript({
+  messages,
+  buyerId,
+  canModerate = false,
+  onHide,
+}: PacketChatTranscriptProps) {
   if (messages.length === 0) {
     return <p className="text-[13px] text-mute">The parties never used the in-app chat.</p>;
   }
@@ -21,8 +28,17 @@ export function PacketChatTranscript({ messages, buyerId }: PacketChatTranscript
               {message.senderId === buyerId ? 'Buyer' : 'Seller'}
             </span>{' '}
             · {formatDateTime(message.createdAt)}
+            {message.hiddenAt ? (
+              <span className="ml-2 rounded-full bg-danger/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-danger">
+                Hidden
+              </span>
+            ) : null}
           </p>
-          {message.body ? <p className="mt-1 text-[13px] text-vellum">{message.body}</p> : null}
+          {message.body ? (
+            <p className={message.hiddenAt ? 'mt-1 text-[13px] text-mute line-through' : 'mt-1 text-[13px] text-vellum'}>
+              {message.body}
+            </p>
+          ) : null}
           {message.attachment ? (
             <a
               href={`#evidence-${message.attachment.id}`}
@@ -31,6 +47,15 @@ export function PacketChatTranscript({ messages, buyerId }: PacketChatTranscript
               <Paperclip className="h-3 w-3" />
               {message.attachment.id}
             </a>
+          ) : null}
+          {canModerate && !message.hiddenAt && onHide ? (
+            <button
+              type="button"
+              className="mt-1 block text-[11px] text-danger hover:underline"
+              onClick={() => onHide(message.id)}
+            >
+              Hide message
+            </button>
           ) : null}
         </li>
       ))}
