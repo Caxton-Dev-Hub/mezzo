@@ -20,6 +20,7 @@ export const chatMessageResponseSchema = z.object({
   body: z.string(),
   attachment: evidenceItemResponseSchema.nullable(),
   createdAt: z.coerce.date(),
+  hiddenAt: z.coerce.date().nullable(),
 });
 
 export type ChatMessageResponse = z.infer<typeof chatMessageResponseSchema>;
