@@ -16,6 +16,7 @@ const USER_ID = 'user-1';
 const OTHER_USER_ID = 'user-2';
 const ATTEMPTS = 5;
 const BACKOFF_MS = 1_000;
+const ENQUEUE_TIMEOUT_MS = 50;
 
 function buildNotification(overrides: Partial<Notification> = {}): Notification {
   return {
@@ -46,6 +47,7 @@ function buildHarness(
     rows?: Notification[];
     row?: Notification | null;
     hasWhatsapp?: boolean;
+    queueAddImpl?: jest.Mock;
   } = {},
 ): Harness {
   const find = jest.fn().mockResolvedValue(options.rows ?? []);
@@ -65,7 +67,7 @@ function buildHarness(
     exists: jest.fn().mockResolvedValue(options.hasWhatsapp ?? false),
   } as unknown as Repository<WhatsAppAccount>;
 
-  const queueAdd = jest.fn().mockResolvedValue(undefined);
+  const queueAdd = options.queueAddImpl ?? jest.fn().mockResolvedValue(undefined);
   const queue = { add: queueAdd } as unknown as Queue;
 
   const configService = {
@@ -75,6 +77,9 @@ function buildHarness(
       }
       if (key === 'NOTIFICATION_QUEUE_BACKOFF_MS') {
         return BACKOFF_MS;
+      }
+      if (key === 'NOTIFICATION_QUEUE_ENQUEUE_TIMEOUT_MS') {
+        return ENQUEUE_TIMEOUT_MS;
       }
       throw new Error(`Unexpected config key ${key}`);
     }),
@@ -209,6 +214,25 @@ describe('NotificationsService.notify', () => {
         (call) => (call[1] as { correlationId?: string }).correlationId === 'corr-4',
       ),
     ).toBe(true);
+  });
+
+  it('resolves instead of hanging when the queue never responds (e.g. Redis is unreachable)', async () => {
+    const hangingAdd = jest.fn().mockImplementation(() => new Promise(() => {}));
+    const harness = buildHarness({ queueAddImpl: hangingAdd });
+
+    await expect(harness.service.notify(notifyInput)).resolves.toBeUndefined();
+  });
+
+  it('does not let one channel failing stop the remaining channels from being queued', async () => {
+    const flakyAdd = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('connect ETIMEDOUT'))
+      .mockResolvedValue(undefined);
+    const harness = buildHarness({ queueAddImpl: flakyAdd });
+
+    await harness.service.notify(notifyInput);
+
+    expect(harness.queueAdd).toHaveBeenCalledTimes(2);
   });
 });
 

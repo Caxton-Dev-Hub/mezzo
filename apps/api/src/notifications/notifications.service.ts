@@ -1,10 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { IsNull, Repository } from 'typeorm';
-import { Queue } from 'bullmq';
+import { JobsOptions, Queue } from 'bullmq';
 import { Notification } from '../database/entities/notification.entity';
 import { WhatsAppAccount } from '../database/entities/whatsapp-account.entity';
 import { NotificationEventType } from './entities/notification-event-type.enum';
@@ -12,6 +12,7 @@ import { NotificationChannelType } from './entities/notification-channel-type.en
 import {
   NOTIFICATION_DELIVERY_JOB,
   NOTIFICATION_QUEUE,
+  NotificationDeliveryJobData,
   notificationDedupeKey,
 } from './notification-queue.constants';
 import { NotificationResponse, toNotificationResponse } from './dto/notification-response';
@@ -25,8 +26,26 @@ export interface NotifyInput {
   correlationId?: string;
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`timed out after ${timeoutMs}ms`)), timeoutMs);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      },
+    );
+  });
+}
+
 @Injectable()
 export class NotificationsService {
+  private readonly logger = new Logger(NotificationsService.name);
+
   constructor(
     @InjectRepository(Notification)
     private readonly notifications: Repository<Notification>,
@@ -41,6 +60,9 @@ export class NotificationsService {
   async notify(input: NotifyInput): Promise<void> {
     const attempts = this.configService.getOrThrow<number>('NOTIFICATION_QUEUE_ATTEMPTS');
     const backoffMs = this.configService.getOrThrow<number>('NOTIFICATION_QUEUE_BACKOFF_MS');
+    const enqueueTimeoutMs = this.configService.getOrThrow<number>(
+      'NOTIFICATION_QUEUE_ENQUEUE_TIMEOUT_MS',
+    );
     const uniqueRecipients = [...new Set(input.recipientUserIds)];
 
     this.eventEmitter.emit('escrow.updated', {
@@ -49,29 +71,52 @@ export class NotificationsService {
       occurredAt: new Date(),
     });
 
+    const deliveries: Promise<void>[] = [];
     for (const userId of uniqueRecipients) {
       const hasWhatsapp = await this.whatsappAccounts.exists({
         where: { userId, notificationsOptedOutAt: IsNull() },
       });
       const channels = hasWhatsapp
-        ? [NotificationChannelType.EMAIL, NotificationChannelType.SMS, NotificationChannelType.WHATSAPP]
+        ? [
+            NotificationChannelType.EMAIL,
+            NotificationChannelType.SMS,
+            NotificationChannelType.WHATSAPP,
+          ]
         : [NotificationChannelType.EMAIL, NotificationChannelType.SMS];
 
       for (const channel of channels) {
         const dedupeKey = notificationDedupeKey(input.sourceEventId, channel, userId);
-        await this.queue.add(
-          NOTIFICATION_DELIVERY_JOB,
-          {
-            escrowId: input.escrowId,
-            userId,
-            channel,
-            eventType: input.eventType,
-            dedupeKey,
-            correlationId: input.correlationId,
-          },
-          { jobId: dedupeKey, attempts, backoff: { type: 'exponential', delay: backoffMs } },
+        deliveries.push(
+          this.enqueueDelivery(
+            {
+              escrowId: input.escrowId,
+              userId,
+              channel,
+              eventType: input.eventType,
+              dedupeKey,
+              correlationId: input.correlationId,
+            },
+            { jobId: dedupeKey, attempts, backoff: { type: 'exponential', delay: backoffMs } },
+            enqueueTimeoutMs,
+          ),
         );
       }
+    }
+
+    await Promise.all(deliveries);
+  }
+
+  private async enqueueDelivery(
+    data: NotificationDeliveryJobData,
+    options: JobsOptions,
+    timeoutMs: number,
+  ): Promise<void> {
+    try {
+      await withTimeout(this.queue.add(NOTIFICATION_DELIVERY_JOB, data, options), timeoutMs);
+    } catch (error) {
+      this.logger.error(
+        `Failed to enqueue notification delivery for ${data.dedupeKey}: ${(error as Error).message}`,
+      );
     }
   }
 
@@ -99,6 +144,9 @@ export class NotificationsService {
   }
 
   async markAllRead(userId: string): Promise<void> {
-    await this.notifications.update({ userId, isRead: false }, { isRead: true, readAt: new Date() });
+    await this.notifications.update(
+      { userId, isRead: false },
+      { isRead: true, readAt: new Date() },
+    );
   }
 }

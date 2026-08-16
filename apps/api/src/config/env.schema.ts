@@ -70,6 +70,7 @@ export const envSchema = z.object({
   NOTIFICATION_SMS_PROVIDER: z.enum(['fake', 'termii']).default('fake'),
   NOTIFICATION_QUEUE_ATTEMPTS: z.coerce.number().int().positive().default(5),
   NOTIFICATION_QUEUE_BACKOFF_MS: z.coerce.number().int().positive().default(30_000),
+  NOTIFICATION_QUEUE_ENQUEUE_TIMEOUT_MS: z.coerce.number().int().positive().default(5_000),
   INSPECTION_ENDING_SOON_LEAD_HOURS: z.coerce.number().int().positive().default(6),
   RESEND_API_KEY: z.string().min(1).optional(),
   RESEND_FROM_EMAIL: z.string().min(1).default('notifications@mezzo.app'),

@@ -2,9 +2,12 @@ import type { Server } from 'node:http';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { getQueueToken } from '@nestjs/bullmq';
 import request from 'supertest';
 import { Repository } from 'typeorm';
+import { Queue } from 'bullmq';
 import { AppModule } from '../../src/app.module';
+import { NOTIFICATION_QUEUE } from '../../src/notifications/notification-queue.constants';
 import { EscrowStateMachine } from '../../src/escrow/escrow-state-machine';
 import { EscrowState } from '../../src/escrow/entities/escrow-state.enum';
 import { EscrowRole } from '../../src/escrow/entities/escrow-role.enum';
@@ -86,6 +89,7 @@ describe('Escrow (e2e)', () => {
   let evidenceItems: Repository<EvidenceItem>;
   let users: Repository<User>;
   let redis: RedisService;
+  let notificationQueue: Queue;
   let userCounter = 0;
 
   const password = 'super-secret-password';
@@ -188,6 +192,7 @@ describe('Escrow (e2e)', () => {
     evidenceItems = app.get<Repository<EvidenceItem>>(getRepositoryToken(EvidenceItem));
     users = app.get<Repository<User>>(getRepositoryToken(User));
     redis = app.get(RedisService);
+    notificationQueue = app.get(getQueueToken(NOTIFICATION_QUEUE));
   });
 
   afterAll(async () => {
@@ -196,6 +201,10 @@ describe('Escrow (e2e)', () => {
 
   beforeEach(async () => {
     await redis.flushdb();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   describe('draft creation, invite, and agreement', () => {
@@ -272,6 +281,27 @@ describe('Escrow (e2e)', () => {
         .set(auth(seller.accessToken));
       expect((secondAccept.body as EscrowDetailBody).state).toBe(EscrowState.AGREED);
       expect(await eventCount(draft.id)).toBe(2);
+    });
+
+    it('still creates the invite and responds promptly when the notification queue is unreachable', async () => {
+      const buyer = await registerAndLogin();
+      const draft = await createDraft(buyer.accessToken);
+
+      jest.spyOn(notificationQueue, 'add').mockImplementation(() => new Promise(() => {}));
+
+      const startedAt = Date.now();
+      const inviteResponse = await request(server)
+        .post(`/escrows/${draft.id}/invite`)
+        .set(auth(buyer.accessToken))
+        .timeout(20_000);
+      const elapsedMs = Date.now() - startedAt;
+
+      expect(inviteResponse.status).toBe(201);
+      expect((inviteResponse.body as InviteBody).token).toEqual(expect.any(String));
+      expect(elapsedMs).toBeLessThan(10_000);
+
+      const persistedInvite = await invites.findOne({ where: { escrowId: draft.id } });
+      expect(persistedInvite?.token).toBe((inviteResponse.body as InviteBody).token);
     });
 
     it('rejects a third party invite acceptance on an already-used token', async () => {
