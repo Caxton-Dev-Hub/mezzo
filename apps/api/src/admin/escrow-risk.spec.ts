@@ -86,6 +86,7 @@ function buildIntent(
     currency: 'NGN',
     provider: 'fake',
     providerReference: 'intent-1',
+    authorizationUrl: null,
     status,
     createdAt,
     updatedAt,

@@ -52,7 +52,7 @@ export class FlutterwaveHttpProvider implements PaymentProvider {
         tx_ref: input.reference,
         amount: minorToMajorUnits(input.amountKobo),
         currency: input.currency,
-        redirect_url: this.configService.getOrThrow<string>('FLUTTERWAVE_REDIRECT_URL'),
+        redirect_url: `${this.configService.getOrThrow<string>('WEB_APP_URL')}/escrow/${input.escrowId}/fund`,
         customer: { email: input.email },
         meta: input.metadata,
       }),

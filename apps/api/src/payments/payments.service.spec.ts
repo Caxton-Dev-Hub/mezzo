@@ -301,6 +301,15 @@ describe('PaymentsService.initiateFunding', () => {
     expect(harness.intentsSave).not.toHaveBeenCalled();
   });
 
+  it('returns the persisted checkout url when reusing a pending intent', async () => {
+    const existing = buildIntent({ authorizationUrl: 'https://pay.example/checkout/original' });
+    const harness = buildHarness({ existingIntent: existing });
+
+    const response = await harness.service.initiateFunding(BUYER_ID, ESCROW_ID);
+
+    expect(response.authorizationUrl).toBe('https://pay.example/checkout/original');
+  });
+
   it('starts a fresh intent when the previous one was quarantined', async () => {
     const harness = buildHarness({
       existingIntent: buildIntent({ status: PaymentIntentStatus.QUARANTINED }),

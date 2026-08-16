@@ -9,6 +9,7 @@ export interface InitializeTransactionInput {
   amountKobo: number;
   currency: Currency;
   reference: string;
+  escrowId: string;
   metadata: Record<string, unknown>;
 }
 

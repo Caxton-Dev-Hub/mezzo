@@ -60,6 +60,7 @@ describe('PaystackHttpProvider.initializeTransaction', () => {
     amountKobo: 100_000,
     currency: 'NGN' as const,
     reference: 'ref-1',
+    escrowId: 'escrow-1',
     metadata: { escrowId: 'escrow-1' },
   };
 

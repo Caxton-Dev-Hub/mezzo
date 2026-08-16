@@ -87,7 +87,7 @@ implementation is active at a time, chosen at boot by `PAYMENT_PROVIDER`:
 | --- | --- | --- |
 | `fake` (default) | `FakePaystackProvider` | `PAYSTACK_SECRET_KEY` |
 | `paystack` | `PaystackHttpProvider` | `PAYSTACK_SECRET_KEY` |
-| `flutterwave` | `FlutterwaveHttpProvider` | `FLUTTERWAVE_SECRET_KEY`, `FLUTTERWAVE_SECRET_HASH`, `FLUTTERWAVE_REDIRECT_URL` |
+| `flutterwave` | `FlutterwaveHttpProvider` | `FLUTTERWAVE_SECRET_KEY`, `FLUTTERWAVE_SECRET_HASH` |
 
 The env schema fails the boot if the selected provider's credentials are
 missing, so a half-configured gateway can never serve a funding request.

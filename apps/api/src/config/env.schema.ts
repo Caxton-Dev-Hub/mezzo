@@ -59,7 +59,6 @@ export const envSchema = z.object({
   FLUTTERWAVE_SECRET_KEY: z.string().min(1).optional(),
   FLUTTERWAVE_SECRET_HASH: z.string().min(1).optional(),
   FLUTTERWAVE_BASE_URL: z.string().url().default('https://api.flutterwave.com/v3'),
-  FLUTTERWAVE_REDIRECT_URL: z.string().url().optional(),
   ARBITRATION_PROVIDER: z.enum(['fake', 'live']).default('fake'),
   ARBITRATION_CONFIDENCE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.75),
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
@@ -111,7 +110,7 @@ type PaymentProviderSetting = z.infer<typeof envSchema>['PAYMENT_PROVIDER'];
 const PAYMENT_PROVIDER_CREDENTIALS: Record<PaymentProviderSetting, readonly (keyof Env)[]> = {
   fake: ['PAYSTACK_SECRET_KEY'],
   paystack: ['PAYSTACK_SECRET_KEY'],
-  flutterwave: ['FLUTTERWAVE_SECRET_KEY', 'FLUTTERWAVE_SECRET_HASH', 'FLUTTERWAVE_REDIRECT_URL'],
+  flutterwave: ['FLUTTERWAVE_SECRET_KEY', 'FLUTTERWAVE_SECRET_HASH'],
 };
 
 export const configSchema = envSchema.superRefine((env, ctx) => {

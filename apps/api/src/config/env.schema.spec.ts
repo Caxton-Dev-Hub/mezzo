@@ -91,7 +91,6 @@ describe('validateEnv cross-field rules', () => {
         PAYMENT_PROVIDER: 'flutterwave',
         FLUTTERWAVE_SECRET_KEY: 'flw-secret',
         FLUTTERWAVE_SECRET_HASH: 'flw-hash',
-        FLUTTERWAVE_REDIRECT_URL: 'https://mezzo.app/return',
       }),
     );
 

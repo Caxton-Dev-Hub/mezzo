@@ -51,6 +51,9 @@ export class PaymentIntent {
   @Column({ type: 'enum', enum: PaymentIntentStatus, default: PaymentIntentStatus.PENDING })
   status!: PaymentIntentStatus;
 
+  @Column({ name: 'authorization_url', type: 'text', nullable: true })
+  authorizationUrl!: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 

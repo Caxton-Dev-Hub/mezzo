@@ -94,7 +94,7 @@ export class PaymentsService {
       order: { createdAt: 'DESC' },
     });
     if (existing && existing.status !== PaymentIntentStatus.QUARANTINED) {
-      return toPaymentIntentResponse(existing);
+      return toPaymentIntentResponse(existing, existing.authorizationUrl);
     }
 
     const buyer = await this.usersService.findById(buyerId);
@@ -108,6 +108,7 @@ export class PaymentsService {
       amountKobo: price.amount,
       currency: price.currency,
       reference,
+      escrowId,
       metadata: { escrowId },
     });
 
@@ -120,6 +121,7 @@ export class PaymentsService {
         provider: this.paymentProvider.name,
         providerReference: reference,
         status: PaymentIntentStatus.PENDING,
+        authorizationUrl,
       }),
     );
 
