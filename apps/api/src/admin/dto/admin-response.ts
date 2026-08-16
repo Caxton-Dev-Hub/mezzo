@@ -4,8 +4,11 @@ import {
   AdminPaymentIntentResponse,
   AdminPayoutResponse,
   AdminRiskItemResponse,
+  AdminUserDetailResponse,
+  AdminUserListItemResponse,
   AuditEventResponse,
 } from '@mezzo/shared-types';
+import { PayoutResponse } from '@mezzo/shared-types';
 import { User } from '../../database/entities/user.entity';
 import { Dispute } from '../../database/entities/dispute.entity';
 import { Escrow } from '../../database/entities/escrow.entity';
@@ -21,6 +24,7 @@ import { ArbitrationRecord } from '../../database/entities/arbitration-record.en
 import { toDisputeResponse } from '../../disputes/dto/dispute-response';
 import { toArbitrationRecordResponse } from '../../arbitration/dto/arbitration-response';
 import { UserRole } from '../../users/entities/user-role.enum';
+import { EscrowRole } from '../../escrow/entities/escrow-role.enum';
 import { KycTier } from '../../kyc/entities/kyc-tier.enum';
 import { KycVerificationStatus } from '../../kyc/entities/kyc-verification-status.enum';
 import { Currency } from '../../common/money/currency';
@@ -181,6 +185,69 @@ export function toAdminPaymentIntentResponse(
     reference: intent.providerReference,
     createdAt: intent.createdAt,
     updatedAt: intent.updatedAt,
+  };
+}
+
+export function toAdminUserListItemResponse(user: User): AdminUserListItemResponse {
+  return {
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    status: user.status,
+    kycTier: user.kycTier,
+    createdAt: user.createdAt,
+  };
+}
+
+export interface AdminUserDetailData {
+  user: User;
+  escrows: { escrow: Escrow; terms: EscrowTerms | null; role: EscrowRole }[];
+  disputes: Dispute[];
+  paymentIntents: PaymentIntent[];
+  payouts: PayoutResponse[];
+}
+
+export function toAdminUserDetailResponse(data: AdminUserDetailData): AdminUserDetailResponse {
+  const { user } = data;
+
+  return {
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    status: user.status,
+    kycTier: user.kycTier,
+    phone: user.phone,
+    businessName: user.businessName,
+    emailVerifiedAt: user.emailVerifiedAt,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+    escrows: data.escrows.map(({ escrow, terms, role }) => ({
+      id: escrow.id,
+      state: escrow.state,
+      role,
+      itemDescription: terms ? terms.itemDescription : null,
+      price: terms ? { amount: terms.priceAmount, currency: terms.priceCurrency } : null,
+      updatedAt: escrow.updatedAt,
+    })),
+    disputes: data.disputes.map((dispute) => ({
+      id: dispute.id,
+      escrowId: dispute.escrowId,
+      state: dispute.state,
+      createdAt: dispute.createdAt,
+    })),
+    paymentIntents: data.paymentIntents.map((intent) => ({
+      id: intent.id,
+      escrowId: intent.escrowId,
+      amount: { amount: intent.amount, currency: intent.currency },
+      status: intent.status,
+      createdAt: intent.createdAt,
+    })),
+    payouts: data.payouts.map((payout) => ({
+      id: payout.id,
+      amount: { amount: payout.amount, currency: payout.currency },
+      status: payout.status,
+      createdAt: payout.createdAt,
+    })),
   };
 }
 

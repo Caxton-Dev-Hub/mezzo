@@ -1,8 +1,24 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import {
   AdminDisputePacketResponse,
+  AdminUserDetailResponse,
+  adminUserListQuerySchema,
+  AdminUserListQuery,
+  AdminUserListResponse,
+  adminWaitlistListQuerySchema,
+  AdminWaitlistListQuery,
+  AdminWaitlistListResponse,
+  adminActionReasonSchema,
+  AdminActionReasonDto,
+  HideChatMessageResponse,
   PlatformSettingsResponse,
+  updateUserRoleSchema,
+  UpdateUserRoleDto,
+  UpdateUserRoleResult,
+  updateUserStatusSchema,
+  UpdateUserStatusDto,
+  UpdateUserStatusResult,
   updateVerificationEnabledSchema,
   UpdateVerificationEnabledDto,
 } from '@mezzo/shared-types';
@@ -24,7 +40,6 @@ import {
   AdminPaymentIntentResponse,
   AdminPayoutResponse,
   AdminRiskItemResponse,
-  AdminUserResponse,
   AuditEventResponse,
   LedgerEntryResponse,
   LedgerPostingResponse,
@@ -108,8 +123,44 @@ export class AdminController {
 
   @Get('users')
   @Roles(UserRole.ADMIN)
-  async listUsers(): Promise<AdminUserResponse[]> {
-    return this.adminService.listUsers();
+  async listUsers(
+    @Query(new ZodValidationPipe(adminUserListQuerySchema)) query: AdminUserListQuery,
+  ): Promise<AdminUserListResponse> {
+    return this.adminService.listUsers(query);
+  }
+
+  @Get('users/:id')
+  @Roles(UserRole.ADMIN)
+  async getUserDetail(@Param('id') id: string): Promise<AdminUserDetailResponse> {
+    return this.adminService.getUserDetail(id);
+  }
+
+  @Patch('users/:id/role')
+  @Roles(UserRole.ADMIN)
+  async updateUserRole(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(updateUserRoleSchema)) dto: UpdateUserRoleDto,
+  ): Promise<UpdateUserRoleResult> {
+    return this.adminService.updateUserRole(currentUser.id, id, dto);
+  }
+
+  @Patch('users/:id/status')
+  @Roles(UserRole.ADMIN)
+  async updateUserStatus(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(updateUserStatusSchema)) dto: UpdateUserStatusDto,
+  ): Promise<UpdateUserStatusResult> {
+    return this.adminService.updateUserStatus(currentUser.id, id, dto);
+  }
+
+  @Get('waitlist')
+  @Roles(UserRole.ADMIN)
+  async listWaitlist(
+    @Query(new ZodValidationPipe(adminWaitlistListQuerySchema)) query: AdminWaitlistListQuery,
+  ): Promise<AdminWaitlistListResponse> {
+    return this.adminService.listWaitlist(query);
   }
 
   @Get('audit')
@@ -133,10 +184,43 @@ export class AdminController {
     return this.adminService.listAtRisk();
   }
 
+  @Post('escrows/:id/force-release')
+  @HttpCode(HttpStatus.OK)
+  @Roles(UserRole.ADMIN)
+  async forceReleaseEscrow(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(adminActionReasonSchema)) dto: AdminActionReasonDto,
+  ): Promise<AdminEscrowResponse> {
+    return this.adminService.forceReleaseEscrow(currentUser.id, id, dto.reason);
+  }
+
+  @Post('escrows/:id/force-refund')
+  @HttpCode(HttpStatus.OK)
+  @Roles(UserRole.ADMIN)
+  async forceRefundEscrow(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(adminActionReasonSchema)) dto: AdminActionReasonDto,
+  ): Promise<AdminEscrowResponse> {
+    return this.adminService.forceRefundEscrow(currentUser.id, id, dto.reason);
+  }
+
   @Get('payouts')
   @Roles(UserRole.ADMIN)
   async listPayouts(@Query('status') status?: PayoutStatus): Promise<AdminPayoutResponse[]> {
     return this.adminService.listPayouts(status);
+  }
+
+  @Post('payouts/:id/retry')
+  @HttpCode(HttpStatus.OK)
+  @Roles(UserRole.ADMIN)
+  async retryPayout(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(adminActionReasonSchema)) dto: AdminActionReasonDto,
+  ): Promise<AdminPayoutResponse> {
+    return this.adminService.retryPayout(currentUser.id, id, dto.reason);
   }
 
   @Get('payment-intents')
@@ -145,6 +229,28 @@ export class AdminController {
     @Query('status') status?: PaymentIntentStatus,
   ): Promise<AdminPaymentIntentResponse[]> {
     return this.adminService.listPaymentIntents(status);
+  }
+
+  @Post('payment-intents/:id/resolve-quarantine')
+  @HttpCode(HttpStatus.OK)
+  @Roles(UserRole.ADMIN)
+  async resolvePaymentIntentQuarantine(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(adminActionReasonSchema)) dto: AdminActionReasonDto,
+  ): Promise<AdminPaymentIntentResponse> {
+    return this.adminService.resolvePaymentIntentQuarantine(currentUser.id, id, dto.reason);
+  }
+
+  @Post('chat/messages/:id/hide')
+  @HttpCode(HttpStatus.OK)
+  @Roles(UserRole.ADMIN)
+  async hideChatMessage(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(adminActionReasonSchema)) dto: AdminActionReasonDto,
+  ): Promise<HideChatMessageResponse> {
+    return this.adminService.hideChatMessage(currentUser.id, id, dto.reason);
   }
 
   @Get('settings')
@@ -161,6 +267,12 @@ export class AdminController {
     @Body(new ZodValidationPipe(updateVerificationEnabledSchema)) dto: UpdateVerificationEnabledDto,
   ): Promise<PlatformSettingsResponse> {
     return this.adminService.setVerificationEnabled(currentUser.id, dto);
+  }
+
+  @Get('settings/whatsapp-transactional')
+  @Roles(UserRole.ADMIN)
+  async getWhatsappTransactionalSetting(): Promise<WhatsappTransactionalSettingsResponse> {
+    return this.adminService.getWhatsappTransactionalSetting();
   }
 
   @Post('settings/whatsapp-transactional')

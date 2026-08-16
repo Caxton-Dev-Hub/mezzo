@@ -8,6 +8,9 @@ import { AuditModule } from '../audit/audit.module';
 import { EscrowModule } from '../escrow/escrow.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { SettingsModule } from '../settings/settings.module';
+import { WaitlistModule } from '../waitlist/waitlist.module';
+import { ChatModule } from '../chat/chat.module';
+import { AuthModule } from '../auth/auth.module';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 
@@ -22,6 +25,9 @@ import { AdminService } from './admin.service';
     EscrowModule,
     PaymentsModule,
     SettingsModule,
+    WaitlistModule,
+    ChatModule,
+    AuthModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],

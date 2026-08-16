@@ -1,8 +1,12 @@
 import { ConfigService } from '@nestjs/config';
 import { AdminService } from './admin.service';
 import { EscrowService } from '../escrow/escrow.service';
+import { SettlementService } from '../escrow/settlement.service';
 import { PayoutService } from '../payments/payout.service';
 import { PaymentsService } from '../payments/payments.service';
+import { WaitlistService } from '../waitlist/waitlist.service';
+import { ChatService } from '../chat/chat.service';
+import { TokenService } from '../auth/token.service';
 import { SettingsService } from '../settings/settings.service';
 import { DisputeService } from '../disputes/dispute.service';
 import { DisputeState } from '../disputes/entities/dispute-state.enum';
@@ -19,6 +23,7 @@ import { AuditService } from '../audit/audit.service';
 import { RequestContextService } from '../common/context/request-context';
 import { AuthenticatedUser } from '../common/types/authenticated-user';
 import { UserRole } from '../users/entities/user-role.enum';
+import { UserStatus } from '../users/entities/user-status.enum';
 import { callArg } from '../../test/support/mock-calls';
 
 const ADMIN_ID = 'admin-1';
@@ -39,8 +44,12 @@ interface Harness {
   listVerifications: jest.Mock;
   overrideTier: jest.Mock;
   findAll: jest.Mock;
+  search: jest.Mock;
+  updateStatus: jest.Mock;
   auditRecord: jest.Mock;
   auditList: jest.Mock;
+  waitlistFindAll: jest.Mock;
+  revokeAllForUser: jest.Mock;
 }
 
 function buildHarness(
@@ -83,7 +92,11 @@ function buildHarness(
   const kycService = { listVerifications, overrideTier } as unknown as KycService;
 
   const findAll = jest.fn().mockResolvedValue([]);
-  const usersService = { findAll } as unknown as UsersService;
+  const search = jest.fn().mockResolvedValue({ items: [], total: 0 });
+  const updateStatus = jest
+    .fn()
+    .mockResolvedValue({ before: UserStatus.ACTIVE, after: UserStatus.SUSPENDED });
+  const usersService = { findAll, search, updateStatus } as unknown as UsersService;
 
   const auditRecord = jest.fn().mockResolvedValue(undefined);
   const auditList = jest.fn().mockResolvedValue([]);
@@ -96,11 +109,21 @@ function buildHarness(
   const listAllEscrows = jest.fn().mockResolvedValue([]);
   const escrowService = { listAll: listAllEscrows } as unknown as EscrowService;
 
+  const settlementService = {} as unknown as SettlementService;
+
   const listAllPayouts = jest.fn().mockResolvedValue([]);
   const payoutService = { listAllPayouts } as unknown as PayoutService;
 
   const listAllIntents = jest.fn().mockResolvedValue([]);
   const paymentsService = { listAllIntents } as unknown as PaymentsService;
+
+  const waitlistFindAll = jest.fn().mockResolvedValue({ items: [], total: 0 });
+  const waitlistService = { findAll: waitlistFindAll } as unknown as WaitlistService;
+
+  const chatService = {} as unknown as ChatService;
+
+  const revokeAllForUser = jest.fn().mockResolvedValue(undefined);
+  const tokenService = { revokeAllForUser } as unknown as TokenService;
 
   const setVerificationEnabled = jest
     .fn()
@@ -135,10 +158,14 @@ function buildHarness(
     auditService,
     requestContext,
     escrowService,
+    settlementService,
     payoutService,
     paymentsService,
     settingsService,
     configService,
+    waitlistService,
+    chatService,
+    tokenService,
   );
 
   return {
@@ -154,9 +181,13 @@ function buildHarness(
     listVerifications,
     overrideTier,
     findAll,
+    search,
+    updateStatus,
     auditRecord,
     auditList,
     setVerificationEnabled,
+    waitlistFindAll,
+    revokeAllForUser,
   };
 }
 
@@ -365,8 +396,37 @@ describe('AdminService ledger and kyc queries', () => {
   it('lists every user for the admin console', async () => {
     const harness = buildHarness();
 
-    await harness.service.listUsers();
+    await harness.service.listUsers({ page: 1, pageSize: 20 });
 
-    expect(harness.findAll).toHaveBeenCalledTimes(1);
+    expect(harness.search).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('AdminService.updateUserStatus', () => {
+  it('revokes active sessions when suspending a user', async () => {
+    const harness = buildHarness();
+
+    await harness.service.updateUserStatus(ADMIN_ID, 'user-1', {
+      status: UserStatus.SUSPENDED,
+      reason: 'Fraud report',
+    });
+
+    expect(harness.updateStatus).toHaveBeenCalledWith('user-1', UserStatus.SUSPENDED);
+    expect(harness.revokeAllForUser).toHaveBeenCalledWith('user-1');
+    expect(harness.auditRecord).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'USER_STATUS_CHANGED', reason: 'Fraud report' }),
+    );
+  });
+
+  it('does not revoke sessions when reactivating a user', async () => {
+    const harness = buildHarness();
+    harness.updateStatus.mockResolvedValue({ before: UserStatus.SUSPENDED, after: UserStatus.ACTIVE });
+
+    await harness.service.updateUserStatus(ADMIN_ID, 'user-1', {
+      status: UserStatus.ACTIVE,
+      reason: 'Appeal approved',
+    });
+
+    expect(harness.revokeAllForUser).not.toHaveBeenCalled();
   });
 });
