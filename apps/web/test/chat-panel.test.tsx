@@ -169,6 +169,7 @@ describe("ChatPanel", () => {
         body: "Sounds good",
         attachment: null,
         createdAt,
+        hiddenAt: null,
       },
     ]);
     useAuthStore.setState({

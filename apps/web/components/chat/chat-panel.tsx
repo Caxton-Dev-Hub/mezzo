@@ -164,6 +164,7 @@ export function ChatPanel({ escrow }: ChatPanelProps) {
         body: trimmed,
         attachment: attachment.confirmed,
         createdAt: new Date(),
+        hiddenAt: null,
         pending: true,
       };
       setLocalMessages((current) => [...current, localMessage]);
