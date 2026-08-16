@@ -14,6 +14,11 @@ const ADMIN_LINKS = [
   { href: '/admin/escrows', label: 'Escrows' },
   { href: '/admin/at-risk', label: 'Needs attention' },
   { href: '/admin/payments', label: 'Money' },
+  { href: '/admin/users', label: 'Users' },
+  { href: '/admin/waitlist', label: 'Waitlist' },
+  { href: '/admin/kyc', label: 'KYC' },
+  { href: '/admin/ledger', label: 'Ledger' },
+  { href: '/admin/audit', label: 'Audit' },
   { href: '/admin/settings', label: 'Settings' },
 ];
 
