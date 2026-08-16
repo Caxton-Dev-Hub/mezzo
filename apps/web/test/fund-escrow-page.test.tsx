@@ -149,6 +149,28 @@ describe('FundEscrowPage', () => {
     },
   );
 
+  it('lets the buyer reopen checkout for a pending intent found on page load', async () => {
+    const user = userEvent.setup();
+    const assign = vi.fn();
+    vi.stubGlobal('location', { assign });
+    stubFetch({
+      state: 'AGREED',
+      intent: makeIntent('PENDING'),
+      onFund: () =>
+        jsonResponse(
+          { ...makeIntent('PENDING'), authorizationUrl: 'https://pay.example/checkout/reopened' },
+          201,
+        ),
+    });
+
+    renderWithProviders(<FundEscrowPage />);
+    await user.click(await screen.findByRole('button', { name: /reopen the payment page/i }));
+
+    await waitFor(() =>
+      expect(assign).toHaveBeenCalledWith('https://pay.example/checkout/reopened'),
+    );
+  });
+
   it('surfaces a quarantined payment instead of pretending it funded', async () => {
     stubFetch({ state: 'AGREED', intent: makeIntent('QUARANTINED') });
     renderWithProviders(<FundEscrowPage />);

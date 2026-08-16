@@ -76,6 +76,8 @@ export function FundingPanel({ escrow, intent, kycStatus, isBuyer }: FundingPane
     );
   }
 
+  const error = fund.error;
+
   if (intent?.status === 'QUARANTINED') {
     return (
       <div className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger/5 p-4">
@@ -111,12 +113,28 @@ export function FundingPanel({ escrow, intent, kycStatus, isBuyer }: FundingPane
           >
             Reopen the payment page
           </a>
+        ) : (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            loading={fund.isPending}
+            onClick={() => fund.mutate()}
+          >
+            Reopen the payment page
+          </Button>
+        )}
+        {error ? (
+          <p role="alert" className="text-[13px] text-danger">
+            {error instanceof ApiError
+              ? error.message
+              : 'Could not reopen the payment page. Please try again.'}
+          </p>
         ) : null}
       </div>
     );
   }
 
-  const error = fund.error;
   const blockedTier = kycStatus ? tierBlockedBy(error, kycStatus.tier) : null;
   if (blockedTier && kycStatus) {
     return (
