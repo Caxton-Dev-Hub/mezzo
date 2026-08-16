@@ -7,6 +7,7 @@ import { PaymentIntent } from '../database/entities/payment-intent.entity';
 import { PaymentWebhookEvent } from '../database/entities/payment-webhook-event.entity';
 import { EscrowNotAgreedError } from './errors/escrow-not-agreed.error';
 import { OnlyBuyerMayFundError } from './errors/only-buyer-may-fund.error';
+import { IntentNotQuarantinedError } from './errors/intent-not-quarantined.error';
 import { PaymentProvider } from './providers/payment-provider.interface';
 import { WebhookSignatureService } from './webhook-signature.service';
 import { PayoutService } from './payout.service';
@@ -587,6 +588,37 @@ describe('PaymentsService charge webhook processing', () => {
         eventType: NotificationEventType.FUNDED,
         recipientUserIds: [BUYER_ID, SELLER_ID],
       }),
+    );
+  });
+});
+
+describe('PaymentsService.resolveQuarantinedIntent', () => {
+  it('moves a quarantined intent back to pending without touching the ledger', async () => {
+    const harness = buildHarness({
+      existingIntent: buildIntent({ status: PaymentIntentStatus.QUARANTINED }),
+    });
+
+    const resolved = await harness.service.resolveQuarantinedIntent(INTENT_ID);
+
+    expect(resolved.status).toBe(PaymentIntentStatus.PENDING);
+    expect(harness.postTransaction).not.toHaveBeenCalled();
+  });
+
+  it('refuses to resolve an intent that is not quarantined', async () => {
+    const harness = buildHarness({
+      existingIntent: buildIntent({ status: PaymentIntentStatus.PENDING }),
+    });
+
+    await expect(harness.service.resolveQuarantinedIntent(INTENT_ID)).rejects.toThrow(
+      IntentNotQuarantinedError,
+    );
+  });
+
+  it('refuses to resolve an intent that does not exist', async () => {
+    const harness = buildHarness({ existingIntent: null });
+
+    await expect(harness.service.resolveQuarantinedIntent(INTENT_ID)).rejects.toThrow(
+      IntentNotQuarantinedError,
     );
   });
 });

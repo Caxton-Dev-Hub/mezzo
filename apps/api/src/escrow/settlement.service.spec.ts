@@ -400,6 +400,28 @@ describe('SettlementService.release', () => {
   });
 });
 
+describe('SettlementService.adminRelease', () => {
+  const ADMIN_ID = 'admin-1';
+
+  it('releases funds when called by someone other than the buyer', async () => {
+    const harness = buildHarness();
+
+    await harness.service.adminRelease(ESCROW_ID, ADMIN_ID);
+
+    const lines = callArg<PostingLine[]>(harness.postTransaction, 0, 0);
+    expect(sumByDirection(lines, EntryDirection.CREDIT)).toBe(100_000);
+  });
+
+  it('still refuses to release from an illegal escrow state', async () => {
+    const harness = buildHarness();
+    harness.transition.mockRejectedValue(new Error('illegal transition'));
+
+    await expect(harness.service.adminRelease(ESCROW_ID, ADMIN_ID)).rejects.toThrow(
+      'illegal transition',
+    );
+  });
+});
+
 describe('SettlementService.autoRelease', () => {
   it('releases with a null actor and counts the automated release', async () => {
     const harness = buildHarness();

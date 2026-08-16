@@ -146,6 +146,10 @@ export class SettlementService {
     return this.executeRelease(escrowId, actorId);
   }
 
+  async adminRelease(escrowId: string, actorId: string): Promise<Escrow> {
+    return this.executeRelease(escrowId, actorId);
+  }
+
   async autoRelease(escrowId: string): Promise<void> {
     try {
       await this.executeRelease(escrowId, null);

@@ -3,6 +3,7 @@ import { PayoutService } from './payout.service';
 import { PayoutStatus } from './entities/payout-status.enum';
 import { Payout } from '../database/entities/payout.entity';
 import { InsufficientWalletBalanceError } from './errors/insufficient-wallet-balance.error';
+import { PayoutNotFailedError } from './errors/payout-not-failed.error';
 import { PaymentProvider } from './providers/payment-provider.interface';
 import { PaymentWebhookEventInput } from './webhook-event';
 import { LedgerService, PostingLine } from '../ledger/ledger.service';
@@ -324,5 +325,40 @@ describe('PayoutService.handleTransferWebhook', () => {
     await harness.service.handleTransferWebhook(transferEvent({ succeeded: false }));
 
     expect(harness.managerSave).toHaveBeenCalledWith(Payout, payout);
+  });
+});
+
+describe('PayoutService.retryPayout', () => {
+  it('re-attempts a transfer using the failed payout\'s original details', async () => {
+    const harness = buildHarness();
+    harness.payoutsFindOne
+      .mockResolvedValueOnce(buildPayout({ status: PayoutStatus.FAILED }))
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(buildPayout({ status: PayoutStatus.PENDING }));
+
+    const result = await harness.service.retryPayout(PAYOUT_ID);
+
+    expect(harness.initiateTransfer).toHaveBeenCalledTimes(1);
+    expect(harness.initiateTransfer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        amountKobo: 50_000,
+        accountNumber: '0123456789',
+        bankCode: '058',
+      }),
+    );
+    expect(result.status).toBe(PayoutStatus.PENDING);
+  });
+
+  it('refuses to retry a payout that has not failed', async () => {
+    const harness = buildHarness({ existing: buildPayout({ status: PayoutStatus.PENDING }) });
+
+    await expect(harness.service.retryPayout(PAYOUT_ID)).rejects.toThrow(PayoutNotFailedError);
+    expect(harness.initiateTransfer).not.toHaveBeenCalled();
+  });
+
+  it('refuses to retry a payout that does not exist', async () => {
+    const harness = buildHarness({ existing: null });
+
+    await expect(harness.service.retryPayout(PAYOUT_ID)).rejects.toThrow(PayoutNotFailedError);
   });
 });

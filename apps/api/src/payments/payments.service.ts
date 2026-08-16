@@ -34,6 +34,7 @@ import {
 } from './dto/payments-response';
 import { EscrowNotAgreedError } from './errors/escrow-not-agreed.error';
 import { OnlyBuyerMayFundError } from './errors/only-buyer-may-fund.error';
+import { IntentNotQuarantinedError } from './errors/intent-not-quarantined.error';
 
 @Injectable()
 export class PaymentsService {
@@ -138,6 +139,20 @@ export class PaymentsService {
 
   async listAllIntents(status?: PaymentIntentStatus): Promise<PaymentIntent[]> {
     return this.intents.find({ where: status ? { status } : {}, order: { createdAt: 'DESC' } });
+  }
+
+  async listIntentsForUser(buyerId: string): Promise<PaymentIntent[]> {
+    return this.intents.find({ where: { buyerId }, order: { createdAt: 'DESC' } });
+  }
+
+  async resolveQuarantinedIntent(intentId: string): Promise<PaymentIntent> {
+    const intent = await this.intents.findOne({ where: { id: intentId } });
+    if (!intent || intent.status !== PaymentIntentStatus.QUARANTINED) {
+      throw new IntentNotQuarantinedError();
+    }
+
+    intent.status = PaymentIntentStatus.PENDING;
+    return this.intents.save(intent);
   }
 
   async handlePaystackWebhook(

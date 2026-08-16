@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Payout } from '../database/entities/payout.entity';
@@ -15,6 +15,7 @@ import { RequestPayoutDto } from './dto/payout.schemas';
 import { PayoutResponse, toPayoutResponse } from './dto/payout-response';
 import { PaymentWebhookEventInput } from './webhook-event';
 import { InsufficientWalletBalanceError } from './errors/insufficient-wallet-balance.error';
+import { PayoutNotFailedError } from './errors/payout-not-failed.error';
 
 @Injectable()
 export class PayoutService {
@@ -100,6 +101,26 @@ export class PayoutService {
 
   async listAllPayouts(status?: PayoutStatus): Promise<Payout[]> {
     return this.payouts.find({ where: status ? { status } : {}, order: { createdAt: 'DESC' } });
+  }
+
+  async retryPayout(payoutId: string): Promise<Payout> {
+    const payout = await this.payouts.findOne({ where: { id: payoutId } });
+    if (!payout || payout.status !== PayoutStatus.FAILED) {
+      throw new PayoutNotFailedError();
+    }
+
+    const retried = await this.requestPayout(payout.sellerId, {
+      amount: { amount: payout.amount, currency: payout.currency },
+      bankAccountNumber: payout.bankAccountNumber,
+      bankCode: payout.bankCode,
+      idempotencyKey: randomUUID(),
+    });
+
+    const newPayout = await this.payouts.findOne({ where: { id: retried.id } });
+    if (!newPayout) {
+      throw new NotFoundException('Retried payout not found');
+    }
+    return newPayout;
   }
 
   async handleTransferWebhook(event: PaymentWebhookEventInput): Promise<void> {

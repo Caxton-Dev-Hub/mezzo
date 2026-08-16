@@ -8,6 +8,7 @@ export interface ChatMessageResponse {
   body: string;
   attachment: EvidenceItemResponse | null;
   createdAt: Date;
+  hiddenAt: Date | null;
 }
 
 export interface ChatReadState {
@@ -26,5 +27,6 @@ export function toChatMessageResponse(
     body: message.body,
     attachment,
     createdAt: message.createdAt,
+    hiddenAt: message.hiddenAt,
   };
 }

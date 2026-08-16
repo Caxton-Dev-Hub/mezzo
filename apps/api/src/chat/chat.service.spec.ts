@@ -30,6 +30,8 @@ function buildMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
     senderId: BUYER_ID,
     body: 'Has it shipped yet?',
     attachmentEvidenceItemId: null,
+    hiddenAt: null,
+    hiddenBy: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     ...overrides,
   } as ChatMessage;
@@ -61,6 +63,7 @@ function buildItem(overrides: Partial<EvidenceItem> = {}): EvidenceItem {
 interface Harness {
   service: ChatService;
   messagesFind: jest.Mock;
+  messagesFindOne: jest.Mock;
   messagesSave: jest.Mock;
   itemsFind: jest.Mock;
   itemsFindOne: jest.Mock;
@@ -84,9 +87,13 @@ function buildHarness(
   } = {},
 ): Harness {
   const messagesFind = jest.fn().mockResolvedValue(options.messages ?? []);
+  const messagesFindOne = jest
+    .fn()
+    .mockResolvedValue(options.messages?.[0] ?? buildMessage());
   const messagesSave = jest.fn().mockImplementation((row) => Promise.resolve({ id: 'message-1', createdAt: new Date(), ...row }));
   const messages = {
     find: messagesFind,
+    findOne: messagesFindOne,
     save: messagesSave,
     create: (row: Partial<ChatMessage>) => row,
   } as unknown as Repository<ChatMessage>;
@@ -136,6 +143,7 @@ function buildHarness(
   return {
     service: new ChatService(messages, evidenceItems, evidenceFlags, chatReads, escrowService, storage),
     messagesFind,
+    messagesFindOne,
     messagesSave,
     itemsFind,
     itemsFindOne,
@@ -294,6 +302,19 @@ describe('ChatService.list', () => {
     expect(messages[1].attachment?.id).toBe('item-1');
     expect(messages[1].attachment?.url).toBe('https://storage.test/evidence/one.jpg');
   });
+
+  it('excludes messages an admin has hidden from the party-facing transcript', async () => {
+    const harness = buildHarness({
+      messages: [
+        buildMessage({ id: 'm1' }),
+        buildMessage({ id: 'm2', hiddenAt: new Date(), hiddenBy: 'admin-1' }),
+      ],
+    });
+
+    const messages = await harness.service.list(ESCROW_ID, buyer);
+
+    expect(messages.map((message) => message.id)).toEqual(['m1']);
+  });
 });
 
 describe('ChatService.getTranscript', () => {
@@ -304,6 +325,43 @@ describe('ChatService.getTranscript', () => {
 
     expect(transcript).toHaveLength(1);
     expect(harness.getDetail).not.toHaveBeenCalled();
+  });
+
+  it('still includes hidden messages, for arbiter evidentiary review', async () => {
+    const harness = buildHarness({
+      messages: [
+        buildMessage({ id: 'm1' }),
+        buildMessage({ id: 'm2', hiddenAt: new Date('2026-01-02T00:00:00.000Z'), hiddenBy: 'admin-1' }),
+      ],
+    });
+
+    const transcript = await harness.service.getTranscript(ESCROW_ID);
+
+    expect(transcript.map((message) => message.id)).toEqual(['m1', 'm2']);
+    expect(transcript[1].hiddenAt).not.toBeNull();
+  });
+});
+
+describe('ChatService.hideMessage', () => {
+  it('sets hiddenAt and hiddenBy on the message', async () => {
+    const harness = buildHarness({ messages: [buildMessage({ id: 'm1' })] });
+
+    const hidden = await harness.service.hideMessage('m1', 'admin-1');
+
+    expect(hidden.hiddenBy).toBe('admin-1');
+    expect(hidden.hiddenAt).toBeInstanceOf(Date);
+    expect(harness.messagesSave).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'm1', hiddenBy: 'admin-1' }),
+    );
+  });
+
+  it('throws NotFoundException for a message that does not exist', async () => {
+    const harness = buildHarness();
+    harness.messagesFindOne.mockResolvedValue(null);
+
+    await expect(harness.service.hideMessage('missing', 'admin-1')).rejects.toThrow(
+      'Chat message not found',
+    );
   });
 });
 

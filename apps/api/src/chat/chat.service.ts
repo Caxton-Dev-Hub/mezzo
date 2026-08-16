@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { ChatMessage } from '../database/entities/chat-message.entity';
@@ -78,11 +78,22 @@ export class ChatService {
 
   async list(escrowId: string, actor: AuthenticatedUser): Promise<ChatMessageResponse[]> {
     await this.assertCanAccess(escrowId, actor);
-    return this.fetchAll(escrowId);
+    return this.fetchAll(escrowId, { includeHidden: false });
   }
 
   async getTranscript(escrowId: string): Promise<ChatMessageResponse[]> {
-    return this.fetchAll(escrowId);
+    return this.fetchAll(escrowId, { includeHidden: true });
+  }
+
+  async hideMessage(messageId: string, actorId: string): Promise<ChatMessage> {
+    const message = await this.messages.findOne({ where: { id: messageId } });
+    if (!message) {
+      throw new NotFoundException('Chat message not found');
+    }
+
+    message.hiddenAt = new Date();
+    message.hiddenBy = actorId;
+    return this.messages.save(message);
   }
 
   async markRead(escrowId: string, actor: AuthenticatedUser): Promise<ChatReadState> {
@@ -105,11 +116,18 @@ export class ChatService {
     return rows.map((row) => ({ userId: row.userId, lastReadAt: row.lastReadAt }));
   }
 
-  private async fetchAll(escrowId: string): Promise<ChatMessageResponse[]> {
-    const messages = await this.messages.find({
+  private async fetchAll(
+    escrowId: string,
+    options: { includeHidden: boolean },
+  ): Promise<ChatMessageResponse[]> {
+    const allMessages = await this.messages.find({
       where: { escrowId },
       order: { createdAt: 'ASC', id: 'ASC' },
     });
+
+    const messages = options.includeHidden
+      ? allMessages
+      : allMessages.filter((message) => !message.hiddenAt);
 
     const attachmentIds = messages
       .map((message) => message.attachmentEvidenceItemId)
