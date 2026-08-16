@@ -41,6 +41,12 @@ export class ChatMessage {
   @JoinColumn({ name: 'attachment_evidence_item_id' })
   attachmentEvidenceItem!: EvidenceItem | null;
 
+  @Column({ name: 'hidden_at', type: 'timestamptz', nullable: true })
+  hiddenAt!: Date | null;
+
+  @Column({ name: 'hidden_by', type: 'uuid', nullable: true })
+  hiddenBy!: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 }

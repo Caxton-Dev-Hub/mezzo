@@ -7,6 +7,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { UserRole } from '../../users/entities/user-role.enum';
+import { UserStatus } from '../../users/entities/user-status.enum';
 import { KycTier } from '../../kyc/entities/kyc-tier.enum';
 
 @Entity('users')
@@ -30,6 +31,9 @@ export class User {
 
   @Column({ type: 'enum', enum: UserRole, default: UserRole.USER })
   role!: UserRole;
+
+  @Column({ type: 'enum', enum: UserStatus, default: UserStatus.ACTIVE })
+  status!: UserStatus;
 
   @Column({ name: 'kyc_tier', type: 'enum', enum: KycTier, default: KycTier.TIER_0 })
   kycTier!: KycTier;
