@@ -9,5 +9,6 @@ import { AuthRateLimitGuard } from '../auth/guards/auth-rate-limit.guard';
   imports: [TypeOrmModule.forFeature([WaitlistSignup])],
   controllers: [WaitlistController],
   providers: [WaitlistService, AuthRateLimitGuard],
+  exports: [WaitlistService],
 })
 export class WaitlistModule {}
