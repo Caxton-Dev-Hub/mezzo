@@ -110,7 +110,7 @@ export function NotificationCenter() {
             <p className="p-3 text-sm text-mute">No notifications yet.</p>
           ) : (
             <ul className="max-h-[calc(70vh-2.5rem)] space-y-1 overflow-y-auto sm:max-h-96">
-              {notifications.map((notification) => (
+              {notifications.slice(0, 5).map((notification) => (
                 <li key={notification.id} className="flex items-center gap-1">
                   <Link
                     href={`/escrow/${notification.escrowId}`}
