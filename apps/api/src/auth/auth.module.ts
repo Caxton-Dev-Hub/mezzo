@@ -72,6 +72,6 @@ import {
           : fakeMailer,
     },
   ],
-  exports: [FakePasswordResetMailer, FakeEmailVerificationMailer],
+  exports: [FakePasswordResetMailer, FakeEmailVerificationMailer, TokenService],
 })
 export class AuthModule {}

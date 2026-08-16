@@ -3,6 +3,7 @@ import { Repository } from 'typeorm';
 import { UsersService } from './users.service';
 import { User } from '../database/entities/user.entity';
 import { UserRole } from './entities/user-role.enum';
+import { UserStatus } from './entities/user-status.enum';
 import { KycTier } from '../kyc/entities/kyc-tier.enum';
 
 function buildUser(overrides: Partial<User> = {}): User {
@@ -13,6 +14,7 @@ function buildUser(overrides: Partial<User> = {}): User {
     googleSub: null,
     phone: null,
     role: UserRole.USER,
+    status: UserStatus.ACTIVE,
     kycTier: KycTier.TIER_0,
     businessName: null,
     bio: null,
@@ -116,5 +118,62 @@ describe('UsersService.linkOrCreateGoogleUser', () => {
     const user = await usersService.linkOrCreateGoogleUser('google-1', 'Admin@Mezzo.app');
 
     expect(user.role).toBe(UserRole.ADMIN);
+  });
+});
+
+describe('UsersService.updateRole', () => {
+  it('changes the role and reports the before/after values', async () => {
+    const { usersService, repository } = buildUsersService();
+    repository.rows.push(buildUser({ id: 'user-1', role: UserRole.USER }));
+
+    const result = await usersService.updateRole('user-1', UserRole.ARBITER);
+
+    expect(result).toEqual({ before: UserRole.USER, after: UserRole.ARBITER });
+    expect(repository.rows[0].role).toBe(UserRole.ARBITER);
+  });
+
+  it('throws when the user does not exist', async () => {
+    const { usersService } = buildUsersService();
+
+    await expect(usersService.updateRole('missing', UserRole.ADMIN)).rejects.toThrow(
+      'User not found',
+    );
+  });
+});
+
+describe('UsersService.updateStatus', () => {
+  it('suspends an active user and reports the before/after values', async () => {
+    const { usersService, repository } = buildUsersService();
+    repository.rows.push(buildUser({ id: 'user-1', status: UserStatus.ACTIVE }));
+
+    const result = await usersService.updateStatus('user-1', UserStatus.SUSPENDED);
+
+    expect(result).toEqual({ before: UserStatus.ACTIVE, after: UserStatus.SUSPENDED });
+    expect(repository.rows[0].status).toBe(UserStatus.SUSPENDED);
+  });
+
+  it('throws when the user does not exist', async () => {
+    const { usersService } = buildUsersService();
+
+    await expect(usersService.updateStatus('missing', UserStatus.SUSPENDED)).rejects.toThrow(
+      'User not found',
+    );
+  });
+});
+
+describe('UsersService.getById', () => {
+  it('returns the user when found', async () => {
+    const { usersService, repository } = buildUsersService();
+    repository.rows.push(buildUser({ id: 'user-1' }));
+
+    const user = await usersService.getById('user-1');
+
+    expect(user.id).toBe('user-1');
+  });
+
+  it('throws NotFoundException when missing', async () => {
+    const { usersService } = buildUsersService();
+
+    await expect(usersService.getById('missing')).rejects.toThrow('User not found');
   });
 });

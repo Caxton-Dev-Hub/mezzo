@@ -17,6 +17,7 @@ import { User } from '../database/entities/user.entity';
 import { KycVerification } from '../database/entities/kyc-verification.entity';
 import { KycEvent } from '../database/entities/kyc-event.entity';
 import { UserRole } from '../users/entities/user-role.enum';
+import { UserStatus } from '../users/entities/user-status.enum';
 
 class InMemoryUserRepository {
   constructor(readonly users: Map<string, User>) {}
@@ -100,6 +101,7 @@ function buildUser(tier: KycTier): User {
     googleSub: null,
     phone: null,
     role: UserRole.USER,
+    status: UserStatus.ACTIVE,
     kycTier: tier,
     businessName: null,
     bio: null,

@@ -1,10 +1,26 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { ILike, In, Repository } from 'typeorm';
 import { User } from '../database/entities/user.entity';
 import { UserRole } from './entities/user-role.enum';
+import { UserStatus } from './entities/user-status.enum';
+import { KycTier } from '../kyc/entities/kyc-tier.enum';
 import { EmailAlreadyRegisteredError } from './errors/email-already-registered.error';
+
+export interface UserSearchQuery {
+  q?: string;
+  role?: UserRole;
+  status?: UserStatus;
+  kycTier?: KycTier;
+  page: number;
+  pageSize: number;
+}
+
+export interface UserSearchResult {
+  items: User[];
+  total: number;
+}
 
 @Injectable()
 export class UsersService {
@@ -75,8 +91,61 @@ export class UsersService {
     return this.usersRepository.findOne({ where: { id } });
   }
 
+  async getById(id: string): Promise<User> {
+    const user = await this.findById(id);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return user;
+  }
+
   findAll(): Promise<User[]> {
     return this.usersRepository.find({ order: { createdAt: 'ASC' } });
+  }
+
+  async search(query: UserSearchQuery): Promise<UserSearchResult> {
+    const [items, total] = await this.usersRepository.findAndCount({
+      where: {
+        ...(query.q ? { email: ILike(`%${query.q}%`) } : {}),
+        ...(query.role ? { role: query.role } : {}),
+        ...(query.status ? { status: query.status } : {}),
+        ...(query.kycTier ? { kycTier: query.kycTier } : {}),
+      },
+      order: { createdAt: 'DESC' },
+      skip: (query.page - 1) * query.pageSize,
+      take: query.pageSize,
+    });
+
+    return { items, total };
+  }
+
+  async updateRole(id: string, role: UserRole): Promise<{ before: UserRole; after: UserRole }> {
+    const user = await this.usersRepository.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const before = user.role;
+    user.role = role;
+    await this.usersRepository.save(user);
+
+    return { before, after: role };
+  }
+
+  async updateStatus(
+    id: string,
+    status: UserStatus,
+  ): Promise<{ before: UserStatus; after: UserStatus }> {
+    const user = await this.usersRepository.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const before = user.status;
+    user.status = status;
+    await this.usersRepository.save(user);
+
+    return { before, after: status };
   }
 
   async findEmailsByIds(ids: string[]): Promise<Map<string, string>> {

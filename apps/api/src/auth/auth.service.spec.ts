@@ -5,10 +5,12 @@ import { EmailVerificationService } from './email-verification.service';
 import { UsersService } from '../users/users.service';
 import { User } from '../database/entities/user.entity';
 import { UserRole } from '../users/entities/user-role.enum';
+import { UserStatus } from '../users/entities/user-status.enum';
 import { KycTier } from '../kyc/entities/kyc-tier.enum';
 import { InvalidCredentialsError } from './errors/invalid-credentials.error';
 import { GoogleEmailNotVerifiedError } from './errors/google-email-not-verified.error';
 import { EmailNotVerifiedError } from './errors/email-not-verified.error';
+import { UserSuspendedError } from './errors/user-suspended.error';
 
 function buildUser(overrides: Partial<User> = {}): User {
   return {
@@ -18,6 +20,7 @@ function buildUser(overrides: Partial<User> = {}): User {
     googleSub: null,
     phone: null,
     role: UserRole.USER,
+    status: UserStatus.ACTIVE,
     kycTier: KycTier.TIER_0,
     businessName: null,
     bio: null,
@@ -122,6 +125,15 @@ describe('AuthService', () => {
         authService.login({ email: 'buyer@example.com', password: 'secret123' }),
       ).rejects.toBeInstanceOf(EmailNotVerifiedError);
     });
+
+    it('rejects login for a suspended account even with the correct password', async () => {
+      const { authService, usersService } = buildHarness();
+      usersService.findByEmail.mockResolvedValue(buildUser({ status: UserStatus.SUSPENDED }));
+
+      await expect(
+        authService.login({ email: 'buyer@example.com', password: 'secret123' }),
+      ).rejects.toBeInstanceOf(UserSuspendedError);
+    });
   });
 
   describe('register', () => {
@@ -173,6 +185,18 @@ describe('AuthService', () => {
 
       await expect(authService.loginWithGoogle({ idToken: 'forged' })).rejects.toThrow();
       expect(usersService.linkOrCreateGoogleUser).not.toHaveBeenCalled();
+    });
+
+    it('rejects a suspended account signing in with Google', async () => {
+      const { authService, usersService, googleTokenVerifier } = buildHarness();
+      googleTokenVerifier.verify.mockResolvedValue(googleIdentity());
+      usersService.linkOrCreateGoogleUser.mockResolvedValue(
+        buildUser({ googleSub: 'google-user-1', status: UserStatus.SUSPENDED }),
+      );
+
+      await expect(
+        authService.loginWithGoogle({ idToken: 'google-id-token' }),
+      ).rejects.toBeInstanceOf(UserSuspendedError);
     });
   });
 });

@@ -9,6 +9,7 @@ import { PasswordResetToken } from '../database/entities/password-reset-token.en
 import { RefreshToken } from '../database/entities/refresh-token.entity';
 import { User } from '../database/entities/user.entity';
 import { UserRole } from '../users/entities/user-role.enum';
+import { UserStatus } from '../users/entities/user-status.enum';
 import { KycTier } from '../kyc/entities/kyc-tier.enum';
 
 function buildUser(overrides: Partial<User> = {}): User {
@@ -19,6 +20,7 @@ function buildUser(overrides: Partial<User> = {}): User {
     googleSub: null,
     phone: null,
     role: UserRole.USER,
+    status: UserStatus.ACTIVE,
     kycTier: KycTier.TIER_0,
     businessName: null,
     bio: null,

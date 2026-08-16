@@ -160,6 +160,17 @@ export class DisputeService {
     });
   }
 
+  async listForEscrowIds(escrowIds: string[]): Promise<Dispute[]> {
+    if (escrowIds.length === 0) {
+      return [];
+    }
+
+    return this.disputes.find({
+      where: { escrowId: In(escrowIds) },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
   async closeEvidenceWindow(disputeId: string, actorId: string | null): Promise<Dispute> {
     return this.disputeStateMachine.transitionIdempotent(disputeId, DisputeState.UNDER_REVIEW, {
       actorId,

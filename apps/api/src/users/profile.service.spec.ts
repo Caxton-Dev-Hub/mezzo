@@ -4,6 +4,7 @@ import { ProfileService } from './profile.service';
 import { InvalidAvatarKeyError } from './errors/invalid-avatar-key.error';
 import { AvatarMimeMismatchError } from './errors/avatar-mime-mismatch.error';
 import { UserRole } from './entities/user-role.enum';
+import { UserStatus } from './entities/user-status.enum';
 import { User } from '../database/entities/user.entity';
 import { EscrowParty } from '../database/entities/escrow-party.entity';
 import { EscrowState } from '../escrow/entities/escrow-state.enum';
@@ -28,6 +29,7 @@ function buildUser(overrides: Partial<User> = {}): User {
     googleSub: null,
     phone: null,
     role: UserRole.USER,
+    status: UserStatus.ACTIVE,
     kycTier: KycTier.TIER_1,
     businessName: null,
     bio: null,

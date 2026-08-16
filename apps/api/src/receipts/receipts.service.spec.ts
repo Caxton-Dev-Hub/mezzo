@@ -7,6 +7,7 @@ import { EscrowState } from '../escrow/entities/escrow-state.enum';
 import { EscrowRole } from '../escrow/entities/escrow-role.enum';
 import { UsersService } from '../users/users.service';
 import { UserRole } from '../users/entities/user-role.enum';
+import { UserStatus } from '../users/entities/user-status.enum';
 import { KycTier } from '../kyc/entities/kyc-tier.enum';
 import { Escrow } from '../database/entities/escrow.entity';
 import { EscrowTerms } from '../database/entities/escrow-terms.entity';
@@ -78,6 +79,7 @@ function buildUser(id: string, email: string): User {
     googleSub: null,
     phone: null,
     role: UserRole.USER,
+    status: UserStatus.ACTIVE,
     kycTier: KycTier.TIER_0,
     businessName: null,
     bio: null,

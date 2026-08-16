@@ -9,6 +9,8 @@ import { RegisterDto, LoginDto, RefreshDto, GoogleLoginDto } from './dto/auth.sc
 import { InvalidCredentialsError } from './errors/invalid-credentials.error';
 import { GoogleEmailNotVerifiedError } from './errors/google-email-not-verified.error';
 import { EmailNotVerifiedError } from './errors/email-not-verified.error';
+import { UserSuspendedError } from './errors/user-suspended.error';
+import { UserStatus } from '../users/entities/user-status.enum';
 
 @Injectable()
 export class AuthService {
@@ -40,6 +42,10 @@ export class AuthService {
       throw new InvalidCredentialsError();
     }
 
+    if (user.status === UserStatus.SUSPENDED) {
+      throw new UserSuspendedError();
+    }
+
     if (!user.emailVerifiedAt) {
       throw new EmailNotVerifiedError();
     }
@@ -56,6 +62,11 @@ export class AuthService {
     }
 
     const user = await this.usersService.linkOrCreateGoogleUser(identity.sub, identity.email);
+
+    if (user.status === UserStatus.SUSPENDED) {
+      throw new UserSuspendedError();
+    }
+
     const tokens = await this.tokenService.issueTokenPair(user);
 
     return { ...tokens, user: toUserResponse(user) };

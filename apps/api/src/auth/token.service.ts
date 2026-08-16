@@ -3,12 +3,14 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { RefreshToken } from '../database/entities/refresh-token.entity';
 import { User } from '../database/entities/user.entity';
 import { UserRole } from '../users/entities/user-role.enum';
+import { UserStatus } from '../users/entities/user-status.enum';
 import { InvalidRefreshTokenError } from './errors/invalid-refresh-token.error';
 import { RefreshTokenReusedError } from './errors/refresh-token-reused.error';
+import { UserSuspendedError } from './errors/user-suspended.error';
 
 interface AccessTokenPayload {
   sub: string;
@@ -63,12 +65,20 @@ export class TokenService {
       throw new InvalidRefreshTokenError();
     }
 
+    if (user.status === UserStatus.SUSPENDED) {
+      throw new UserSuspendedError();
+    }
+
     record.revokedAt = new Date();
     await this.refreshTokens.save(record);
 
     const pair = await this.issueTokenPairForFamily(user, record.familyId);
 
     return { ...pair, userId: record.userId };
+  }
+
+  async revokeAllForUser(userId: string): Promise<void> {
+    await this.refreshTokens.update({ userId, revokedAt: IsNull() }, { revokedAt: new Date() });
   }
 
   private async issueTokenPairForFamily(user: User, familyId: string): Promise<TokenPair> {

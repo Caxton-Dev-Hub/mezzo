@@ -6,16 +6,19 @@ import { TokenService } from './token.service';
 import { RefreshToken } from '../database/entities/refresh-token.entity';
 import { User } from '../database/entities/user.entity';
 import { UserRole } from '../users/entities/user-role.enum';
+import { UserStatus } from '../users/entities/user-status.enum';
 import { KycTier } from '../kyc/entities/kyc-tier.enum';
 import { InvalidRefreshTokenError } from './errors/invalid-refresh-token.error';
 import { RefreshTokenReusedError } from './errors/refresh-token-reused.error';
+import { UserSuspendedError } from './errors/user-suspended.error';
 
 interface FindOneArgs {
   where: { id?: string };
 }
 
 interface UpdateArgs {
-  familyId: string;
+  familyId?: string;
+  userId?: string;
 }
 
 class InMemoryRefreshTokenRepository {
@@ -36,11 +39,17 @@ class InMemoryRefreshTokenRepository {
 
   update(criteria: UpdateArgs, partial: Partial<RefreshToken>): Promise<void> {
     for (const row of this.rows.values()) {
-      if (row.familyId === criteria.familyId) {
+      const familyMatches = criteria.familyId === undefined || row.familyId === criteria.familyId;
+      const userMatches = criteria.userId === undefined || row.userId === criteria.userId;
+      if (familyMatches && userMatches && !row.revokedAt) {
         Object.assign(row, partial);
       }
     }
     return Promise.resolve();
+  }
+
+  get all(): RefreshToken[] {
+    return [...this.rows.values()];
   }
 }
 
@@ -52,9 +61,13 @@ class InMemoryUserRepository {
   }
 }
 
-function buildTokenService(user: User): TokenService {
+function buildTokenService(user: User): {
+  tokenService: TokenService;
+  users: Map<string, User>;
+  refreshRepo: InMemoryRefreshTokenRepository;
+} {
   const users = new Map<string, User>([[user.id, user]]);
-  const refreshRepo = new InMemoryRefreshTokenRepository() as unknown as Repository<RefreshToken>;
+  const refreshRepo = new InMemoryRefreshTokenRepository();
   const userRepo = new InMemoryUserRepository(users) as unknown as Repository<User>;
 
   const configValues: Record<string, string | number> = {
@@ -67,7 +80,14 @@ function buildTokenService(user: User): TokenService {
     getOrThrow: <T>(key: string): T => configValues[key] as T,
   } as unknown as ConfigService;
 
-  return new TokenService(refreshRepo, userRepo, new JwtService(), configService);
+  const tokenService = new TokenService(
+    refreshRepo as unknown as Repository<RefreshToken>,
+    userRepo,
+    new JwtService(),
+    configService,
+  );
+
+  return { tokenService, users, refreshRepo };
 }
 
 describe('TokenService', () => {
@@ -78,6 +98,7 @@ describe('TokenService', () => {
     googleSub: null,
     phone: null,
     role: UserRole.USER,
+    status: UserStatus.ACTIVE,
     kycTier: KycTier.TIER_0,
     businessName: null,
     bio: null,
@@ -89,7 +110,7 @@ describe('TokenService', () => {
   };
 
   it('issues an access and refresh token pair', async () => {
-    const tokenService = buildTokenService(user);
+    const { tokenService } = buildTokenService(user);
     const pair = await tokenService.issueTokenPair(user);
 
     expect(typeof pair.accessToken).toBe('string');
@@ -98,7 +119,7 @@ describe('TokenService', () => {
   });
 
   it('rotates the refresh token, invalidating the previous one', async () => {
-    const tokenService = buildTokenService(user);
+    const { tokenService } = buildTokenService(user);
     const first = await tokenService.issueTokenPair(user);
     const rotated = await tokenService.rotate(first.refreshToken);
 
@@ -107,7 +128,7 @@ describe('TokenService', () => {
   });
 
   it('detects reuse of an already-used refresh token and revokes the whole family', async () => {
-    const tokenService = buildTokenService(user);
+    const { tokenService } = buildTokenService(user);
     const first = await tokenService.issueTokenPair(user);
     const rotated = await tokenService.rotate(first.refreshToken);
 
@@ -121,10 +142,39 @@ describe('TokenService', () => {
   });
 
   it('rejects a refresh token with an invalid signature', async () => {
-    const tokenService = buildTokenService(user);
+    const { tokenService } = buildTokenService(user);
 
     await expect(tokenService.rotate('not-a-real-token')).rejects.toBeInstanceOf(
       InvalidRefreshTokenError,
     );
   });
+
+  it('rejects rotation once the account has been suspended', async () => {
+    const { tokenService, users } = buildTokenService(user);
+    const first = await tokenService.issueTokenPair(user);
+
+    users.set(user.id, { ...user, status: UserStatus.SUSPENDED });
+
+    await expect(tokenService.rotate(first.refreshToken)).rejects.toBeInstanceOf(UserSuspendedError);
+  });
+
+  it('revokes every active refresh token for a user', async () => {
+    const { tokenService, refreshRepo } = buildTokenService(user);
+    const first = await tokenService.issueTokenPair(user);
+    const second = await tokenService.issueTokenPair(user);
+
+    await tokenService.revokeAllForUser(user.id);
+
+    const revokedIds = refreshRepo.all.filter((row) => row.revokedAt).map((row) => row.id);
+    expect(revokedIds.sort()).toEqual(
+      [decodeJti(first.refreshToken), decodeJti(second.refreshToken)].sort(),
+    );
+  });
 });
+
+function decodeJti(token: string): string {
+  const payload = JSON.parse(
+    Buffer.from(token.split('.')[1], 'base64url').toString('utf8'),
+  ) as { jti: string };
+  return payload.jti;
+}
