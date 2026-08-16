@@ -47,7 +47,7 @@ describe("NotificationCenter", () => {
     });
   });
 
-  it("shows an unread badge and clears it once opened", async () => {
+  it("shows an unread badge that stays until the user marks it read", async () => {
     renderWithProviders(<NotificationCenter />);
 
     await waitFor(() => expect(screen.getByText("1")).toBeInTheDocument());
@@ -57,7 +57,39 @@ describe("NotificationCenter", () => {
     );
 
     expect(await screen.findByText("The item was shipped")).toBeInTheDocument();
+    expect(markAllRead).not.toHaveBeenCalled();
+    expect(screen.getByText("1")).toBeInTheDocument();
+  });
+
+  it("marks every notification read via the Mark all read button", async () => {
+    renderWithProviders(<NotificationCenter />);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Notifications" }),
+    );
+    await screen.findByText("The item was shipped");
+
+    await userEvent.click(screen.getByRole("button", { name: "Mark all read" }));
+
     await waitFor(() => expect(markAllRead).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByText("1")).not.toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: "Mark all read" })).not.toBeInTheDocument();
+  });
+
+  it("marks a single notification read without navigating away", async () => {
+    renderWithProviders(<NotificationCenter />);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Notifications" }),
+    );
+    await screen.findByText("The item was shipped");
+
+    await userEvent.click(screen.getByRole("button", { name: "Mark as read" }));
+
+    await waitFor(() => expect(markOneRead).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Mark as read" })).not.toBeInTheDocument(),
+    );
   });
 
   it("closes the dropdown when clicking outside it", async () => {
