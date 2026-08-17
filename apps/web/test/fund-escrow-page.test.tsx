@@ -200,7 +200,7 @@ describe('FundEscrowPage', () => {
     renderWithProviders(<FundEscrowPage />);
     await user.click(await screen.findByRole('button', { name: /^Fund/ }));
 
-    expect(await screen.findByRole('button', { name: 'Verify now' })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Verify now' })).toBeInTheDocument();
   });
 
   it('tells a non-buyer they cannot fund the escrow', async () => {

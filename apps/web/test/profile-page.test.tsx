@@ -88,21 +88,18 @@ describe('ProfilePage', () => {
     expect(screen.getByText('January 2026')).toBeInTheDocument();
   });
 
-  it('lets an unverified owner start verification from the profile', async () => {
-    const fetchMock = stubFetch({
+  it('links an unverified owner to the manual verification flow from the profile', async () => {
+    stubFetch({
       tier: 'TIER_0',
       profile: makeProfile({ kycTier: 'TIER_0', completedEscrows: 0 }),
     });
 
     renderWithProviders(<ProfilePage />);
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Verify now' }));
-
-    await waitFor(() => {
-      expect(
-        fetchMock.mock.calls.some(([input]) => input.toString().includes('/kyc/submissions')),
-      ).toBe(true);
-    });
+    expect(await screen.findByRole('link', { name: 'Verify now' })).toHaveAttribute(
+      'href',
+      '/kyc/verify?tier=TIER_1',
+    );
   });
 
   it('hides the verification prompt once the owner is verified', async () => {
@@ -111,7 +108,7 @@ describe('ProfilePage', () => {
     renderWithProviders(<ProfilePage />);
 
     expect(await screen.findByText('Ada Electronics')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Verify now' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Verify now' })).not.toBeInTheDocument();
   });
 
   it('saves edited profile details', async () => {

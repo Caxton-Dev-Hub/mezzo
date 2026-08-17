@@ -1,11 +1,9 @@
 'use client';
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import Link from 'next/link';
 import { BadgeCheck, Clock, ShieldCheck } from 'lucide-react';
 import type { KycStatusResponse, SubmitKycDto } from '@mezzo/shared-types';
-import { Button } from '../ui/button';
-import { submitKycVerification } from '../../lib/kyc-client';
-import { ApiError } from '../../lib/api-error';
+import { buttonVariants } from '../ui/button';
 
 interface VerifyPromptProps {
   status: KycStatusResponse;
@@ -14,13 +12,6 @@ interface VerifyPromptProps {
 }
 
 export function VerifyPrompt({ status, requiredTier, reason }: VerifyPromptProps) {
-  const queryClient = useQueryClient();
-
-  const submit = useMutation({
-    mutationFn: () => submitKycVerification({ tier: requiredTier }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['kyc-status'] }),
-  });
-
   const pendingReview = status.latestVerification?.status === 'PENDING';
 
   if (!status.verificationEnabled) {
@@ -54,24 +45,13 @@ export function VerifyPrompt({ status, requiredTier, reason }: VerifyPromptProps
               Your verification is in review. We&apos;ll unlock this as soon as it clears.
             </p>
           ) : (
-            <Button
-              type="button"
-              size="sm"
-              className="mt-3"
-              loading={submit.isPending}
-              onClick={() => submit.mutate()}
+            <Link
+              href={`/kyc/verify?tier=${requiredTier}`}
+              className={buttonVariants({ size: 'sm', className: 'mt-3' })}
             >
               Verify now
-            </Button>
+            </Link>
           )}
-
-          {submit.error ? (
-            <p role="alert" className="mt-3 text-[13px] text-danger">
-              {submit.error instanceof ApiError
-                ? submit.error.message
-                : 'Could not start verification. Please try again.'}
-            </p>
-          ) : null}
         </div>
       </div>
     </div>

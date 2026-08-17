@@ -228,24 +228,21 @@ describe('DashboardPage', () => {
     renderWithProviders(<DashboardPage />);
 
     expect(await screen.findByText('Verify your identity to continue')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Verify now' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Verify now' })).toBeInTheDocument();
   });
 
-  it('starts verification from the dashboard prompt', async () => {
-    const fetchMock = stubEscrows([], { tier: 'TIER_0' });
+  it('links the dashboard prompt to the manual verification flow', async () => {
+    stubEscrows([], { tier: 'TIER_0' });
 
     renderWithProviders(<DashboardPage />);
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Verify now' }));
-
-    await waitFor(() => {
-      expect(
-        fetchMock.mock.calls.some(([input]) => input.toString().includes('/kyc/submissions')),
-      ).toBe(true);
-    });
+    expect(await screen.findByRole('link', { name: 'Verify now' })).toHaveAttribute(
+      'href',
+      '/kyc/verify?tier=TIER_1',
+    );
   });
 
-  it('shows the in-review state instead of the button while verification is pending', async () => {
+  it('shows the in-review state instead of the link while verification is pending', async () => {
     stubEscrows([], {
       tier: 'TIER_0',
       latestVerification: {
@@ -260,7 +257,7 @@ describe('DashboardPage', () => {
     renderWithProviders(<DashboardPage />);
 
     expect(await screen.findByText(/Your verification is in review/)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Verify now' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Verify now' })).not.toBeInTheDocument();
   });
 
   it('drops the verification nudge entirely when an admin has verification set to coming soon', async () => {
@@ -270,7 +267,7 @@ describe('DashboardPage', () => {
 
     await waitFor(() => expect(screen.queryByText('No escrows yet')).toBeInTheDocument());
     expect(screen.queryByText('Verify your identity to continue')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Verify now' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Verify now' })).not.toBeInTheDocument();
   });
 
   it('leaves a verified user’s dashboard free of the prompt', async () => {

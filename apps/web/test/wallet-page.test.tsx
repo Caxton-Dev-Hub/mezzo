@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { KycTier, PayoutResponse } from '@mezzo/shared-types';
 import WalletPage from '../app/(app)/wallet/page';
@@ -143,32 +143,24 @@ describe('WalletPage', () => {
     renderWithProviders(<WalletPage />);
 
     expect(await screen.findByRole('button', { name: 'Withdraw' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Verify now' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Verify now' })).not.toBeInTheDocument();
   });
 
-  it('blocks a sub-tier user from withdrawing and offers an inline verify path', async () => {
+  it('blocks a sub-tier user from withdrawing and offers a verify path', async () => {
     stubFetch({ tier: 'TIER_0' });
     renderWithProviders(<WalletPage />);
 
-    expect(await screen.findByRole('button', { name: 'Verify now' })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Verify now' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Withdraw' })).not.toBeInTheDocument();
   });
 
-  it('starts verification inline rather than dead-ending the blocked user', async () => {
-    const user = userEvent.setup();
-    const fetchMock = stubFetch({ tier: 'TIER_0' });
+  it('links to the manual verification flow rather than dead-ending the blocked user', async () => {
+    stubFetch({ tier: 'TIER_0' });
     renderWithProviders(<WalletPage />);
 
-    await user.click(await screen.findByRole('button', { name: 'Verify now' }));
-
-    await waitFor(() =>
-      expect(
-        fetchMock.mock.calls.some(
-          ([input, init]) =>
-            input.toString().endsWith('/kyc/submissions') &&
-            (init as RequestInit | undefined)?.method === 'POST',
-        ),
-      ).toBe(true),
+    expect(await screen.findByRole('link', { name: 'Verify now' })).toHaveAttribute(
+      'href',
+      '/kyc/verify?tier=TIER_1',
     );
   });
 
