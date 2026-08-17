@@ -47,9 +47,25 @@ export interface InitiateTransferResult {
   reference: string;
 }
 
+export interface Bank {
+  code: string;
+  name: string;
+}
+
+export interface ResolveAccountInput {
+  accountNumber: string;
+  bankCode: string;
+}
+
+export interface ResolveAccountResult {
+  accountName: string;
+}
+
 export interface PaymentProvider {
   readonly name: PaymentProviderName;
   initializeTransaction(input: InitializeTransactionInput): Promise<InitializeTransactionResult>;
   listTransactions(window: TransactionWindow): Promise<ProviderTransaction[]>;
   initiateTransfer(input: InitiateTransferInput): Promise<InitiateTransferResult>;
+  listBanks(): Promise<Bank[]>;
+  resolveAccount(input: ResolveAccountInput): Promise<ResolveAccountResult>;
 }

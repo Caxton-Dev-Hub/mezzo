@@ -1,8 +1,12 @@
 import type {
+  Bank,
   LatestPaymentIntentResponse,
   PaymentIntentResponse,
+  PayoutAccountInput,
+  PayoutAccountResponse,
   PayoutResponse,
   RequestPayoutDto,
+  VerifyPayoutAccountResponse,
   WalletActivityResponse,
   WalletBalancesResponse,
 } from '@mezzo/shared-types';
@@ -32,4 +36,25 @@ export function getPayouts(): Promise<PayoutResponse[]> {
 
 export function requestPayout(dto: RequestPayoutDto): Promise<PayoutResponse> {
   return apiRequest<PayoutResponse>('/payouts', { method: 'POST', body: dto });
+}
+
+export function getPayoutBanks(): Promise<Bank[]> {
+  return apiRequest<Bank[]>('/payouts/banks');
+}
+
+export function verifyPayoutAccount(
+  dto: PayoutAccountInput,
+): Promise<VerifyPayoutAccountResponse> {
+  return apiRequest<VerifyPayoutAccountResponse>('/payouts/verify-account', {
+    method: 'POST',
+    body: dto,
+  });
+}
+
+export function getPayoutAccount(): Promise<PayoutAccountResponse | null> {
+  return apiRequest<PayoutAccountResponse | null>('/payouts/account');
+}
+
+export function savePayoutAccount(dto: PayoutAccountInput): Promise<PayoutAccountResponse> {
+  return apiRequest<PayoutAccountResponse>('/payouts/account', { method: 'PUT', body: dto });
 }

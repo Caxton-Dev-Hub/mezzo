@@ -1,6 +1,7 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
+  Bank,
   InitializeTransactionInput,
   InitializeTransactionResult,
   InitiateTransferInput,
@@ -9,6 +10,8 @@ import {
   PaymentProviderName,
   ProviderTransaction,
   ProviderTransactionStatus,
+  ResolveAccountInput,
+  ResolveAccountResult,
   TransactionWindow,
 } from './payment-provider.interface';
 import { Currency } from '../../common/money/currency';
@@ -26,6 +29,17 @@ interface PaystackRecipientResponse {
 interface PaystackTransferResponse {
   status: boolean;
   data: { transfer_code: string; reference: string };
+}
+
+interface PaystackBanksResponse {
+  status: boolean;
+  data: Array<{ code: string; name: string }>;
+}
+
+interface PaystackResolveAccountResponse {
+  status: boolean;
+  message: string;
+  data: { account_number: string; account_name: string };
 }
 
 interface PaystackListTransactionsResponse {
@@ -133,6 +147,43 @@ export class PaystackHttpProvider implements PaymentProvider {
 
     const transfer = (await transferResponse.json()) as PaystackTransferResponse;
     return { transferCode: transfer.data.transfer_code, reference: transfer.data.reference };
+  }
+
+  async listBanks(): Promise<Bank[]> {
+    const response = await fetch(`${this.baseUrl()}/bank?currency=NGN`, {
+      method: 'GET',
+      headers: this.headers(),
+    });
+
+    if (!response.ok) {
+      throw await this.failure(response, 'Paystack bank list retrieval failed');
+    }
+
+    const body = (await response.json()) as PaystackBanksResponse;
+    return body.data.map((bank) => ({ code: bank.code, name: bank.name }));
+  }
+
+  async resolveAccount(input: ResolveAccountInput): Promise<ResolveAccountResult> {
+    const params = new URLSearchParams({
+      account_number: input.accountNumber,
+      bank_code: input.bankCode,
+    });
+    const response = await fetch(`${this.baseUrl()}/bank/resolve?${params.toString()}`, {
+      method: 'GET',
+      headers: this.headers(),
+    });
+
+    if (!response.ok) {
+      throw await this.failure(response, 'Paystack account resolution failed');
+    }
+
+    const body = (await response.json()) as PaystackResolveAccountResponse;
+    if (!body.status) {
+      this.logger.error(`Paystack account resolution failed: ${body.message}`);
+      throw new ServiceUnavailableException('Paystack account resolution failed');
+    }
+
+    return { accountName: body.data.account_name };
   }
 
   private async failure(response: Response, message: string): Promise<ServiceUnavailableException> {

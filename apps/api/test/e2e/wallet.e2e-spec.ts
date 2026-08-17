@@ -253,13 +253,16 @@ describe('Wallet (e2e)', () => {
       .set(auth(buyer.accessToken));
     await request(server).post(`/escrows/${escrowId}/release`).set(auth(buyer.accessToken));
 
+    await request(server)
+      .put('/payouts/account')
+      .set(auth(seller.accessToken))
+      .send({ bankCode: '058', accountNumber: '0123456789' });
+
     const payoutResponse = await request(server)
       .post('/payouts')
       .set(auth(seller.accessToken))
       .send({
         amount: { amount: 40_000, currency: 'NGN' },
-        bankAccountNumber: '0123456789',
-        bankCode: '058',
         idempotencyKey: randomUUID(),
       });
     const payout = payoutResponse.body as PayoutResponse;

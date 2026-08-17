@@ -1,6 +1,7 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
+  Bank,
   InitializeTransactionInput,
   InitializeTransactionResult,
   InitiateTransferInput,
@@ -8,6 +9,8 @@ import {
   PaymentProvider,
   ProviderTransaction,
   ProviderTransactionStatus,
+  ResolveAccountInput,
+  ResolveAccountResult,
   TransactionWindow,
 } from './payment-provider.interface';
 import { Currency } from '../../common/money/currency';
@@ -20,7 +23,8 @@ interface FlutterwavePaymentResponse {
 
 interface FlutterwaveTransferResponse {
   status: string;
-  data: { id: number | string; reference: string };
+  message: string;
+  data: { id: number | string; reference: string } | null;
 }
 
 interface FlutterwaveListTransactionsResponse {
@@ -32,6 +36,17 @@ interface FlutterwaveListTransactionsResponse {
     status: string;
     created_at: string | null;
   }>;
+}
+
+interface FlutterwaveBanksResponse {
+  status: string;
+  data: Array<{ code: string; name: string }>;
+}
+
+interface FlutterwaveResolveAccountResponse {
+  status: string;
+  message: string;
+  data: { account_number: string; account_name: string } | null;
 }
 
 @Injectable()
@@ -110,7 +125,49 @@ export class FlutterwaveHttpProvider implements PaymentProvider {
     }
 
     const body = (await response.json()) as FlutterwaveTransferResponse;
+    if (body.status !== 'success' || !body.data) {
+      this.logger.error(`Flutterwave transfer initiation failed: ${body.message}`);
+      throw new ServiceUnavailableException('Flutterwave transfer initiation failed');
+    }
+
     return { transferCode: String(body.data.id), reference: body.data.reference };
+  }
+
+  async listBanks(): Promise<Bank[]> {
+    const response = await fetch(`${this.baseUrl()}/banks/NG`, {
+      method: 'GET',
+      headers: this.headers(),
+    });
+
+    if (!response.ok) {
+      throw await this.failure(response, 'Flutterwave bank list retrieval failed');
+    }
+
+    const body = (await response.json()) as FlutterwaveBanksResponse;
+    return body.data.map((bank) => ({ code: bank.code, name: bank.name }));
+  }
+
+  async resolveAccount(input: ResolveAccountInput): Promise<ResolveAccountResult> {
+    const response = await fetch(`${this.baseUrl()}/accounts/resolve`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({
+        account_number: input.accountNumber,
+        account_bank: input.bankCode,
+      }),
+    });
+
+    if (!response.ok) {
+      throw await this.failure(response, 'Flutterwave account resolution failed');
+    }
+
+    const body = (await response.json()) as FlutterwaveResolveAccountResponse;
+    if (body.status !== 'success' || !body.data) {
+      this.logger.error(`Flutterwave account resolution failed: ${body.message}`);
+      throw new ServiceUnavailableException('Flutterwave account resolution failed');
+    }
+
+    return { accountName: body.data.account_name };
   }
 
   private async failure(response: Response, message: string): Promise<ServiceUnavailableException> {

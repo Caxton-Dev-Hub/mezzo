@@ -302,3 +302,73 @@ describe('PaystackHttpProvider.initiateTransfer', () => {
     );
   });
 });
+
+describe('PaystackHttpProvider.listBanks', () => {
+  it('returns the bank list for NGN', async () => {
+    const provider = buildProvider();
+    fetchMock.mockResolvedValue(
+      okResponse({
+        status: true,
+        data: [
+          { code: '058', name: 'GTBank' },
+          { code: '011', name: 'First Bank of Nigeria' },
+        ],
+      }),
+    );
+
+    await expect(provider.listBanks()).resolves.toEqual([
+      { code: '058', name: 'GTBank' },
+      { code: '011', name: 'First Bank of Nigeria' },
+    ]);
+
+    const url = callArg<string>(fetchMock, 0, 0);
+    expect(url).toBe(`${BASE_URL}/bank?currency=NGN`);
+  });
+
+  it('surfaces an upstream failure as a service unavailable error', async () => {
+    const provider = buildProvider();
+    fetchMock.mockResolvedValue(errorResponse());
+
+    await expect(provider.listBanks()).rejects.toBeInstanceOf(ServiceUnavailableException);
+  });
+});
+
+describe('PaystackHttpProvider.resolveAccount', () => {
+  const input = { accountNumber: '0123456789', bankCode: '058' };
+
+  it('resolves the account holder name for a bank code and account number', async () => {
+    const provider = buildProvider();
+    fetchMock.mockResolvedValue(
+      okResponse({
+        status: true,
+        message: 'ok',
+        data: { account_number: '0123456789', account_name: 'Jane Doe' },
+      }),
+    );
+
+    await expect(provider.resolveAccount(input)).resolves.toEqual({ accountName: 'Jane Doe' });
+
+    const url = callArg<string>(fetchMock, 0, 0);
+    expect(url).toBe(`${BASE_URL}/bank/resolve?account_number=0123456789&bank_code=058`);
+  });
+
+  it('treats a false status as an unresolved account', async () => {
+    const provider = buildProvider();
+    fetchMock.mockResolvedValue(
+      okResponse({ status: false, message: 'Could not resolve account name', data: null }),
+    );
+
+    await expect(provider.resolveAccount(input)).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+  });
+
+  it('surfaces an upstream http failure as a service unavailable error', async () => {
+    const provider = buildProvider();
+    fetchMock.mockResolvedValue(errorResponse());
+
+    await expect(provider.resolveAccount(input)).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+  });
+});

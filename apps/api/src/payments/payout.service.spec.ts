@@ -2,9 +2,13 @@ import { DataSource, EntityManager, Repository } from 'typeorm';
 import { PayoutService } from './payout.service';
 import { PayoutStatus } from './entities/payout-status.enum';
 import { Payout } from '../database/entities/payout.entity';
+import { PayoutAccount } from '../database/entities/payout-account.entity';
 import { InsufficientWalletBalanceError } from './errors/insufficient-wallet-balance.error';
 import { PayoutNotFailedError } from './errors/payout-not-failed.error';
-import { PaymentProvider } from './providers/payment-provider.interface';
+import { PayoutAccountNotConfiguredError } from './errors/payout-account-not-configured.error';
+import { PayoutAccountVerificationMismatchError } from './errors/payout-account-verification-mismatch.error';
+import { UnknownBankError } from './errors/unknown-bank.error';
+import { Bank, PaymentProvider } from './providers/payment-provider.interface';
 import { PaymentWebhookEventInput } from './webhook-event';
 import { LedgerService, PostingLine } from '../ledger/ledger.service';
 import { EntryDirection } from '../ledger/entities/entry-direction.enum';
@@ -16,6 +20,11 @@ import { callArg } from '../../test/support/mock-calls';
 
 const SELLER_ID = 'seller-1';
 const PAYOUT_ID = 'payout-1';
+
+const BANKS: Bank[] = [
+  { code: '058', name: 'GTBank' },
+  { code: '011', name: 'First Bank of Nigeria' },
+];
 
 function buildPayout(overrides: Partial<Payout> = {}): Payout {
   return {
@@ -33,6 +42,21 @@ function buildPayout(overrides: Partial<Payout> = {}): Payout {
     updatedAt: new Date(),
     ...overrides,
   } as Payout;
+}
+
+function buildPayoutAccount(overrides: Partial<PayoutAccount> = {}): PayoutAccount {
+  return {
+    id: 'payout-account-1',
+    userId: SELLER_ID,
+    bankCode: '058',
+    bankName: 'GTBank',
+    accountNumber: '0123456789',
+    accountName: 'Jane Doe',
+    provider: 'paystack',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  } as PayoutAccount;
 }
 
 function transferEvent(overrides: Partial<PaymentWebhookEventInput> = {}): PaymentWebhookEventInput {
@@ -53,11 +77,16 @@ interface Harness {
   payoutsFindOne: jest.Mock;
   payoutsFind: jest.Mock;
   payoutsSave: jest.Mock;
+  payoutAccountsFindOne: jest.Mock;
+  payoutAccountsSave: jest.Mock;
+  payoutAccountsCreate: jest.Mock;
   managerSave: jest.Mock;
   getBalance: jest.Mock;
   postTransaction: jest.Mock;
   requireTier: jest.Mock;
   initiateTransfer: jest.Mock;
+  resolveAccount: jest.Mock;
+  listBanks: jest.Mock;
 }
 
 function buildHarness(
@@ -65,6 +94,8 @@ function buildHarness(
     existing?: Payout | null;
     balance?: Money;
     payouts?: Payout[];
+    payoutAccount?: PayoutAccount | null;
+    resolvedAccountName?: string;
   } = {},
 ): Harness {
   const payoutsFindOne = jest.fn().mockResolvedValue(options.existing ?? null);
@@ -75,6 +106,21 @@ function buildHarness(
     find: payoutsFind,
     save: payoutsSave,
   } as unknown as Repository<Payout>;
+
+  const savedPayoutAccount =
+    options.payoutAccount === undefined ? buildPayoutAccount() : options.payoutAccount;
+  const payoutAccountsFindOne = jest.fn().mockResolvedValue(savedPayoutAccount);
+  const payoutAccountsSave = jest
+    .fn()
+    .mockImplementation((account: PayoutAccount) => Promise.resolve(account));
+  const payoutAccountsCreate = jest
+    .fn()
+    .mockImplementation((row: Partial<PayoutAccount>) => ({ ...row }) as PayoutAccount);
+  const payoutAccounts = {
+    findOne: payoutAccountsFindOne,
+    save: payoutAccountsSave,
+    create: payoutAccountsCreate,
+  } as unknown as Repository<PayoutAccount>;
 
   const managerSave = jest
     .fn()
@@ -97,31 +143,47 @@ function buildHarness(
   const kycService = { requireTier } as unknown as KycService;
 
   const initiateTransfer = jest.fn().mockResolvedValue(undefined);
+  const resolveAccount = jest.fn().mockResolvedValue({
+    accountName: options.resolvedAccountName ?? savedPayoutAccount?.accountName ?? 'Jane Doe',
+  });
+  const listBanks = jest.fn().mockResolvedValue(BANKS);
   const paymentProvider = {
     name: 'paystack',
     initiateTransfer,
     initializeTransaction: jest.fn(),
+    resolveAccount,
+    listBanks,
   } as unknown as PaymentProvider;
 
-  const service = new PayoutService(payouts, dataSource, ledgerService, kycService, paymentProvider);
+  const service = new PayoutService(
+    payouts,
+    payoutAccounts,
+    dataSource,
+    ledgerService,
+    kycService,
+    paymentProvider,
+  );
 
   return {
     service,
     payoutsFindOne,
     payoutsFind,
     payoutsSave,
+    payoutAccountsFindOne,
+    payoutAccountsSave,
+    payoutAccountsCreate,
     managerSave,
     getBalance,
     postTransaction,
     requireTier,
     initiateTransfer,
+    resolveAccount,
+    listBanks,
   };
 }
 
 const dto = {
   amount: { amount: 50_000, currency: 'NGN' as const },
-  bankAccountNumber: '0123456789',
-  bankCode: '058',
   idempotencyKey: 'key-1',
 };
 
@@ -153,6 +215,15 @@ describe('PayoutService.requestPayout', () => {
     expect(harness.postTransaction).not.toHaveBeenCalled();
   });
 
+  it('refuses a payout when the seller has not saved a payout account', async () => {
+    const harness = buildHarness({ payoutAccount: null });
+
+    await expect(harness.service.requestPayout(SELLER_ID, dto)).rejects.toBeInstanceOf(
+      PayoutAccountNotConfiguredError,
+    );
+    expect(harness.initiateTransfer).not.toHaveBeenCalled();
+  });
+
   it('refuses a payout larger than the wallet balance', async () => {
     const harness = buildHarness({ balance: Money.of(49_999, 'NGN') });
 
@@ -178,7 +249,38 @@ describe('PayoutService.requestPayout', () => {
     );
   });
 
-  it('asks the provider to transfer to the supplied bank account', async () => {
+  it('re-verifies the saved account name against the bank before transferring', async () => {
+    const harness = buildHarness();
+
+    await harness.service.requestPayout(SELLER_ID, dto);
+
+    expect(harness.resolveAccount).toHaveBeenCalledWith({
+      accountNumber: '0123456789',
+      bankCode: '058',
+    });
+  });
+
+  it('refuses to transfer when the bank no longer resolves the saved account to the same name', async () => {
+    const harness = buildHarness({ resolvedAccountName: 'Someone Else' });
+
+    await expect(harness.service.requestPayout(SELLER_ID, dto)).rejects.toBeInstanceOf(
+      PayoutAccountVerificationMismatchError,
+    );
+    expect(harness.initiateTransfer).not.toHaveBeenCalled();
+  });
+
+  it('tolerates whitespace and case differences when matching the resolved account name', async () => {
+    const harness = buildHarness({
+      payoutAccount: buildPayoutAccount({ accountName: 'Jane   Doe' }),
+      resolvedAccountName: 'jane doe',
+    });
+
+    await expect(harness.service.requestPayout(SELLER_ID, dto)).resolves.toEqual(
+      expect.objectContaining({ status: PayoutStatus.PENDING }),
+    );
+  });
+
+  it('asks the provider to transfer to the saved bank account', async () => {
     const harness = buildHarness();
 
     await harness.service.requestPayout(SELLER_ID, dto);
@@ -256,6 +358,101 @@ describe('PayoutService.listPayouts', () => {
   });
 });
 
+describe('PayoutService.listBanks', () => {
+  it('returns the bank list from the active provider', async () => {
+    const harness = buildHarness();
+
+    await expect(harness.service.listBanks()).resolves.toEqual(BANKS);
+  });
+});
+
+describe('PayoutService.verifyAccount', () => {
+  it('resolves the account name from the active provider without saving anything', async () => {
+    const harness = buildHarness();
+
+    const result = await harness.service.verifyAccount({
+      bankCode: '058',
+      accountNumber: '0123456789',
+    });
+
+    expect(result).toEqual({ accountName: 'Jane Doe' });
+    expect(harness.payoutAccountsSave).not.toHaveBeenCalled();
+  });
+});
+
+describe('PayoutService.savePayoutAccount', () => {
+  it('requires at least tier 1 before saving a payout account', async () => {
+    const harness = buildHarness();
+    harness.requireTier.mockRejectedValue(new Error('tier too low'));
+
+    await expect(
+      harness.service.savePayoutAccount(SELLER_ID, { bankCode: '058', accountNumber: '0123456789' }),
+    ).rejects.toThrow('tier too low');
+  });
+
+  it('rejects a bank code that is not in the provider bank list', async () => {
+    const harness = buildHarness();
+
+    await expect(
+      harness.service.savePayoutAccount(SELLER_ID, { bankCode: '999', accountNumber: '0123456789' }),
+    ).rejects.toBeInstanceOf(UnknownBankError);
+    expect(harness.resolveAccount).not.toHaveBeenCalled();
+  });
+
+  it('resolves the account name from the provider rather than trusting client input', async () => {
+    const harness = buildHarness({ payoutAccount: null });
+
+    const result = await harness.service.savePayoutAccount(SELLER_ID, {
+      bankCode: '058',
+      accountNumber: '0123456789',
+    });
+
+    expect(harness.resolveAccount).toHaveBeenCalledWith({
+      bankCode: '058',
+      accountNumber: '0123456789',
+    });
+    expect(result).toEqual(
+      expect.objectContaining({
+        bankCode: '058',
+        bankName: 'GTBank',
+        accountNumber: '0123456789',
+        accountName: 'Jane Doe',
+      }),
+    );
+  });
+
+  it('overwrites an existing saved payout account rather than creating a second one', async () => {
+    const existing = buildPayoutAccount({ bankCode: '011', accountNumber: '9999999999' });
+    const harness = buildHarness({ payoutAccount: existing, resolvedAccountName: 'Jane Doe' });
+
+    await harness.service.savePayoutAccount(SELLER_ID, {
+      bankCode: '058',
+      accountNumber: '0123456789',
+    });
+
+    expect(harness.payoutAccountsCreate).not.toHaveBeenCalled();
+    expect(harness.payoutAccountsSave).toHaveBeenCalledWith(
+      expect.objectContaining({ bankCode: '058', accountNumber: '0123456789' }),
+    );
+  });
+});
+
+describe('PayoutService.getPayoutAccount', () => {
+  it('returns null when the seller has not saved a payout account', async () => {
+    const harness = buildHarness({ payoutAccount: null });
+
+    await expect(harness.service.getPayoutAccount(SELLER_ID)).resolves.toBeNull();
+  });
+
+  it('returns the saved payout account', async () => {
+    const harness = buildHarness({ payoutAccount: buildPayoutAccount() });
+
+    await expect(harness.service.getPayoutAccount(SELLER_ID)).resolves.toEqual(
+      expect.objectContaining({ bankCode: '058', accountNumber: '0123456789' }),
+    );
+  });
+});
+
 describe('PayoutService.handleTransferWebhook', () => {
   it('ignores a transfer that matches no payout', async () => {
     const harness = buildHarness({ existing: null });
@@ -329,7 +526,7 @@ describe('PayoutService.handleTransferWebhook', () => {
 });
 
 describe('PayoutService.retryPayout', () => {
-  it('re-attempts a transfer using the failed payout\'s original details', async () => {
+  it("re-attempts a transfer using the seller's currently saved payout account", async () => {
     const harness = buildHarness();
     harness.payoutsFindOne
       .mockResolvedValueOnce(buildPayout({ status: PayoutStatus.FAILED }))

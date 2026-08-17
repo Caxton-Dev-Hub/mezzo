@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { KycStatusResponse, Money } from '@mezzo/shared-types';
+import type { KycStatusResponse, Money, PayoutAccountResponse } from '@mezzo/shared-types';
 import { Modal } from '../ui/modal';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -25,8 +25,6 @@ const payoutFormSchema = z.object({
       const minor = majorToMinorUnits(value);
       return minor !== null && minor > 0;
     }, 'Enter a valid amount, e.g. 15000.00'),
-  bankAccountNumber: z.string().trim().min(1, 'Enter your account number').max(32),
-  bankCode: z.string().trim().min(1, 'Enter your bank code').max(32),
 });
 
 type PayoutFormValues = z.infer<typeof payoutFormSchema>;
@@ -35,13 +33,19 @@ interface RequestPayoutModalProps {
   open: boolean;
   available: Money;
   kycStatus: KycStatusResponse;
+  payoutAccount: PayoutAccountResponse;
   onClose: () => void;
+}
+
+function maskAccountNumber(accountNumber: string): string {
+  return `•••• ${accountNumber.slice(-4)}`;
 }
 
 export function RequestPayoutModal({
   open,
   available,
   kycStatus,
+  payoutAccount,
   onClose,
 }: RequestPayoutModalProps) {
   const queryClient = useQueryClient();
@@ -54,7 +58,7 @@ export function RequestPayoutModal({
     formState: { errors },
   } = useForm<PayoutFormValues>({
     resolver: zodResolver(payoutFormSchema),
-    defaultValues: { amountMajor: '', bankAccountNumber: '', bankCode: '' },
+    defaultValues: { amountMajor: '' },
   });
 
   const mutation = useMutation({
@@ -66,8 +70,6 @@ export function RequestPayoutModal({
 
       return requestPayout({
         amount: { amount, currency: available.currency },
-        bankAccountNumber: values.bankAccountNumber,
-        bankCode: values.bankCode,
         idempotencyKey: crypto.randomUUID(),
       });
     },
@@ -129,25 +131,12 @@ export function RequestPayoutModal({
           <FieldError message={errors.amountMajor?.message} />
         </div>
 
-        <div>
-          <Label htmlFor="bankAccountNumber">Account number</Label>
-          <Input
-            id="bankAccountNumber"
-            inputMode="numeric"
-            aria-invalid={Boolean(errors.bankAccountNumber)}
-            {...register('bankAccountNumber')}
-          />
-          <FieldError message={errors.bankAccountNumber?.message} />
-        </div>
-
-        <div>
-          <Label htmlFor="bankCode">Bank code</Label>
-          <Input
-            id="bankCode"
-            aria-invalid={Boolean(errors.bankCode)}
-            {...register('bankCode')}
-          />
-          <FieldError message={errors.bankCode?.message} />
+        <div className="rounded-lg border border-line bg-surface-2 px-4 py-3">
+          <p className="text-[13px] text-mute">Paying out to</p>
+          <p className="mt-1 text-sm text-vellum">
+            {payoutAccount.bankName} {maskAccountNumber(payoutAccount.accountNumber)}
+          </p>
+          <p className="text-[13px] text-mute">{payoutAccount.accountName}</p>
         </div>
 
         <p className="text-[13px] text-mute">

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { KycTier, PayoutResponse } from '@mezzo/shared-types';
+import type { KycTier, PayoutAccountResponse, PayoutResponse } from '@mezzo/shared-types';
 import WalletPage from '../app/(app)/wallet/page';
 import { renderWithProviders } from './render-with-providers';
 import { useAuthStore } from '../lib/auth-store';
@@ -24,6 +24,14 @@ function makePayout(status: PayoutResponse['status'], amount: number): PayoutRes
   };
 }
 
+const SAVED_PAYOUT_ACCOUNT: PayoutAccountResponse = {
+  bankCode: '058',
+  bankName: 'GTBank',
+  accountNumber: '0123456789',
+  accountName: 'Jane Doe',
+  updatedAt: new Date('2026-06-01T10:00:00Z'),
+};
+
 function stubFetch(
   options: {
     tier?: KycTier;
@@ -31,6 +39,7 @@ function stubFetch(
     onSubmitKyc?: () => Response;
     onRequestPayout?: () => Response;
     verificationEnabled?: boolean;
+    payoutAccount?: PayoutAccountResponse | null;
   } = {},
 ) {
   const {
@@ -39,8 +48,10 @@ function stubFetch(
     onSubmitKyc,
     onRequestPayout,
     verificationEnabled = true,
+    payoutAccount = SAVED_PAYOUT_ACCOUNT,
   } = options;
   const requested: PayoutResponse[] = [];
+  let currentPayoutAccount = payoutAccount;
 
   const fetchMock = vi.fn(async (input: string | URL, init?: RequestInit) => {
     const url = input.toString();
@@ -62,6 +73,22 @@ function stubFetch(
           occurredAt: new Date('2026-07-02T09:00:00Z'),
         },
       ]);
+    }
+    if (url.endsWith('/payouts/banks')) {
+      return jsonResponse([
+        { code: '058', name: 'GTBank' },
+        { code: '011', name: 'First Bank of Nigeria' },
+      ]);
+    }
+    if (url.endsWith('/payouts/verify-account')) {
+      return jsonResponse({ accountName: 'Jane Doe' });
+    }
+    if (url.endsWith('/payouts/account')) {
+      if (init?.method === 'PUT') {
+        currentPayoutAccount = { ...SAVED_PAYOUT_ACCOUNT };
+        return jsonResponse(currentPayoutAccount);
+      }
+      return jsonResponse(currentPayoutAccount);
     }
     if (url.endsWith('/payouts')) {
       if (init?.method === 'POST') {
@@ -164,7 +191,33 @@ describe('WalletPage', () => {
     );
   });
 
-  it('lets a verified user request a payout, which lands as pending', async () => {
+  it('prompts a verified user with no saved payout account to add one before withdrawing', async () => {
+    stubFetch({ payoutAccount: null });
+    renderWithProviders(<WalletPage />);
+
+    expect(await screen.findByRole('button', { name: 'Add payout account' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Withdraw' })).not.toBeInTheDocument();
+  });
+
+  it('lets a user verify and save a payout account, unlocking withdrawals', async () => {
+    const user = userEvent.setup();
+    stubFetch({ payoutAccount: null });
+
+    renderWithProviders(<WalletPage />);
+    await user.click(await screen.findByRole('button', { name: 'Add payout account' }));
+
+    await user.selectOptions(await screen.findByLabelText('Bank'), 'GTBank');
+    await user.type(screen.getByLabelText('Account number'), '0123456789');
+    await user.click(screen.getByRole('button', { name: 'Verify account' }));
+
+    expect(await screen.findByText(/Account name: Jane Doe/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Save payout account' }));
+
+    expect(await screen.findByRole('button', { name: 'Withdraw' })).toBeInTheDocument();
+  });
+
+  it('lets a verified user with a saved payout account request a payout, which lands as pending', async () => {
     const user = userEvent.setup();
     const fetchMock = stubFetch();
 
@@ -172,12 +225,22 @@ describe('WalletPage', () => {
     await user.click(await screen.findByRole('button', { name: 'Withdraw' }));
 
     await user.type(screen.getByLabelText('Amount'), '500.00');
-    await user.type(screen.getByLabelText('Account number'), '0123456789');
-    await user.type(screen.getByLabelText('Bank code'), '058');
     await user.click(screen.getByRole('button', { name: 'Request payout' }));
 
     expect(await screen.findByText('Pending confirmation')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalled();
+  });
+
+  it('shows the saved payout account details inside the withdraw modal', async () => {
+    const user = userEvent.setup();
+    stubFetch();
+
+    renderWithProviders(<WalletPage />);
+    await user.click(await screen.findByRole('button', { name: 'Withdraw' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Withdraw to your bank' });
+    expect(within(dialog).getByText(/GTBank/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Jane Doe/)).toBeInTheDocument();
   });
 
   it('refuses a payout larger than the available balance before calling the API', async () => {
@@ -188,8 +251,6 @@ describe('WalletPage', () => {
     await user.click(await screen.findByRole('button', { name: 'Withdraw' }));
 
     await user.type(screen.getByLabelText('Amount'), '9999999.00');
-    await user.type(screen.getByLabelText('Account number'), '0123456789');
-    await user.type(screen.getByLabelText('Bank code'), '058');
     await user.click(screen.getByRole('button', { name: 'Request payout' }));
 
     expect(await screen.findByText(/you can withdraw up to/i)).toBeInTheDocument();

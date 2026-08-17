@@ -166,6 +166,32 @@ a Paystack transfer.
   here (the milestone doesn't specify one for payouts), only the wallet
   balance check (`InsufficientWalletBalanceError`).
 
+## Saved, provider-verified payout accounts
+
+A seller adds a payout account once (`PUT /payouts/account`) instead of
+retyping bank details on every withdrawal. `bankCode` must come from
+`GET /payouts/banks` (the provider's own bank list) — `SavePayoutAccount`
+rejects any code that isn't in that list (`UnknownBankError`) rather than
+trusting a client-typed code the gateway would reject later at transfer
+time. The account holder name is never taken from client input either: it
+is always resolved from the provider (`resolveAccount`, backed by
+Flutterwave's `/accounts/resolve` or Paystack's `/bank/resolve`) and that
+resolved name is what gets stored as `PayoutAccount.accountName` — so
+"verifying the account" means confirming the bank itself recognizes the
+number, not just checking the field isn't empty. `POST
+/payouts/verify-account` exposes the same resolution as a preview so the
+frontend can show the resolved name before the seller commits to saving it.
+
+`requestPayout()` re-resolves the saved account against the provider again,
+immediately before transferring, and compares the freshly resolved name to
+the one stored at save time (whitespace/case-insensitive). A mismatch
+throws `PayoutAccountVerificationMismatchError` and blocks the transfer
+rather than sending money to an account that no longer resolves to the name
+the seller verified — accounts can be reassigned or renamed at the bank
+between saving and withdrawing, and re-checking is cheap compared to a
+misdirected payout. `PayoutAccountNotConfiguredError` covers the simpler
+case: no saved account at all.
+
 ## Read surface for the money screens (Frontend Milestone F4)
 
 Three read-only endpoints exist purely so the web client can render the

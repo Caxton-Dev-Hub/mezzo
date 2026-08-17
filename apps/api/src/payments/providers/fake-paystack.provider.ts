@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import {
+  Bank,
   InitializeTransactionInput,
   InitializeTransactionResult,
   InitiateTransferInput,
@@ -8,8 +9,17 @@ import {
   PaymentProvider,
   PaymentProviderName,
   ProviderTransaction,
+  ResolveAccountInput,
+  ResolveAccountResult,
   TransactionWindow,
 } from './payment-provider.interface';
+
+const FAKE_BANKS: Bank[] = [
+  { code: '058', name: 'GTBank' },
+  { code: '011', name: 'First Bank of Nigeria' },
+  { code: '044', name: 'Access Bank' },
+  { code: '057', name: 'Zenith Bank' },
+];
 
 @Injectable()
 export class FakePaystackProvider implements PaymentProvider {
@@ -40,6 +50,14 @@ export class FakePaystackProvider implements PaymentProvider {
       transferCode: `fake-transfer-${randomUUID()}`,
       reference: input.reference,
     });
+  }
+
+  listBanks(): Promise<Bank[]> {
+    return Promise.resolve(FAKE_BANKS);
+  }
+
+  resolveAccount(input: ResolveAccountInput): Promise<ResolveAccountResult> {
+    return Promise.resolve({ accountName: `Test Account ${input.accountNumber.slice(-4)}` });
   }
 
   seedTransaction(transaction: ProviderTransaction): void {

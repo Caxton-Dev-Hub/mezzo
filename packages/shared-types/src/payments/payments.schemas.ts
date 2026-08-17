@@ -29,8 +29,6 @@ export type PayoutStatus = z.infer<typeof payoutStatusSchema>;
 
 export const requestPayoutSchema = z.object({
   amount: moneySchema.extend({ amount: z.number().int().positive() }),
-  bankAccountNumber: z.string().trim().min(1).max(32),
-  bankCode: z.string().trim().min(1).max(32),
   idempotencyKey: z.string().uuid(),
 });
 
@@ -47,6 +45,41 @@ export const payoutResponseSchema = z.object({
 });
 
 export type PayoutResponse = z.infer<typeof payoutResponseSchema>;
+
+export const bankSchema = z.object({
+  code: z.string().min(1),
+  name: z.string().min(1),
+});
+
+export type Bank = z.infer<typeof bankSchema>;
+
+export const listBanksResponseSchema = z.array(bankSchema);
+
+export const payoutAccountInputSchema = z.object({
+  bankCode: z.string().trim().min(1).max(32),
+  accountNumber: z
+    .string()
+    .trim()
+    .regex(/^\d{10}$/, 'Enter a valid 10-digit account number'),
+});
+
+export type PayoutAccountInput = z.infer<typeof payoutAccountInputSchema>;
+
+export const verifyPayoutAccountResponseSchema = z.object({
+  accountName: z.string().min(1),
+});
+
+export type VerifyPayoutAccountResponse = z.infer<typeof verifyPayoutAccountResponseSchema>;
+
+export const payoutAccountResponseSchema = z.object({
+  bankCode: z.string().min(1),
+  bankName: z.string().min(1),
+  accountNumber: z.string().min(1),
+  accountName: z.string().min(1),
+  updatedAt: z.coerce.date(),
+});
+
+export type PayoutAccountResponse = z.infer<typeof payoutAccountResponseSchema>;
 
 export const walletBalancesResponseSchema = z.object({
   available: moneySchema,

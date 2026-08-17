@@ -147,8 +147,6 @@ describe('Verification availability toggle (e2e)', () => {
       .set(auth(user.accessToken))
       .send({
         amount: { amount: 100_000, currency: 'NGN' },
-        bankAccountNumber: '0123456789',
-        bankCode: '058',
         idempotencyKey: '11111111-1111-4111-8111-111111111111',
       });
     expect(blockedPayout.status).toBe(403);
@@ -161,8 +159,6 @@ describe('Verification availability toggle (e2e)', () => {
       .set(auth(user.accessToken))
       .send({
         amount: { amount: 100_000, currency: 'NGN' },
-        bankAccountNumber: '0123456789',
-        bankCode: '058',
         idempotencyKey: '22222222-2222-4222-8222-222222222222',
       });
 
@@ -202,8 +198,6 @@ describe('Verification availability toggle (e2e)', () => {
       .set(auth(user.accessToken))
       .send({
         amount: { amount: 100_000, currency: 'NGN' },
-        bankAccountNumber: '0123456789',
-        bankCode: '058',
         idempotencyKey: '33333333-3333-4333-8333-333333333333',
       });
 

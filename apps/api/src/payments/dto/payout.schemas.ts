@@ -1,1 +1,6 @@
-export { requestPayoutSchema, type RequestPayoutDto } from '@mezzo/shared-types';
+export {
+  requestPayoutSchema,
+  type RequestPayoutDto,
+  payoutAccountInputSchema,
+  type PayoutAccountInput,
+} from '@mezzo/shared-types';

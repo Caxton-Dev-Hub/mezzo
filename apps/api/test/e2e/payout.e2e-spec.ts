@@ -49,6 +49,11 @@ interface ErrorBody {
   message: string;
 }
 
+interface BankBody {
+  code: string;
+  name: string;
+}
+
 describe('Payout (e2e)', () => {
   let app: INestApplication;
   let server: Server;
@@ -186,6 +191,11 @@ describe('Payout (e2e)', () => {
       .set(auth(buyer.accessToken));
     await request(server).post(`/escrows/${draft.id}/release`).set(auth(buyer.accessToken));
 
+    await request(server)
+      .put('/payouts/account')
+      .set(auth(seller.accessToken))
+      .send({ bankCode: '058', accountNumber: '0123456789' });
+
     return { seller };
   }
 
@@ -217,8 +227,6 @@ describe('Payout (e2e)', () => {
       .set(auth(seller.accessToken))
       .send({
         amount: { amount: 30_000, currency: 'NGN' },
-        bankAccountNumber: '0123456789',
-        bankCode: '058',
         idempotencyKey: randomUUID(),
       });
 
@@ -237,8 +245,6 @@ describe('Payout (e2e)', () => {
     const idempotencyKey = randomUUID();
     const body = {
       amount: { amount: 20_000, currency: 'NGN' },
-      bankAccountNumber: '0123456789',
-      bankCode: '058',
       idempotencyKey,
     };
 
@@ -266,8 +272,6 @@ describe('Payout (e2e)', () => {
       .set(auth(seller.accessToken))
       .send({
         amount: { amount: 50_000, currency: 'NGN' },
-        bankAccountNumber: '0123456789',
-        bankCode: '058',
         idempotencyKey: randomUUID(),
       });
 
@@ -283,8 +287,6 @@ describe('Payout (e2e)', () => {
       .set(auth(seller.accessToken))
       .send({
         amount: { amount: 1_000, currency: 'NGN' },
-        bankAccountNumber: '0123456789',
-        bankCode: '058',
         idempotencyKey: randomUUID(),
       });
 
@@ -298,8 +300,6 @@ describe('Payout (e2e)', () => {
       .set(auth(seller.accessToken))
       .send({
         amount: { amount: 20_000, currency: 'NGN' },
-        bankAccountNumber: '0123456789',
-        bankCode: '058',
         idempotencyKey: randomUUID(),
       });
     const payout = response.body as PayoutResponseBody;
@@ -324,8 +324,6 @@ describe('Payout (e2e)', () => {
       .set(auth(seller.accessToken))
       .send({
         amount: { amount: 20_000, currency: 'NGN' },
-        bankAccountNumber: '0123456789',
-        bankCode: '058',
         idempotencyKey: randomUUID(),
       });
     const payout = response.body as PayoutResponseBody;
@@ -349,5 +347,79 @@ describe('Payout (e2e)', () => {
 
     const clearingBalance = await ledger.getBalance(providerClearingRef('paystack'));
     expect(clearingBalance.currency).toBe('NGN');
+  });
+
+  it('rejects a payout request when no payout account has been saved', async () => {
+    const buyer = await registerAndLogin();
+    const seller = await registerAndLogin();
+    await grantTier1(buyer.userId);
+    await grantTier1(seller.userId);
+
+    const response = await request(server)
+      .post('/payouts')
+      .set(auth(seller.accessToken))
+      .send({
+        amount: { amount: 1_000, currency: 'NGN' },
+        idempotencyKey: randomUUID(),
+      });
+
+    expect(response.status).toBe(422);
+    expect((response.body as ErrorBody).code).toBe('PAYOUT_ACCOUNT_NOT_CONFIGURED');
+  });
+
+  it('lists the provider bank codes a seller can pick from', async () => {
+    const seller = await registerAndLogin();
+
+    const response = await request(server).get('/payouts/banks').set(auth(seller.accessToken));
+
+    expect(response.status).toBe(200);
+    expect(response.body as BankBody[]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: '058', name: expect.any(String) as string }),
+      ]),
+    );
+  });
+
+  it('resolves the account name for a bank code and account number before saving', async () => {
+    const seller = await registerAndLogin();
+    await grantTier1(seller.userId);
+
+    const verifyResponse = await request(server)
+      .post('/payouts/verify-account')
+      .set(auth(seller.accessToken))
+      .send({ bankCode: '058', accountNumber: '0123456789' });
+
+    expect(verifyResponse.status).toBe(200);
+    expect((verifyResponse.body as { accountName: string }).accountName).toContain('0123456789'.slice(-4));
+
+    const saveResponse = await request(server)
+      .put('/payouts/account')
+      .set(auth(seller.accessToken))
+      .send({ bankCode: '058', accountNumber: '0123456789' });
+
+    expect(saveResponse.status).toBe(200);
+    expect(saveResponse.body).toMatchObject({
+      bankCode: '058',
+      accountNumber: '0123456789',
+      accountName: (verifyResponse.body as { accountName: string }).accountName,
+    });
+
+    const getResponse = await request(server)
+      .get('/payouts/account')
+      .set(auth(seller.accessToken));
+    expect(getResponse.body).toMatchObject({ bankCode: '058', accountNumber: '0123456789' });
+  });
+
+  it('rejects saving a payout account for an unrecognised bank code', async () => {
+    const seller = await registerAndLogin();
+    await grantTier1(seller.userId);
+
+    const response = await request(server)
+      .put('/payouts/account')
+      .set(auth(seller.accessToken))
+      .send({ bankCode: '999999', accountNumber: '0123456789' });
+
+    expect(response.status).toBe(422);
+    expect((response.body as ErrorBody).code).toBe('UNKNOWN_BANK');
   });
 });
