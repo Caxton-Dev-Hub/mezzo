@@ -25,7 +25,6 @@ const RESTING_MESSAGES: Partial<Record<EscrowState, string>> = {
   DISPUTED: 'This escrow is frozen while an arbiter reviews the dispute.',
   RESOLVED_RELEASE: 'The arbiter resolved this in the seller’s favour. Settlement is in progress.',
   RESOLVED_REFUND: 'The arbiter resolved this in the buyer’s favour. Settlement is in progress.',
-  RELEASED: 'Funds were released to the seller. This escrow is complete.',
   REFUNDED: 'Funds were refunded to the buyer. This escrow is complete.',
   CANCELLED: 'This escrow was cancelled.',
   EXPIRED: 'This escrow expired before both parties agreed to the terms.',
@@ -185,6 +184,22 @@ export function ActionBar({ escrow, currentUserId }: ActionBarProps) {
         <p className="text-[13px] text-mute">
           The buyer is inspecting the item. Funds release automatically once the inspection window
           ends, unless a dispute is raised.
+        </p>
+      ) : null}
+
+      {escrow.state === 'RELEASED' && isSeller ? (
+        <div className="space-y-2">
+          <p className="text-[13px] text-mute">
+            Funds were released to your wallet. This escrow is complete.
+          </p>
+          <Link href="/wallet" className={buttonVariants({ className: 'w-full' })}>
+            Withdraw funds
+          </Link>
+        </div>
+      ) : null}
+      {escrow.state === 'RELEASED' && !isSeller ? (
+        <p className="text-[13px] text-mute">
+          Funds were released to the seller. This escrow is complete.
         </p>
       ) : null}
 

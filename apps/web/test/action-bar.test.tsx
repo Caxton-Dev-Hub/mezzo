@@ -161,6 +161,14 @@ describe('ActionBar', () => {
     }
   });
 
+  it('offers the seller a way to withdraw once funds are released', () => {
+    const escrow = makeEscrow('RELEASED');
+    renderWithProviders(<ActionBar escrow={escrow} currentUserId={SELLER_ID} />);
+
+    expect(screen.getByText(/funds were released to your wallet/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Withdraw funds' })).toHaveAttribute('href', '/wallet');
+  });
+
   it.each([
     ['RELEASED' as EscrowState, /funds were released to the seller/i],
     ['REFUNDED' as EscrowState, /funds were refunded to the buyer/i],
