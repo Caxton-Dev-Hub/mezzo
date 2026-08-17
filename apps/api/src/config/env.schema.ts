@@ -60,6 +60,7 @@ export const envSchema = z.object({
   FLUTTERWAVE_SECRET_KEY: z.string().min(1).optional(),
   FLUTTERWAVE_SECRET_HASH: z.string().min(1).optional(),
   FLUTTERWAVE_BASE_URL: z.string().url().default('https://api.flutterwave.com/v3'),
+  FLUTTERWAVE_PROXY_URL: z.string().url().optional(),
   ARBITRATION_PROVIDER: z.enum(['fake', 'live']).default('fake'),
   ARBITRATION_CONFIDENCE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.75),
   ANTHROPIC_API_KEY: z.string().min(1).optional(),

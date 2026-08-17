@@ -1,5 +1,6 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { fetch, ProxyAgent, type RequestInit, type Response } from 'undici';
 import {
   Bank,
   InitializeTransactionInput,
@@ -55,12 +56,21 @@ export class FlutterwaveHttpProvider implements PaymentProvider {
 
   private readonly logger = new Logger(FlutterwaveHttpProvider.name);
 
-  constructor(private readonly configService: ConfigService) {}
+  private readonly proxyAgent: ProxyAgent | undefined;
+
+  constructor(private readonly configService: ConfigService) {
+    const proxyUrl = this.configService.get<string>('FLUTTERWAVE_PROXY_URL');
+    this.proxyAgent = proxyUrl ? new ProxyAgent(proxyUrl) : undefined;
+  }
+
+  private request(url: string, init: RequestInit): Promise<Response> {
+    return fetch(url, { ...init, dispatcher: this.proxyAgent });
+  }
 
   async initializeTransaction(
     input: InitializeTransactionInput,
   ): Promise<InitializeTransactionResult> {
-    const response = await fetch(`${this.baseUrl()}/payments`, {
+    const response = await this.request(`${this.baseUrl()}/payments`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({
@@ -87,7 +97,7 @@ export class FlutterwaveHttpProvider implements PaymentProvider {
       to: window.to.toISOString(),
     });
 
-    const response = await fetch(`${this.baseUrl()}/transactions?${params.toString()}`, {
+    const response = await this.request(`${this.baseUrl()}/transactions?${params.toString()}`, {
       method: 'GET',
       headers: this.headers(),
     });
@@ -107,7 +117,7 @@ export class FlutterwaveHttpProvider implements PaymentProvider {
   }
 
   async initiateTransfer(input: InitiateTransferInput): Promise<InitiateTransferResult> {
-    const response = await fetch(`${this.baseUrl()}/transfers`, {
+    const response = await this.request(`${this.baseUrl()}/transfers`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({
@@ -134,7 +144,7 @@ export class FlutterwaveHttpProvider implements PaymentProvider {
   }
 
   async listBanks(): Promise<Bank[]> {
-    const response = await fetch(`${this.baseUrl()}/banks/NG`, {
+    const response = await this.request(`${this.baseUrl()}/banks/NG`, {
       method: 'GET',
       headers: this.headers(),
     });
@@ -148,7 +158,7 @@ export class FlutterwaveHttpProvider implements PaymentProvider {
   }
 
   async resolveAccount(input: ResolveAccountInput): Promise<ResolveAccountResult> {
-    const response = await fetch(`${this.baseUrl()}/accounts/resolve`, {
+    const response = await this.request(`${this.baseUrl()}/accounts/resolve`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({

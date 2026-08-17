@@ -99,6 +99,23 @@ speaks Paystack's shapes, which is why it reports `name: 'paystack'` and why
 transaction on `initializeTransaction()`, since initializing a checkout
 doesn't mean it succeeded.
 
+### Routing Flutterwave calls through a static-IP proxy
+
+Flutterwave's live `/transfers` (and related) endpoints require the
+caller's IP to be on an account-level whitelist, and that whitelist only
+accepts single fixed addresses — not CIDR ranges. Hosts without a static
+outbound IP (e.g. Render's free tier, whose outbound traffic comes from a
+shared, unpredictable pool) can never satisfy that from the platform side.
+`FlutterwaveHttpProvider` uses `undici`'s own `fetch` (not the Node global
+one — the two aren't interchangeable across `dispatcher`, since Node's
+global `fetch` is backed by its own internal, differently-versioned copy
+of undici) so every request can carry a `dispatcher`. When
+`FLUTTERWAVE_PROXY_URL` is set, requests route through an `undici.ProxyAgent`
+pointed at that URL — a static-IP proxy service (or a self-hosted one) —
+so Flutterwave sees the proxy's fixed IP instead of the host's. Left unset,
+`dispatcher` is `undefined` and requests go out directly, unchanged from
+before.
+
 ### Why both webhook endpoints stay mounted
 
 `/payments/webhook/paystack` and `/payments/webhook/flutterwave` are always

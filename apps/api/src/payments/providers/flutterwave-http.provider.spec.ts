@@ -1,12 +1,20 @@
+jest.mock('undici', () => {
+  const actual = jest.requireActual<typeof import('undici')>('undici');
+  return { ...actual, fetch: jest.fn() };
+});
+
 import { Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { fetch as mockedFetch, ProxyAgent } from 'undici';
 import { FlutterwaveHttpProvider } from './flutterwave-http.provider';
 import { callArg, callArgs } from '../../../test/support/mock-calls';
 
 const BASE_URL = 'https://api.flutterwave.test/v3';
 const SECRET_KEY = 'FLWSECK_TEST-abc123';
 
-function buildProvider(): FlutterwaveHttpProvider {
+const fetchMock = mockedFetch as jest.Mock;
+
+function buildProvider(options: { proxyUrl?: string } = {}): FlutterwaveHttpProvider {
   const configService = {
     getOrThrow: jest.fn().mockImplementation((key: string) => {
       if (key === 'FLUTTERWAVE_SECRET_KEY') {
@@ -16,6 +24,12 @@ function buildProvider(): FlutterwaveHttpProvider {
         return BASE_URL;
       }
       throw new Error(`Unexpected config key ${key}`);
+    }),
+    get: jest.fn().mockImplementation((key: string) => {
+      if (key === 'FLUTTERWAVE_PROXY_URL') {
+        return options.proxyUrl;
+      }
+      return undefined;
     }),
   } as unknown as ConfigService;
 
@@ -42,16 +56,35 @@ function errorResponse(status = 502): Response {
   } as unknown as Response;
 }
 
-const fetchMock = jest.fn();
-
 beforeEach(() => {
   fetchMock.mockReset();
-  global.fetch = fetchMock;
   jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
 });
 
 afterEach(() => {
   jest.restoreAllMocks();
+});
+
+describe('FlutterwaveHttpProvider proxy routing', () => {
+  it('does not set a dispatcher when no proxy is configured', async () => {
+    const provider = buildProvider();
+    fetchMock.mockResolvedValue(okResponse({ status: 'success', data: [] }));
+
+    await provider.listBanks();
+
+    const init = callArg<{ dispatcher?: unknown }>(fetchMock, 0, 1);
+    expect(init.dispatcher).toBeUndefined();
+  });
+
+  it('routes requests through a ProxyAgent when FLUTTERWAVE_PROXY_URL is configured', async () => {
+    const provider = buildProvider({ proxyUrl: 'http://proxy.test:8080' });
+    fetchMock.mockResolvedValue(okResponse({ status: 'success', data: [] }));
+
+    await provider.listBanks();
+
+    const init = callArg<{ dispatcher?: unknown }>(fetchMock, 0, 1);
+    expect(init.dispatcher).toBeInstanceOf(ProxyAgent);
+  });
 });
 
 describe('FlutterwaveHttpProvider.initiateTransfer', () => {
