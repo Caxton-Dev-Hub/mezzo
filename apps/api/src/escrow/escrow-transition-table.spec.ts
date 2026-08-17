@@ -36,6 +36,8 @@ describe('ESCROW_TRANSITION_TABLE', () => {
     [EscrowState.DRAFT, EscrowState.CANCELLED],
     [EscrowState.PENDING_COUNTERPARTY, EscrowState.CANCELLED],
     [EscrowState.AGREED, EscrowState.CANCELLED],
+    [EscrowState.FUNDED, EscrowState.DISPUTED],
+    [EscrowState.SHIPPED, EscrowState.DISPUTED],
     [EscrowState.DELIVERED, EscrowState.DISPUTED],
     [EscrowState.DISPUTED, EscrowState.RESOLVED_RELEASE],
     [EscrowState.DISPUTED, EscrowState.RESOLVED_REFUND],

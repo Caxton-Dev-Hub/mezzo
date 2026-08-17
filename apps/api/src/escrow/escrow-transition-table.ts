@@ -34,8 +34,8 @@ export const ESCROW_TRANSITION_TABLE: Readonly<Record<EscrowState, readonly Tran
     { to: EscrowState.FUNDED },
     { to: EscrowState.CANCELLED, guard: mustBeParty },
   ],
-  [EscrowState.FUNDED]: [{ to: EscrowState.SHIPPED }],
-  [EscrowState.SHIPPED]: [{ to: EscrowState.DELIVERED }],
+  [EscrowState.FUNDED]: [{ to: EscrowState.SHIPPED }, { to: EscrowState.DISPUTED }],
+  [EscrowState.SHIPPED]: [{ to: EscrowState.DELIVERED }, { to: EscrowState.DISPUTED }],
   [EscrowState.DELIVERED]: [{ to: EscrowState.RELEASED }, { to: EscrowState.DISPUTED }],
   [EscrowState.DISPUTED]: [
     { to: EscrowState.RESOLVED_RELEASE },

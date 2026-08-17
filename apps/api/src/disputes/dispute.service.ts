@@ -47,6 +47,7 @@ import {
 import { IllegalDisputeTransitionError } from './errors/illegal-dispute-transition.error';
 import { StaleDisputeVersionError } from './errors/stale-dispute-version.error';
 import { UnknownArbitrationRecordError } from './errors/unknown-arbitration-record.error';
+import { withTimeout } from '../common/with-timeout';
 
 @Injectable()
 export class DisputeService {
@@ -80,17 +81,19 @@ export class DisputeService {
   ) {}
 
   async raise(escrowId: string, actorId: string, dto: RaiseDisputeDto): Promise<Dispute> {
-    const { parties } = await this.escrowService.getDetail(escrowId);
+    const { escrow, parties } = await this.escrowService.getDetail(escrowId);
     const buyer = parties.find((party) => party.role === EscrowRole.BUYER);
     if (!buyer || buyer.userId !== actorId) {
       throw new OnlyBuyerMayActError('raise a dispute');
     }
 
-    const buyerEvidenceCount = await this.evidenceItems.count({
-      where: { escrowId, phase: EvidencePhase.AT_DELIVERY, uploaderId: actorId },
-    });
-    if (buyerEvidenceCount === 0) {
-      throw new MissingDisputeEvidenceError();
+    if (escrow.state === EscrowState.DELIVERED) {
+      const buyerEvidenceCount = await this.evidenceItems.count({
+        where: { escrowId, phase: EvidencePhase.AT_DELIVERY, uploaderId: actorId },
+      });
+      if (buyerEvidenceCount === 0) {
+        throw new MissingDisputeEvidenceError();
+      }
     }
 
     const windowHours = this.configService.getOrThrow<number>('DISPUTE_EVIDENCE_WINDOW_HOURS');
@@ -126,10 +129,14 @@ export class DisputeService {
       );
     });
 
-    await this.evidenceWindowQueue.add(
-      DISPUTE_EVIDENCE_WINDOW_JOB,
-      { disputeId: dispute.id },
-      { jobId: disputeEvidenceWindowJobId(dispute.id), delay: windowMs },
+    const enqueueTimeoutMs = this.configService.getOrThrow<number>('QUEUE_ENQUEUE_TIMEOUT_MS');
+    await withTimeout(
+      this.evidenceWindowQueue.add(
+        DISPUTE_EVIDENCE_WINDOW_JOB,
+        { disputeId: dispute.id },
+        { jobId: disputeEvidenceWindowJobId(dispute.id), delay: windowMs },
+      ),
+      enqueueTimeoutMs,
     );
 
     await this.notificationsService.notify({

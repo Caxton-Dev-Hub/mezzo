@@ -143,6 +143,7 @@ interface Harness {
   managerUpdate: jest.Mock;
   managerSave: jest.Mock;
   getTranscript: jest.Mock;
+  configService: { getOrThrow: jest.Mock };
 }
 
 function buildHarness(
@@ -153,6 +154,7 @@ function buildHarness(
     evidenceCount?: number;
     evidenceItems?: EvidenceItem[];
     arbitrationRecord?: Partial<ArbitrationRecord> | null;
+    escrowState?: EscrowState;
   } = {},
 ): Harness {
   const disputesFindOne = jest
@@ -199,7 +201,7 @@ function buildHarness(
   } as unknown as DataSource;
 
   const getDetail = jest.fn().mockResolvedValue({
-    escrow: { id: ESCROW_ID, state: EscrowState.DISPUTED, version: 5 },
+    escrow: { id: ESCROW_ID, state: options.escrowState ?? EscrowState.DELIVERED, version: 5 },
     terms: options.terms === undefined ? buildTerms() : options.terms,
     parties: options.parties ?? buildParties(),
   });
@@ -296,6 +298,7 @@ function buildHarness(
     managerUpdate,
     managerSave,
     getTranscript,
+    configService: configService as unknown as { getOrThrow: jest.Mock },
   };
 }
 
@@ -332,6 +335,27 @@ describe('DisputeService.raise', () => {
     expect(harness.escrowTransition).not.toHaveBeenCalled();
   });
 
+  it.each([[EscrowState.FUNDED], [EscrowState.SHIPPED]])(
+    'lets the buyer dispute from %s without requiring at-delivery evidence',
+    async (escrowState) => {
+      const harness = buildHarness({ escrowState, evidenceCount: 0 });
+
+      const dispute = await harness.service.raise(ESCROW_ID, BUYER_ID, {
+        reasonCode: DisputeReasonCode.NOT_RECEIVED,
+        statement: 'The item never arrived and the seller has gone silent.',
+      });
+
+      expect(harness.evidenceCount).not.toHaveBeenCalled();
+      expect(dispute).toBeDefined();
+      expect(harness.escrowTransition).toHaveBeenCalledWith(
+        ESCROW_ID,
+        EscrowState.DISPUTED,
+        expect.objectContaining({ actorId: BUYER_ID }),
+        expect.anything(),
+      );
+    },
+  );
+
   it('moves the escrow to DISPUTED and opens the evidence window', async () => {
     const harness = buildHarness();
 
@@ -361,6 +385,18 @@ describe('DisputeService.raise', () => {
       expect.any(String) as string,
       { disputeId: DISPUTE_ID },
       { jobId: disputeEvidenceWindowJobId(DISPUTE_ID), delay: WINDOW_HOURS * 60 * 60 * 1000 },
+    );
+  });
+
+  it('fails fast instead of hanging forever when the queue never responds', async () => {
+    const harness = buildHarness();
+    harness.configService.getOrThrow.mockImplementation((key: string) =>
+      key === 'QUEUE_ENQUEUE_TIMEOUT_MS' ? 10 : WINDOW_HOURS,
+    );
+    harness.queueAdd.mockReturnValue(new Promise(() => {}));
+
+    await expect(harness.service.raise(ESCROW_ID, BUYER_ID, dto)).rejects.toThrow(
+      'timed out after 10ms',
     );
   });
 

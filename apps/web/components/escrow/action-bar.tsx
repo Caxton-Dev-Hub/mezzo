@@ -134,13 +134,33 @@ export function ActionBar({ escrow, currentUserId }: ActionBarProps) {
         </Button>
       ) : null}
       {escrow.state === 'FUNDED' && isBuyer ? (
-        <p className="text-[13px] text-mute">Waiting for the seller to ship.</p>
+        <div className="space-y-2">
+          <p className="text-[13px] text-mute">Waiting for the seller to ship.</p>
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full border-danger/40 text-danger hover:border-danger"
+            onClick={() => setOpenModal('dispute')}
+          >
+            Raise a dispute
+          </Button>
+        </div>
       ) : null}
 
       {escrow.state === 'SHIPPED' && isBuyer ? (
-        <Button type="button" className="w-full" onClick={() => setOpenModal('confirm-delivery')}>
-          Confirm delivery
-        </Button>
+        <div className="space-y-2">
+          <Button type="button" className="w-full" onClick={() => setOpenModal('confirm-delivery')}>
+            Confirm delivery
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full border-danger/40 text-danger hover:border-danger"
+            onClick={() => setOpenModal('dispute')}
+          >
+            Raise a dispute
+          </Button>
+        </div>
       ) : null}
       {escrow.state === 'SHIPPED' && isSeller ? (
         <p className="text-[13px] text-mute">Waiting for the buyer to confirm delivery.</p>
@@ -281,6 +301,7 @@ export function ActionBar({ escrow, currentUserId }: ActionBarProps) {
 
       <RaiseDisputeModal
         escrowId={escrow.id}
+        escrowState={escrow.state}
         open={openModal === 'dispute'}
         onClose={() => setOpenModal(null)}
       />

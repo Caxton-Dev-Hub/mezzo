@@ -47,7 +47,9 @@ describe('RaiseDisputeModal', () => {
 
   it('blocks submission until a reason, a statement, and evidence are all present', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<RaiseDisputeModal escrowId="escrow-1" open onClose={vi.fn()} />);
+    renderWithProviders(
+      <RaiseDisputeModal escrowId="escrow-1" escrowState="DELIVERED" open onClose={vi.fn()} />,
+    );
 
     const submit = screen.getByRole('button', { name: 'Raise dispute' });
     expect(submit).toBeDisabled();
@@ -65,7 +67,9 @@ describe('RaiseDisputeModal', () => {
   it('warns that the escrow is frozen and opens the dispute center after submitting', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    renderWithProviders(<RaiseDisputeModal escrowId="escrow-1" open onClose={onClose} />);
+    renderWithProviders(
+      <RaiseDisputeModal escrowId="escrow-1" escrowState="DELIVERED" open onClose={onClose} />,
+    );
 
     expect(screen.getByText(/freezes this escrow/i)).toBeInTheDocument();
 
@@ -83,4 +87,24 @@ describe('RaiseDisputeModal', () => {
       statement: 'It never arrived.',
     });
   });
+
+  it.each([['FUNDED' as const], ['SHIPPED' as const]])(
+    'lets the buyer submit from %s with no evidence, since the item was never delivered',
+    async (escrowState) => {
+      const user = userEvent.setup();
+      renderWithProviders(
+        <RaiseDisputeModal escrowId="escrow-1" escrowState={escrowState} open onClose={vi.fn()} />,
+      );
+
+      expect(screen.getByText(/evidence is optional at this stage/i)).toBeInTheDocument();
+
+      const submit = screen.getByRole('button', { name: 'Raise dispute' });
+      expect(submit).toBeDisabled();
+
+      await user.selectOptions(screen.getByLabelText('Reason'), 'NOT_RECEIVED');
+      await user.type(screen.getByLabelText('What happened?'), 'The item never arrived.');
+
+      expect(submit).toBeEnabled();
+    },
+  );
 });

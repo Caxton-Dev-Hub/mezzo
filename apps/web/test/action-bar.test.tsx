@@ -97,11 +97,27 @@ describe('ActionBar', () => {
     expect(screen.getByText(/waiting for the buyer to fund/i)).toBeInTheDocument();
   });
 
-  it('shows "Raise a dispute" only for the buyer in DELIVERED', () => {
-    const escrow = makeEscrow('DELIVERED');
-    renderWithProviders(<ActionBar escrow={escrow} currentUserId={BUYER_ID} />);
-    expect(screen.getByRole('button', { name: 'Raise a dispute' })).toBeInTheDocument();
-  });
+  it.each([
+    ['FUNDED' as EscrowState, 'BUYER' as EscrowRole, true],
+    ['FUNDED' as EscrowState, 'SELLER' as EscrowRole, false],
+    ['SHIPPED' as EscrowState, 'BUYER' as EscrowRole, true],
+    ['SHIPPED' as EscrowState, 'SELLER' as EscrowRole, false],
+    ['DELIVERED' as EscrowState, 'BUYER' as EscrowRole, true],
+    ['DELIVERED' as EscrowState, 'SELLER' as EscrowRole, false],
+  ])(
+    'in %s as %s, offers "Raise a dispute" so a buyer can dispute before delivery too: %s',
+    (state, role, shouldShow) => {
+      const escrow = makeEscrow(state);
+      const currentUserId = role === 'BUYER' ? BUYER_ID : SELLER_ID;
+      renderWithProviders(<ActionBar escrow={escrow} currentUserId={currentUserId} />);
+
+      if (shouldShow) {
+        expect(screen.getByRole('button', { name: 'Raise a dispute' })).toBeInTheDocument();
+      } else {
+        expect(screen.queryByRole('button', { name: 'Raise a dispute' })).not.toBeInTheDocument();
+      }
+    },
+  );
 
   it('offers Accept terms to a party who has not yet accepted in PENDING_COUNTERPARTY', () => {
     const escrow = makeEscrow('PENDING_COUNTERPARTY', { buyerAccepted: false });
