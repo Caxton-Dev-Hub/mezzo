@@ -59,6 +59,7 @@ interface Harness {
   inspectionAdd: jest.Mock;
   incrementAutoRelease: jest.Mock;
   withSpan: jest.Mock;
+  configService: { getOrThrow: jest.Mock };
 }
 
 function buildHarness(
@@ -138,6 +139,7 @@ function buildHarness(
     inspectionAdd,
     incrementAutoRelease,
     withSpan,
+    configService: configService as unknown as { getOrThrow: jest.Mock },
   };
 }
 
@@ -232,6 +234,18 @@ describe('SettlementService.confirmDelivery', () => {
       expect.any(String) as string,
       { escrowId: ESCROW_ID },
       { jobId: autoReleaseJobId(ESCROW_ID), delay: 72 * 60 * 60 * 1000 },
+    );
+  });
+
+  it('fails fast instead of hanging forever when the queue never responds', async () => {
+    const harness = buildHarness();
+    harness.configService.getOrThrow.mockImplementation((key: string) =>
+      key === 'QUEUE_ENQUEUE_TIMEOUT_MS' ? 10 : LEAD_HOURS,
+    );
+    harness.autoReleaseAdd.mockReturnValue(new Promise(() => {}));
+
+    await expect(harness.service.confirmDelivery(ESCROW_ID, BUYER_ID)).rejects.toThrow(
+      'timed out after 10ms',
     );
   });
 

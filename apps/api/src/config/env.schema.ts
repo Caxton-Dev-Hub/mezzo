@@ -37,6 +37,7 @@ export const envSchema = z.object({
   DOJAH_PRIVATE_KEY: z.string().min(1).optional(),
   DOJAH_WEBHOOK_SECRET: z.string().min(1).optional(),
   ESCROW_INVITE_EXPIRY_HOURS: z.coerce.number().int().positive().default(72),
+  QUEUE_ENQUEUE_TIMEOUT_MS: z.coerce.number().int().positive().default(5_000),
   ADMIN_RISK_UNSHIPPED_HOURS: z.coerce.number().int().positive().default(48),
   ADMIN_RISK_STALE_PAYOUT_HOURS: z.coerce.number().int().positive().default(24),
   ADMIN_RISK_STALE_INTENT_HOURS: z.coerce.number().int().positive().default(6),

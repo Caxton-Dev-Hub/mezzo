@@ -30,6 +30,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationEventType } from '../notifications/entities/notification-event-type.enum';
 import { MetricsService } from '../observability/metrics.service';
 import { TracingService } from '../observability/tracing.service';
+import { withTimeout } from '../common/with-timeout';
 
 @Injectable()
 export class SettlementService {
@@ -97,19 +98,27 @@ export class SettlementService {
     await this.escrows.update({ id: escrowId }, { deliveredAt });
     escrow.deliveredAt = deliveredAt;
 
+    const enqueueTimeoutMs = this.configService.getOrThrow<number>('QUEUE_ENQUEUE_TIMEOUT_MS');
+
     const delayMs = terms.inspectionWindowHours * 60 * 60 * 1000;
-    await this.autoReleaseQueue.add(
-      AUTO_RELEASE_JOB,
-      { escrowId },
-      { jobId: autoReleaseJobId(escrowId), delay: delayMs },
+    await withTimeout(
+      this.autoReleaseQueue.add(
+        AUTO_RELEASE_JOB,
+        { escrowId },
+        { jobId: autoReleaseJobId(escrowId), delay: delayMs },
+      ),
+      enqueueTimeoutMs,
     );
 
     const leadHours = this.configService.getOrThrow<number>('INSPECTION_ENDING_SOON_LEAD_HOURS');
     const leadMs = Math.min(leadHours * 60 * 60 * 1000, Math.floor(delayMs / 2));
-    await this.inspectionEndingSoonQueue.add(
-      INSPECTION_ENDING_SOON_JOB,
-      { escrowId },
-      { jobId: inspectionEndingSoonJobId(escrowId), delay: Math.max(delayMs - leadMs, 0) },
+    await withTimeout(
+      this.inspectionEndingSoonQueue.add(
+        INSPECTION_ENDING_SOON_JOB,
+        { escrowId },
+        { jobId: inspectionEndingSoonJobId(escrowId), delay: Math.max(delayMs - leadMs, 0) },
+      ),
+      enqueueTimeoutMs,
     );
 
     await this.notificationsService.notify({

@@ -17,6 +17,7 @@ import {
 } from './notification-queue.constants';
 import { NotificationResponse, toNotificationResponse } from './dto/notification-response';
 import { NotificationNotFoundError } from './errors/notification-not-found.error';
+import { withTimeout } from '../common/with-timeout';
 
 export interface NotifyInput {
   escrowId: string;
@@ -24,22 +25,6 @@ export interface NotifyInput {
   eventType: NotificationEventType;
   recipientUserIds: readonly string[];
   correlationId?: string;
-}
-
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`timed out after ${timeoutMs}ms`)), timeoutMs);
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (error: unknown) => {
-        clearTimeout(timer);
-        reject(error instanceof Error ? error : new Error(String(error)));
-      },
-    );
-  });
 }
 
 @Injectable()
