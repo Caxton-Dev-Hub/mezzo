@@ -58,6 +58,9 @@ export default async function globalSetup(): Promise<void> {
   process.env.WHATSAPP_ENABLED ??= 'true';
   process.env.WHATSAPP_TRANSACTIONAL_ENABLED ??= 'true';
   process.env.WHATSAPP_CLIENT_PROVIDER ??= 'fake';
+  process.env.WHATSAPP_ACCESS_TOKEN ??= 'test-whatsapp-access-token';
+  process.env.WHATSAPP_PHONE_NUMBER_ID ??= 'test-whatsapp-phone-number-id';
+  process.env.WHATSAPP_BUSINESS_ACCOUNT_ID ??= 'test-whatsapp-business-account-id';
   process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN ??= 'test-whatsapp-verify-token';
   process.env.WHATSAPP_APP_SECRET ??= 'test-whatsapp-app-secret';
   process.env.WHATSAPP_LINK_CODE_TTL_MINUTES ??= '10';
