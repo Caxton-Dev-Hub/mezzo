@@ -7,8 +7,10 @@ import type { KycTier, KycVerificationStatus } from '@mezzo/shared-types';
 import { useAuthStore } from '../../../../lib/auth-store';
 import {
   AdminKycVerificationResponse,
+  approveKycVerification,
   listAdminKycQueue,
   overrideKycTier,
+  rejectKycVerification,
 } from '../../../../lib/admin-client';
 import { ApiError } from '../../../../lib/api-error';
 import { formatDateTime } from '../../../../lib/format-date';
@@ -28,6 +30,8 @@ const STATUS_FILTERS: (KycVerificationStatus | 'ALL')[] = [
 
 const OVERRIDE_TIERS: KycTier[] = ['TIER_1', 'TIER_2', 'TIER_3'];
 
+type ReviewAction = 'approve' | 'reject';
+
 export default function AdminKycPage() {
   const sessionStatus = useAuthStore((state) => state.status);
   const queryClient = useQueryClient();
@@ -35,6 +39,10 @@ export default function AdminKycPage() {
   const [target, setTarget] = useState<AdminKycVerificationResponse | null>(null);
   const [tier, setTier] = useState<KycTier>('TIER_1');
   const [reason, setReason] = useState('');
+
+  const [reviewTarget, setReviewTarget] = useState<AdminKycVerificationResponse | null>(null);
+  const [reviewAction, setReviewAction] = useState<ReviewAction | null>(null);
+  const [reviewReason, setReviewReason] = useState('');
 
   const queueQuery = useQuery({
     queryKey: ['admin-kyc-queue', statusFilter],
@@ -48,6 +56,25 @@ export default function AdminKycPage() {
       queryClient.invalidateQueries({ queryKey: ['admin-kyc-queue'] });
       setTarget(null);
       setReason('');
+    },
+  });
+
+  const closeReview = () => {
+    setReviewTarget(null);
+    setReviewAction(null);
+    setReviewReason('');
+  };
+
+  const reviewMutation = useMutation({
+    mutationFn: () => {
+      const dto = { reason: reviewReason.trim() };
+      return reviewAction === 'approve'
+        ? approveKycVerification(reviewTarget!.id, dto)
+        : rejectKycVerification(reviewTarget!.id, dto);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-kyc-queue'] });
+      closeReview();
     },
   });
 
@@ -67,7 +94,9 @@ export default function AdminKycPage() {
           <Select
             id="kyc-status-filter"
             value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value as KycVerificationStatus | 'ALL')}
+            onChange={(event) =>
+              setStatusFilter(event.target.value as KycVerificationStatus | 'ALL')
+            }
           >
             {STATUS_FILTERS.map((value) => (
               <option key={value} value={value}>
@@ -108,27 +137,77 @@ export default function AdminKycPage() {
                   <div className="min-w-0">
                     <p className="truncate text-sm text-vellum">{verification.userId}</p>
                     <p className="mt-1 font-mono text-[12px] uppercase tracking-wide text-mute">
-                      {verification.status} · requested {KYC_TIER_LABELS[verification.requestedTier]}
+                      {verification.status} · requested{' '}
+                      {KYC_TIER_LABELS[verification.requestedTier]}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    className="shrink-0 text-[13px] text-mint hover:underline"
-                    onClick={() => {
-                      setTarget(verification);
-                      setTier(
-                        verification.requestedTier === 'TIER_0' ? 'TIER_1' : verification.requestedTier,
-                      );
-                    }}
-                  >
-                    Override tier
-                  </button>
+                  <div className="flex shrink-0 items-center gap-3">
+                    {verification.status === 'PENDING' ? (
+                      <>
+                        <button
+                          type="button"
+                          className="text-[13px] text-mint hover:underline"
+                          onClick={() => {
+                            setReviewTarget(verification);
+                            setReviewAction('approve');
+                          }}
+                        >
+                          Approve
+                        </button>
+                        <button
+                          type="button"
+                          className="text-[13px] text-danger hover:underline"
+                          onClick={() => {
+                            setReviewTarget(verification);
+                            setReviewAction('reject');
+                          }}
+                        >
+                          Reject
+                        </button>
+                      </>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="text-[13px] text-mint hover:underline"
+                      onClick={() => {
+                        setTarget(verification);
+                        setTier(
+                          verification.requestedTier === 'TIER_0'
+                            ? 'TIER_1'
+                            : verification.requestedTier,
+                        );
+                      }}
+                    >
+                      Override tier
+                    </button>
+                  </div>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-mute">
                   <span>{verification.provider}</span>
                   <span className="font-mono">{verification.providerReference}</span>
                   <span>Submitted {formatDateTime(verification.createdAt)}</span>
                 </div>
+                {verification.documents.length > 0 ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {verification.documents.map((document) => (
+                      <a
+                        key={document.id}
+                        href={document.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block h-20 w-20 overflow-hidden rounded-lg border border-line-soft bg-surface-2"
+                        title={document.documentType}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={document.url}
+                          alt={document.documentType}
+                          className="h-full w-full object-cover"
+                        />
+                      </a>
+                    ))}
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -156,7 +235,11 @@ export default function AdminKycPage() {
         }}
       >
         <Label htmlFor="override-tier">New tier</Label>
-        <Select id="override-tier" value={tier} onChange={(event) => setTier(event.target.value as KycTier)}>
+        <Select
+          id="override-tier"
+          value={tier}
+          onChange={(event) => setTier(event.target.value as KycTier)}
+        >
           {OVERRIDE_TIERS.map((value) => (
             <option key={value} value={value}>
               {KYC_TIER_LABELS[value]}
@@ -173,6 +256,44 @@ export default function AdminKycPage() {
             placeholder="Why is this tier being overridden?"
           />
         </div>
+      </ConfirmModal>
+
+      <ConfirmModal
+        open={reviewTarget !== null}
+        title={
+          reviewAction === 'approve' ? 'Approve this verification?' : 'Reject this verification?'
+        }
+        description={
+          reviewAction === 'approve'
+            ? `This grants ${reviewTarget ? KYC_TIER_LABELS[reviewTarget.requestedTier] : ''} and is written to the audit trail.`
+            : 'The submitter keeps their current tier. This is written to the audit trail.'
+        }
+        confirmLabel={reviewAction === 'approve' ? 'Approve' : 'Reject'}
+        destructive={reviewAction === 'reject'}
+        loading={reviewMutation.isPending}
+        confirmDisabled={reviewReason.trim().length === 0}
+        error={
+          reviewMutation.error instanceof ApiError
+            ? reviewMutation.error.message
+            : reviewMutation.error
+              ? 'Could not record this decision.'
+              : null
+        }
+        onConfirm={() => reviewMutation.mutate()}
+        onClose={closeReview}
+      >
+        <Label htmlFor="review-reason">Reason</Label>
+        <Textarea
+          id="review-reason"
+          rows={2}
+          value={reviewReason}
+          onChange={(event) => setReviewReason(event.target.value)}
+          placeholder={
+            reviewAction === 'approve'
+              ? 'What did you check?'
+              : 'What was wrong with the submission?'
+          }
+        />
       </ConfirmModal>
     </div>
   );

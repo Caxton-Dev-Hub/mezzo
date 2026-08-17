@@ -28,6 +28,15 @@ import type {
 } from '@mezzo/shared-types';
 import { apiRequest } from './api-client';
 
+export interface AdminKycDocumentResponse {
+  id: string;
+  documentType: string;
+  url: string;
+  declaredMime: string;
+  detectedMime: string;
+  createdAt: string;
+}
+
 export interface AdminKycVerificationResponse {
   id: string;
   userId: string;
@@ -35,6 +44,7 @@ export interface AdminKycVerificationResponse {
   requestedTier: KycTier;
   provider: string;
   providerReference: string;
+  documents: AdminKycDocumentResponse[];
   createdAt: string;
 }
 
@@ -203,6 +213,26 @@ export function overrideKycTier(
     method: 'POST',
     body: dto,
   });
+}
+
+export function approveKycVerification(
+  verificationId: string,
+  dto: { reason: string },
+): Promise<AdminKycVerificationResponse> {
+  return apiRequest<AdminKycVerificationResponse>(
+    `/admin/kyc/verifications/${verificationId}/approve`,
+    { method: 'POST', body: dto },
+  );
+}
+
+export function rejectKycVerification(
+  verificationId: string,
+  dto: { reason: string },
+): Promise<AdminKycVerificationResponse> {
+  return apiRequest<AdminKycVerificationResponse>(
+    `/admin/kyc/verifications/${verificationId}/reject`,
+    { method: 'POST', body: dto },
+  );
 }
 
 export function getLedgerReconciliation(): Promise<ReconciliationReport> {
