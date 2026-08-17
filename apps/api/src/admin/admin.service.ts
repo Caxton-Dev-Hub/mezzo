@@ -71,6 +71,7 @@ import {
   PostAdjustmentDto,
   UpdateWhatsappTransactionalEnabledDto,
 } from './dto/admin.schemas';
+import { ReviewKycVerificationDto } from '@mezzo/shared-types';
 
 export type { AdminDisputePacketResponse };
 
@@ -166,7 +167,58 @@ export class AdminService {
 
   async listKycQueue(status?: KycVerificationStatus): Promise<AdminKycVerificationResponse[]> {
     const verifications = await this.kycService.listVerifications(status);
-    return verifications.map(toAdminKycVerificationResponse);
+    return Promise.all(
+      verifications.map(async (verification) => {
+        const documents = await this.kycService.listDocuments(verification.id);
+        return toAdminKycVerificationResponse(verification, documents);
+      }),
+    );
+  }
+
+  async approveKycVerification(
+    actorId: string,
+    verificationId: string,
+    dto: ReviewKycVerificationDto,
+  ): Promise<AdminKycVerificationResponse> {
+    const correlationId = this.requestContext.correlationId();
+    const verification = await this.kycService.approveVerification(verificationId);
+
+    await this.auditService.record({
+      actorId,
+      action: 'KYC_VERIFICATION_APPROVED',
+      entityType: 'kyc_verification',
+      entityId: verification.id,
+      reason: dto.reason,
+      before: { status: 'PENDING' },
+      after: { status: verification.status },
+      correlationId,
+    });
+
+    const documents = await this.kycService.listDocuments(verification.id);
+    return toAdminKycVerificationResponse(verification, documents);
+  }
+
+  async rejectKycVerification(
+    actorId: string,
+    verificationId: string,
+    dto: ReviewKycVerificationDto,
+  ): Promise<AdminKycVerificationResponse> {
+    const correlationId = this.requestContext.correlationId();
+    const verification = await this.kycService.rejectVerification(verificationId);
+
+    await this.auditService.record({
+      actorId,
+      action: 'KYC_VERIFICATION_REJECTED',
+      entityType: 'kyc_verification',
+      entityId: verification.id,
+      reason: dto.reason,
+      before: { status: 'PENDING' },
+      after: { status: verification.status },
+      correlationId,
+    });
+
+    const documents = await this.kycService.listDocuments(verification.id);
+    return toAdminKycVerificationResponse(verification, documents);
   }
 
   async overrideKycTier(actorId: string, userId: string, dto: OverrideKycTierDto): Promise<{ before: string; after: string }> {

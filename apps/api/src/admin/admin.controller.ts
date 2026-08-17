@@ -21,6 +21,8 @@ import {
   UpdateUserStatusResult,
   updateVerificationEnabledSchema,
   UpdateVerificationEnabledDto,
+  reviewKycVerificationSchema,
+  ReviewKycVerificationDto,
 } from '@mezzo/shared-types';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -119,6 +121,28 @@ export class AdminController {
     @Body(new ZodValidationPipe(overrideKycTierSchema)) dto: OverrideKycTierDto,
   ): Promise<{ before: string; after: string }> {
     return this.adminService.overrideKycTier(currentUser.id, userId, dto);
+  }
+
+  @Post('kyc/verifications/:id/approve')
+  @HttpCode(HttpStatus.OK)
+  @Roles(UserRole.ADMIN)
+  async approveKycVerification(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(reviewKycVerificationSchema)) dto: ReviewKycVerificationDto,
+  ): Promise<AdminKycVerificationResponse> {
+    return this.adminService.approveKycVerification(currentUser.id, id, dto);
+  }
+
+  @Post('kyc/verifications/:id/reject')
+  @HttpCode(HttpStatus.OK)
+  @Roles(UserRole.ADMIN)
+  async rejectKycVerification(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(reviewKycVerificationSchema)) dto: ReviewKycVerificationDto,
+  ): Promise<AdminKycVerificationResponse> {
+    return this.adminService.rejectKycVerification(currentUser.id, id, dto);
   }
 
   @Get('users')

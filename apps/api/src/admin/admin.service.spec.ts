@@ -43,6 +43,9 @@ interface Harness {
   setVerificationEnabled: jest.Mock;
   listVerifications: jest.Mock;
   overrideTier: jest.Mock;
+  listDocuments: jest.Mock;
+  approveVerification: jest.Mock;
+  rejectVerification: jest.Mock;
   findAll: jest.Mock;
   search: jest.Mock;
   updateStatus: jest.Mock;
@@ -89,7 +92,32 @@ function buildHarness(
   const overrideTier = jest
     .fn()
     .mockResolvedValue({ before: KycTier.TIER_0, after: KycTier.TIER_2 });
-  const kycService = { listVerifications, overrideTier } as unknown as KycService;
+  const listDocuments = jest.fn().mockResolvedValue([]);
+  const approveVerification = jest.fn().mockResolvedValue({
+    id: 'verification-1',
+    userId: 'user-1',
+    status: 'APPROVED',
+    requestedTier: KycTier.TIER_2,
+    provider: 'manual',
+    providerReference: 'manual-submission:ref-1',
+    createdAt: new Date(),
+  });
+  const rejectVerification = jest.fn().mockResolvedValue({
+    id: 'verification-1',
+    userId: 'user-1',
+    status: 'REJECTED',
+    requestedTier: KycTier.TIER_2,
+    provider: 'manual',
+    providerReference: 'manual-submission:ref-1',
+    createdAt: new Date(),
+  });
+  const kycService = {
+    listVerifications,
+    overrideTier,
+    listDocuments,
+    approveVerification,
+    rejectVerification,
+  } as unknown as KycService;
 
   const findAll = jest.fn().mockResolvedValue([]);
   const search = jest.fn().mockResolvedValue({ items: [], total: 0 });
@@ -180,6 +208,9 @@ function buildHarness(
     reconcile,
     listVerifications,
     overrideTier,
+    listDocuments,
+    approveVerification,
+    rejectVerification,
     findAll,
     search,
     updateStatus,
@@ -342,6 +373,54 @@ describe('AdminService.overrideKycTier', () => {
         entityId: 'user-1',
         before: { tier: KycTier.TIER_0 },
         after: { tier: KycTier.TIER_2 },
+      }),
+    );
+  });
+});
+
+describe('AdminService.approveKycVerification', () => {
+  it('approves the verification and records the audit trail', async () => {
+    const harness = buildHarness();
+
+    const result = await harness.service.approveKycVerification(ADMIN_ID, 'verification-1', {
+      reason: 'Documents check out',
+    });
+
+    expect(harness.approveVerification).toHaveBeenCalledWith('verification-1');
+    expect(result.status).toBe('APPROVED');
+    expect(harness.auditRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorId: ADMIN_ID,
+        action: 'KYC_VERIFICATION_APPROVED',
+        entityType: 'kyc_verification',
+        entityId: 'verification-1',
+        reason: 'Documents check out',
+        before: { status: 'PENDING' },
+        after: { status: 'APPROVED' },
+      }),
+    );
+  });
+});
+
+describe('AdminService.rejectKycVerification', () => {
+  it('rejects the verification and records the audit trail', async () => {
+    const harness = buildHarness();
+
+    const result = await harness.service.rejectKycVerification(ADMIN_ID, 'verification-1', {
+      reason: 'Photo is illegible',
+    });
+
+    expect(harness.rejectVerification).toHaveBeenCalledWith('verification-1');
+    expect(result.status).toBe('REJECTED');
+    expect(harness.auditRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorId: ADMIN_ID,
+        action: 'KYC_VERIFICATION_REJECTED',
+        entityType: 'kyc_verification',
+        entityId: 'verification-1',
+        reason: 'Photo is illegible',
+        before: { status: 'PENDING' },
+        after: { status: 'REJECTED' },
       }),
     );
   });

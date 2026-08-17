@@ -17,6 +17,7 @@ import { EscrowParty } from '../../database/entities/escrow-party.entity';
 import { Payout } from '../../database/entities/payout.entity';
 import { PaymentIntent } from '../../database/entities/payment-intent.entity';
 import { KycVerification } from '../../database/entities/kyc-verification.entity';
+import { KycDocument } from '../../database/entities/kyc-document.entity';
 import { LedgerPosting } from '../../database/entities/ledger-posting.entity';
 import { LedgerEntry } from '../../database/entities/ledger-entry.entity';
 import { AuditEvent } from '../../database/entities/audit-event.entity';
@@ -58,6 +59,15 @@ export function toAdminDisputeSummaryResponse(
   };
 }
 
+export interface AdminKycDocumentResponse {
+  id: string;
+  documentType: string;
+  url: string;
+  declaredMime: string;
+  detectedMime: string;
+  createdAt: Date;
+}
+
 export interface AdminKycVerificationResponse {
   id: string;
   userId: string;
@@ -65,10 +75,14 @@ export interface AdminKycVerificationResponse {
   requestedTier: KycTier;
   provider: string;
   providerReference: string;
+  documents: AdminKycDocumentResponse[];
   createdAt: Date;
 }
 
-export function toAdminKycVerificationResponse(verification: KycVerification): AdminKycVerificationResponse {
+export function toAdminKycVerificationResponse(
+  verification: KycVerification,
+  documents: Array<{ document: KycDocument; url: string }> = [],
+): AdminKycVerificationResponse {
   return {
     id: verification.id,
     userId: verification.userId,
@@ -76,6 +90,14 @@ export function toAdminKycVerificationResponse(verification: KycVerification): A
     requestedTier: verification.requestedTier,
     provider: verification.provider,
     providerReference: verification.providerReference,
+    documents: documents.map(({ document, url }) => ({
+      id: document.id,
+      documentType: document.documentType,
+      url,
+      declaredMime: document.declaredMime,
+      detectedMime: document.detectedMime,
+      createdAt: document.createdAt,
+    })),
     createdAt: verification.createdAt,
   };
 }
