@@ -1,0 +1,5 @@
+export enum KycDocumentType {
+  GOVERNMENT_ID = 'GOVERNMENT_ID',
+  SELFIE = 'SELFIE',
+  PROOF_OF_ADDRESS = 'PROOF_OF_ADDRESS',
+}

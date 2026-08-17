@@ -12,6 +12,6 @@ import { StorageModule } from './storage/storage.module';
   imports: [TypeOrmModule.forFeature([EvidenceItem, EvidenceFlag]), EscrowModule, StorageModule],
   controllers: [EvidenceController],
   providers: [EvidenceService, MediaAnalysisService],
-  exports: [EvidenceService],
+  exports: [EvidenceService, MediaAnalysisService],
 })
 export class EvidenceModule {}

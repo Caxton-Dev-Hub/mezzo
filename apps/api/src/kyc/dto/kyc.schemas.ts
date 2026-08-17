@@ -1,6 +1,14 @@
 import { z } from 'zod';
 
 export { submitKycSchema, type SubmitKycDto } from '@mezzo/shared-types';
+export {
+  presignKycDocumentSchema,
+  type PresignKycDocumentDto,
+  confirmKycDocumentSchema,
+  type ConfirmKycDocumentDto,
+  submitManualKycSchema,
+  type SubmitManualKycDto,
+} from '@mezzo/shared-types';
 
 export const kycWebhookSchema = z.object({
   providerReference: z.string().min(1),

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { KycProvider, KycSubmissionRequest, KycSubmissionResult } from './kyc-provider.interface';
 
@@ -9,6 +9,8 @@ interface DojahVerificationResponse {
 @Injectable()
 export class DojahKycProvider implements KycProvider {
   readonly name = 'DOJAH';
+
+  private readonly logger = new Logger(DojahKycProvider.name);
 
   constructor(private readonly configService: ConfigService) {}
 
@@ -28,7 +30,11 @@ export class DojahKycProvider implements KycProvider {
     });
 
     if (!response.ok) {
-      throw new Error(`Dojah verification request failed with status ${response.status}`);
+      const body = await response.text().catch(() => '');
+      this.logger.error(
+        `Dojah verification request failed (${response.status} ${response.statusText}): ${body.slice(0, 500)}`,
+      );
+      throw new ServiceUnavailableException('KYC verification request failed');
     }
 
     const payload = (await response.json()) as DojahVerificationResponse;

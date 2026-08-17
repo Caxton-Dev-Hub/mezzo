@@ -142,12 +142,21 @@ export const configSchema = envSchema.superRefine((env, ctx) => {
     });
   }
 
-  if (env.KYC_PROVIDER === 'dojah' && !env.DOJAH_WEBHOOK_SECRET) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['DOJAH_WEBHOOK_SECRET'],
-      message: 'DOJAH_WEBHOOK_SECRET is required when KYC_PROVIDER is "dojah"',
-    });
+  if (env.KYC_PROVIDER === 'dojah') {
+    for (const key of [
+      'DOJAH_BASE_URL',
+      'DOJAH_APP_ID',
+      'DOJAH_PRIVATE_KEY',
+      'DOJAH_WEBHOOK_SECRET',
+    ] as const) {
+      if (!env[key]) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: `${key} is required when KYC_PROVIDER is "dojah"`,
+        });
+      }
+    }
   }
 
   if (env.WHATSAPP_ENABLED) {

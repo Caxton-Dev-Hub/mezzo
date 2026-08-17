@@ -18,12 +18,27 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { AuthenticatedUser } from '../common/types/authenticated-user';
 import { KycTier } from './entities/kyc-tier.enum';
-import { kycWebhookSchema, KycWebhookDto, submitKycSchema, SubmitKycDto } from './dto/kyc.schemas';
+import { KycDocumentType } from './entities/kyc-document-type.enum';
+import {
+  kycWebhookSchema,
+  KycWebhookDto,
+  submitKycSchema,
+  SubmitKycDto,
+  presignKycDocumentSchema,
+  PresignKycDocumentDto,
+  confirmKycDocumentSchema,
+  ConfirmKycDocumentDto,
+  submitManualKycSchema,
+  SubmitManualKycDto,
+} from './dto/kyc.schemas';
 import {
   KycStatusResponse,
   KycVerificationResponse,
+  PresignKycDocumentResponse,
   toKycVerificationResponse,
+  toKycDocumentResponse,
 } from './dto/kyc-response';
+import { KycDocumentResponse } from '@mezzo/shared-types';
 
 @Controller('kyc')
 export class KycController {
@@ -40,6 +55,48 @@ export class KycController {
     @Body(new ZodValidationPipe(submitKycSchema)) dto: SubmitKycDto,
   ): Promise<KycVerificationResponse> {
     const verification = await this.kycService.submit(currentUser.id, KycTier[dto.tier]);
+    return toKycVerificationResponse(verification);
+  }
+
+  @Post('documents/presign')
+  @HttpCode(HttpStatus.CREATED)
+  async presignDocument(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Body(new ZodValidationPipe(presignKycDocumentSchema)) dto: PresignKycDocumentDto,
+  ): Promise<PresignKycDocumentResponse> {
+    return this.kycService.presignDocument(
+      currentUser.id,
+      KycDocumentType[dto.documentType],
+      dto.mimeType,
+    );
+  }
+
+  @Post('documents/confirm')
+  @HttpCode(HttpStatus.CREATED)
+  async confirmDocument(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Body(new ZodValidationPipe(confirmKycDocumentSchema)) dto: ConfirmKycDocumentDto,
+  ): Promise<KycDocumentResponse> {
+    const document = await this.kycService.confirmDocument(
+      currentUser.id,
+      dto.key,
+      KycDocumentType[dto.documentType],
+      dto.declaredMime,
+    );
+    return toKycDocumentResponse(document);
+  }
+
+  @Post('manual-submissions')
+  @HttpCode(HttpStatus.CREATED)
+  async submitManual(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Body(new ZodValidationPipe(submitManualKycSchema)) dto: SubmitManualKycDto,
+  ): Promise<KycVerificationResponse> {
+    const verification = await this.kycService.submitManual(
+      currentUser.id,
+      KycTier[dto.tier],
+      dto.documentIds,
+    );
     return toKycVerificationResponse(verification);
   }
 
