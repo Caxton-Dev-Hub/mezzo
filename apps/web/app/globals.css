@@ -43,6 +43,16 @@
   color-scheme: light;
 }
 
+.docs-shell {
+  --color-ink: #efece0;
+  --color-ink-2: #e5e1cf;
+  --color-surface: #f8f6ec;
+  --color-surface-2: #eeead9;
+  --color-line: #c9d0bb;
+  --color-line-soft: #dbdfcb;
+  --color-line-strong: #b7c2a7;
+}
+
 html {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
