@@ -14,7 +14,7 @@ Project conventions for AI-assisted development on Mezzo. Read this before start
 
 - Modular Nest monolith. Feature modules: `auth`, `users`, `kyc`, `escrow`, `evidence`, `ledger`, `payments`, `disputes`, `arbitration`, `chat`, `notifications`, `admin`.
 - Domain logic lives in services. Controllers are thin: request in, DTO validation, delegate to a service, response out.
-- Each module owns its own entities/models, service logic, and test suite.
+- Each module owns its own entities/models, service logic, test suite, and a `README.md` documenting its design decisions — not what the code does, but why. `scripts/check-touched-tests.mjs` warns (non-blocking) when a module's logic changes without its README changing in the same diff.
 - Request/response validation schemas live once in `packages/shared-types` as Zod schemas and are imported by both the API (DTO validation) and the web app (form validation). Never redefine a shape on the client.
 
 ## Money
@@ -35,6 +35,7 @@ Project conventions for AI-assisted development on Mezzo. Read this before start
 - Every state transition (escrow state machine, dispute lifecycle) and every money movement (ledger postings, payment webhooks) must be covered by tests before a milestone is considered done.
 - Unit tests for service logic; e2e tests (Supertest + Testcontainers) for API surfaces that touch the database, Redis, or external providers.
 - A milestone is not complete until its tests are green.
+- `scripts/check-touched-tests.mjs` enforces the first bullet mechanically: if a module's logic files (service/controller/guard, not DTOs/entities/errors) change without a `*.spec.ts` in the same module also changing, the pre-commit hook and the `docs-and-tests-touched` CI job both fail. Bypass only with `SKIP_TEST_TOUCH_CHECK=1` (or the `skip-test-check` PR label), and only when the change genuinely needs no new coverage.
 
 ## Errors
 

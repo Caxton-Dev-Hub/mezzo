@@ -34,6 +34,18 @@ jobs:
       - run: pnpm -r --if-present run lint
       - run: pnpm -r --if-present run typecheck
 
+  docs-and-tests-touched:
+    name: Docs & tests touched
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      SKIP_TEST_TOUCH_CHECK: ${{ contains(github.event.pull_request.labels.*.name, 'skip-test-check') && '1' || '0' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: node scripts/check-touched-tests.mjs --base origin/${{ github.base_ref }}
+
   unit-tests:
     name: Unit tests
     runs-on: ubuntu-latest
