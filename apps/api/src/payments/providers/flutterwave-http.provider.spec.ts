@@ -237,3 +237,41 @@ describe('FlutterwaveHttpProvider.resolveAccount', () => {
     );
   });
 });
+
+describe('FlutterwaveHttpProvider.getBalance', () => {
+  it('converts the major-unit available balance into minor units', async () => {
+    const provider = buildProvider();
+    fetchMock.mockResolvedValue(
+      okResponse({
+        status: 'success',
+        data: [
+          { currency: 'USD', available_balance: 12.5 },
+          { currency: 'NGN', available_balance: 9150.75 },
+        ],
+      }),
+    );
+
+    await expect(provider.getBalance('NGN')).resolves.toEqual({
+      amountKobo: 915_075,
+      currency: 'NGN',
+    });
+
+    expect(callArg<string>(fetchMock, 0, 0)).toBe(`${BASE_URL}/balances`);
+  });
+
+  it('rejects when the account holds no wallet in the requested currency', async () => {
+    const provider = buildProvider();
+    fetchMock.mockResolvedValue(
+      okResponse({ status: 'success', data: [{ currency: 'USD', available_balance: 12.5 }] }),
+    );
+
+    await expect(provider.getBalance('NGN')).rejects.toBeInstanceOf(ServiceUnavailableException);
+  });
+
+  it('surfaces an upstream http failure as a service unavailable error', async () => {
+    const provider = buildProvider();
+    fetchMock.mockResolvedValue(errorResponse());
+
+    await expect(provider.getBalance('NGN')).rejects.toBeInstanceOf(ServiceUnavailableException);
+  });
+});

@@ -99,3 +99,10 @@ pull that whole trace back out.
 - `AppLoggerService` is a pino-backed Nest `LoggerService` that stamps every
   log line with the current request's correlation id from
   `RequestContextService`.
+- `GET /admin/payments/provider-float` reports, per provider, the ledger's
+  `provider:{name}:clearing` balance against the provider's live balance and
+  the drift between them. It is admin-only and always returns a row for both
+  Paystack and Flutterwave regardless of which one `PAYMENT_PROVIDER`
+  currently selects — see the payments module README for why. `AdminService`
+  delegates to `ProviderFloatService` and adds nothing; the endpoint lives
+  here because float is an operator concern, not a user-facing one.

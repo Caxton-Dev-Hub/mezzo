@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
+import { Currency } from '../../common/money/currency';
 import {
   Bank,
   InitializeTransactionInput,
@@ -8,6 +9,7 @@ import {
   InitiateTransferResult,
   PaymentProvider,
   PaymentProviderName,
+  ProviderBalance,
   ProviderTransaction,
   ResolveAccountInput,
   ResolveAccountResult,
@@ -26,6 +28,8 @@ export class FakePaystackProvider implements PaymentProvider {
   readonly name: PaymentProviderName = 'paystack';
 
   private readonly transactions: ProviderTransaction[] = [];
+
+  private balanceKobo = 0;
 
   initializeTransaction(input: InitializeTransactionInput): Promise<InitializeTransactionResult> {
     return Promise.resolve({
@@ -60,11 +64,20 @@ export class FakePaystackProvider implements PaymentProvider {
     return Promise.resolve({ accountName: `Test Account ${input.accountNumber.slice(-4)}` });
   }
 
+  getBalance(currency: Currency): Promise<ProviderBalance> {
+    return Promise.resolve({ amountKobo: this.balanceKobo, currency });
+  }
+
   seedTransaction(transaction: ProviderTransaction): void {
     this.transactions.push(transaction);
   }
 
+  seedBalance(amountKobo: number): void {
+    this.balanceKobo = amountKobo;
+  }
+
   reset(): void {
     this.transactions.length = 0;
+    this.balanceKobo = 0;
   }
 }

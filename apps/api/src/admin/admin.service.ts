@@ -19,6 +19,7 @@ import { SettlementService } from '../escrow/settlement.service';
 import { EscrowState } from '../escrow/entities/escrow-state.enum';
 import { PayoutService } from '../payments/payout.service';
 import { PaymentsService } from '../payments/payments.service';
+import { ProviderFloatReport, ProviderFloatService } from '../payments/provider-float.service';
 import { PayoutStatus } from '../payments/entities/payout-status.enum';
 import { PaymentIntentStatus } from '../payments/entities/payment-intent-status.enum';
 import { SettingsService } from '../settings/settings.service';
@@ -90,6 +91,7 @@ export class AdminService {
     private readonly settlementService: SettlementService,
     private readonly payoutService: PayoutService,
     private readonly paymentsService: PaymentsService,
+    private readonly providerFloatService: ProviderFloatService,
     private readonly settingsService: SettingsService,
     private readonly configService: ConfigService,
     private readonly waitlistService: WaitlistService,
@@ -132,6 +134,10 @@ export class AdminService {
 
   async getReconciliationStatus(): Promise<ReconciliationReport> {
     return this.reconciliationService.reconcile();
+  }
+
+  async getProviderFloat(): Promise<ProviderFloatReport[]> {
+    return this.providerFloatService.report();
   }
 
   async postAdjustment(actorId: string, dto: PostAdjustmentDto): Promise<LedgerPostingResponse> {

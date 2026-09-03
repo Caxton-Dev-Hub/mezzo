@@ -8,6 +8,7 @@ import {
   InitiateTransferInput,
   InitiateTransferResult,
   PaymentProvider,
+  ProviderBalance,
   ProviderTransaction,
   ProviderTransactionStatus,
   ResolveAccountInput,
@@ -37,6 +38,11 @@ interface FlutterwaveListTransactionsResponse {
     status: string;
     created_at: string | null;
   }>;
+}
+
+interface FlutterwaveBalancesResponse {
+  status: string;
+  data: Array<{ currency: string; available_balance: number | string }>;
 }
 
 interface FlutterwaveBanksResponse {
@@ -178,6 +184,27 @@ export class FlutterwaveHttpProvider implements PaymentProvider {
     }
 
     return { accountName: body.data.account_name };
+  }
+
+  async getBalance(currency: Currency): Promise<ProviderBalance> {
+    const response = await this.request(`${this.baseUrl()}/balances`, {
+      method: 'GET',
+      headers: this.headers(),
+    });
+
+    if (!response.ok) {
+      throw await this.failure(response, 'Flutterwave balance retrieval failed');
+    }
+
+    const body = (await response.json()) as FlutterwaveBalancesResponse;
+    const entry = body.data.find((balance) => balance.currency === currency);
+    const amountKobo = entry ? majorToMinorUnits(String(entry.available_balance)) : null;
+    if (amountKobo === null) {
+      this.logger.error(`Flutterwave balance retrieval returned no usable ${currency} wallet`);
+      throw new ServiceUnavailableException('Flutterwave balance retrieval failed');
+    }
+
+    return { amountKobo, currency };
   }
 
   private async failure(response: Response, message: string): Promise<ServiceUnavailableException> {
