@@ -1,6 +1,14 @@
 import { createHmac, randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { expect, request, type APIRequestContext, type Browser, type Page } from '@playwright/test';
-import { API_URL, BOOTSTRAP_ADMIN_EMAIL, PAYSTACK_SECRET } from './stack';
+import { Client } from 'pg';
+import {
+  API_URL,
+  BOOTSTRAP_ADMIN_EMAIL,
+  HANDOFF_PATH,
+  PAYSTACK_SECRET,
+  type StackHandoff,
+} from './stack';
 
 export const PASSWORD = 'super-secret-password';
 
@@ -20,6 +28,28 @@ export async function apiContext(): Promise<APIRequestContext> {
 }
 
 /**
+ * Registration always sends a verification code, and login refuses an
+ * unverified account — so a freshly registered test user cannot log in at all.
+ * The code only exists in the API process's in-memory fake mailer, which this
+ * process cannot read, so the suite marks the address verified directly in the
+ * e2e database instead, exactly as the API's own e2e specs do through the
+ * repository.
+ */
+async function markEmailVerified(email: string): Promise<void> {
+  const { databaseUrl } = JSON.parse(readFileSync(HANDOFF_PATH, 'utf8')) as StackHandoff;
+  const client = new Client({ connectionString: databaseUrl });
+
+  await client.connect();
+  try {
+    await client.query('UPDATE users SET email_verified_at = now() WHERE lower(email) = lower($1)', [
+      email,
+    ]);
+  } finally {
+    await client.end();
+  }
+}
+
+/**
  * The API promotes any email listed in BOOTSTRAP_ADMIN_EMAILS to ADMIN on
  * registration — the only way to mint the first privileged account, and the only
  * way this suite can drive the arbiter console. Registered once per run.
@@ -35,6 +65,7 @@ export async function registerBootstrapAdmin(): Promise<TestUser> {
   });
   expect(response.ok(), `register bootstrap admin: ${await response.text()}`).toBe(true);
   await api.dispose();
+  await markEmailVerified(BOOTSTRAP_ADMIN_EMAIL);
 
   bootstrapAdmin = { email: BOOTSTRAP_ADMIN_EMAIL, password: PASSWORD };
   return bootstrapAdmin;
@@ -48,6 +79,7 @@ export async function registerUser(prefix: string): Promise<TestUser> {
   expect(response.ok(), `register ${email}: ${await response.text()}`).toBe(true);
 
   await api.dispose();
+  await markEmailVerified(email);
   return { email, password: PASSWORD };
 }
 

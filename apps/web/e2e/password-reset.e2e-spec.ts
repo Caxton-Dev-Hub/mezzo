@@ -36,6 +36,6 @@ test.describe('Password reset', () => {
     await page.getByLabel('New password').fill('a-brand-new-password');
     await page.getByRole('button', { name: 'Set new password' }).click();
 
-    await expect(page.getByRole('alert')).toContainText('invalid or has expired');
+    await expect(page.getByText('This password reset link is invalid or has expired')).toBeVisible();
   });
 });

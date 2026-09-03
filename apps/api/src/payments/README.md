@@ -99,6 +99,21 @@ speaks Paystack's shapes, which is why it reports `name: 'paystack'` and why
 transaction on `initializeTransaction()`, since initializing a checkout
 doesn't mean it succeeded.
 
+### The checkout redirect target is per-transaction, not a dashboard default
+
+Both providers redirect the buyer's browser back to a URL after checkout —
+Paystack's `callback_url`, Flutterwave's `redirect_url` — passed on the
+`initializeTransaction` request itself, built from `WEB_APP_URL` and
+`input.escrowId` (`${WEB_APP_URL}/escrow/{escrowId}/fund`, the page
+`useEscrowFunding` polls for the intent to resolve). This is required, not
+cosmetic: leaving it unset falls back to whatever static default is
+configured in the provider's own dashboard, which has no way to know which
+escrow the buyer was funding — pointing that default at the API's webhook
+path (an easy mistake, since it's the only Mezzo URL configured there)
+sends the buyer's browser to a POST-only backend route and a 404 the moment
+they finish paying, even though the webhook itself (a separate, correctly
+configured server-to-server call) still lands and funds the escrow.
+
 ### Routing Flutterwave calls through a static-IP proxy
 
 Flutterwave's live `/transfers` (and related) endpoints require the
