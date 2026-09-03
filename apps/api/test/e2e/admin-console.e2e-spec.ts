@@ -35,6 +35,13 @@ interface AdminUserBody {
   kycTier: KycTier;
 }
 
+interface AdminUserListBody {
+  items: AdminUserBody[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 interface KycVerificationBody {
   id: string;
   userId: string;
@@ -99,9 +106,9 @@ describe('Admin console (e2e)', () => {
       const response = await request(server).get('/admin/users').set(auth(admin.accessToken));
 
       expect(response.status).toBe(200);
-      const body = response.body as AdminUserBody[];
-      expect(body.length).toBeGreaterThan(0);
-      expect(body.some((user) => user.email === admin.email)).toBe(true);
+      const body = response.body as AdminUserListBody;
+      expect(body.items.length).toBeGreaterThan(0);
+      expect(body.items.some((user) => user.email === admin.email)).toBe(true);
       expect(JSON.stringify(body)).not.toContain('passwordHash');
     });
 
