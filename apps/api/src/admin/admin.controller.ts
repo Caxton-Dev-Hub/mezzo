@@ -35,6 +35,7 @@ import { KycVerificationStatus } from '../kyc/entities/kyc-verification-status.e
 import { PayoutStatus } from '../payments/entities/payout-status.enum';
 import { PaymentIntentStatus } from '../payments/entities/payment-intent-status.enum';
 import { ReconciliationReport } from '../ledger/reconciliation.service';
+import { ProviderFloatReport } from '../payments/provider-float.service';
 import {
   AdminDisputeSummaryResponse,
   AdminEscrowResponse,
@@ -94,6 +95,12 @@ export class AdminController {
   @Roles(UserRole.ADMIN)
   async getReconciliation(): Promise<ReconciliationReport> {
     return this.adminService.getReconciliationStatus();
+  }
+
+  @Get('payments/provider-float')
+  @Roles(UserRole.ADMIN)
+  async getProviderFloat(): Promise<ProviderFloatReport[]> {
+    return this.adminService.getProviderFloat();
   }
 
   @Post('ledger/adjustments')

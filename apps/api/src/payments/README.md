@@ -257,3 +257,40 @@ of the three balances come from `Payout` and `PaymentIntent`, which this
 module owns; it reads ledger balances only through `LedgerService`'s
 public API. `PLATFORM_CURRENCY` is `NGN`: the wallet reports one currency
 at a time, and there is no second-currency product surface yet.
+
+## Provider float reconciliation
+
+`ProviderFloatService` answers one question: does the money Paystack and
+Flutterwave say they are holding match what our ledger says they hold?
+The ledger already tracks the answer's left-hand side — every verified
+funding debits `provider:{name}:clearing` and every payout credits it, so
+that account's derived balance *is* our claim on the provider. Nothing
+compared it to the provider's own number, which is where a silently
+failed transfer or an out-of-band refund would first show up.
+
+It is deliberately separate from `PaymentsReconciliationService`, which
+matches individual transactions to intents. That catches a missing row;
+this catches a wrong total, and the two fail independently.
+
+The service reaches for `PaystackHttpProvider` and `FlutterwaveHttpProvider`
+directly rather than through the injected `PAYMENT_PROVIDER` token. That
+token resolves to exactly one provider, but float outlives the switch: a
+balance stranded at the provider we migrated away from is precisely the
+balance worth watching, and it would be invisible through the token.
+
+A provider is only called when its secret key is set, so switching
+`PAYMENT_PROVIDER` never turns the other one's row into an error — it
+reports `UNCONFIGURED` and still shows the clearing balance, which is the
+number that matters when no live figure is available. Under
+`PAYMENT_PROVIDER=fake` no live HTTP call is made at all; the paystack row
+reads `FakePaystackProvider`, so local and e2e runs exercise the reporting
+path without touching a real API.
+
+Drift is reported as a `SURPLUS`/`SHORTFALL` status plus a non-negative
+`Money`, never a signed integer. `Money` refuses negative amounts by
+construction, and a bare signed number in a JSON body is exactly the kind
+of value that gets read with the wrong sign convention on the other side.
+
+Provider failures degrade rather than propagate: an unreachable provider
+yields `UNAVAILABLE` for that row alone, because one provider being down
+is not a reason to withhold the other's balance from an admin.

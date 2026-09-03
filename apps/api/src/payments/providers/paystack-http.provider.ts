@@ -8,6 +8,7 @@ import {
   InitiateTransferResult,
   PaymentProvider,
   PaymentProviderName,
+  ProviderBalance,
   ProviderTransaction,
   ProviderTransactionStatus,
   ResolveAccountInput,
@@ -28,7 +29,7 @@ interface PaystackRecipientResponse {
 
 interface PaystackTransferResponse {
   status: boolean;
-  data: { transfer_code: string; reference: string };
+  data: { transfer_code: string; reference: string; status: string };
 }
 
 interface PaystackBanksResponse {
@@ -40,6 +41,11 @@ interface PaystackResolveAccountResponse {
   status: boolean;
   message: string;
   data: { account_number: string; account_name: string };
+}
+
+interface PaystackBalanceResponse {
+  status: boolean;
+  data: Array<{ currency: string; balance: number }>;
 }
 
 interface PaystackListTransactionsResponse {
@@ -147,6 +153,20 @@ export class PaystackHttpProvider implements PaymentProvider {
     }
 
     const transfer = (await transferResponse.json()) as PaystackTransferResponse;
+
+    // Paystack answers 200 for a transfer it has accepted but not sent when the
+    // account has "Confirm transfers before sending" switched on: the money only
+    // leaves once an OTP is finalised, which nothing here does. Treating that as
+    // a sent transfer would debit the seller's wallet for money that never
+    // moves, so it fails here instead — before the caller opens the transaction
+    // that posts the debit.
+    if (transfer.data.status === 'otp') {
+      this.logger.error(
+        'Paystack transfer requires OTP finalisation; disable "Confirm transfers before sending" in the Paystack dashboard or implement the OTP flow',
+      );
+      throw new ServiceUnavailableException('Paystack transfer initiation failed');
+    }
+
     return { transferCode: transfer.data.transfer_code, reference: transfer.data.reference };
   }
 
@@ -185,6 +205,26 @@ export class PaystackHttpProvider implements PaymentProvider {
     }
 
     return { accountName: body.data.account_name };
+  }
+
+  async getBalance(currency: Currency): Promise<ProviderBalance> {
+    const response = await fetch(`${this.baseUrl()}/balance`, {
+      method: 'GET',
+      headers: this.headers(),
+    });
+
+    if (!response.ok) {
+      throw await this.failure(response, 'Paystack balance retrieval failed');
+    }
+
+    const body = (await response.json()) as PaystackBalanceResponse;
+    const entry = body.data.find((balance) => balance.currency === currency);
+    if (!entry) {
+      this.logger.error(`Paystack balance retrieval returned no ${currency} wallet`);
+      throw new ServiceUnavailableException('Paystack balance retrieval failed');
+    }
+
+    return { amountKobo: entry.balance, currency };
   }
 
   private async failure(response: Response, message: string): Promise<ServiceUnavailableException> {

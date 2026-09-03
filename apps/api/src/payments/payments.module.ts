@@ -14,6 +14,7 @@ import { ObservabilityModule } from '../observability/observability.module';
 import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
 import { PaymentsReconciliationService } from './payments-reconciliation.service';
+import { ProviderFloatService } from './provider-float.service';
 import { PayoutController } from './payout.controller';
 import { PayoutService } from './payout.service';
 import { WalletController } from './wallet.controller';
@@ -38,6 +39,7 @@ import { FlutterwaveHttpProvider } from './providers/flutterwave-http.provider';
   providers: [
     PaymentsService,
     PaymentsReconciliationService,
+    ProviderFloatService,
     PayoutService,
     WalletService,
     WebhookSignatureService,
@@ -67,6 +69,7 @@ import { FlutterwaveHttpProvider } from './providers/flutterwave-http.provider';
   exports: [
     PaymentsService,
     PaymentsReconciliationService,
+    ProviderFloatService,
     PayoutService,
     WalletService,
     FakePaystackProvider,

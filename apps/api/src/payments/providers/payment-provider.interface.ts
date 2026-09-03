@@ -61,6 +61,11 @@ export interface ResolveAccountResult {
   accountName: string;
 }
 
+export interface ProviderBalance {
+  amountKobo: number;
+  currency: Currency;
+}
+
 export interface PaymentProvider {
   readonly name: PaymentProviderName;
   initializeTransaction(input: InitializeTransactionInput): Promise<InitializeTransactionResult>;
@@ -68,4 +73,5 @@ export interface PaymentProvider {
   initiateTransfer(input: InitiateTransferInput): Promise<InitiateTransferResult>;
   listBanks(): Promise<Bank[]>;
   resolveAccount(input: ResolveAccountInput): Promise<ResolveAccountResult>;
+  getBalance(currency: Currency): Promise<ProviderBalance>;
 }

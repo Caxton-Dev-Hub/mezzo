@@ -4,6 +4,7 @@ import { EscrowService } from '../escrow/escrow.service';
 import { SettlementService } from '../escrow/settlement.service';
 import { PayoutService } from '../payments/payout.service';
 import { PaymentsService } from '../payments/payments.service';
+import { ProviderFloatService } from '../payments/provider-float.service';
 import { WaitlistService } from '../waitlist/waitlist.service';
 import { ChatService } from '../chat/chat.service';
 import { TokenService } from '../auth/token.service';
@@ -32,6 +33,7 @@ const admin: AuthenticatedUser = { id: ADMIN_ID, role: UserRole.ADMIN };
 
 interface Harness {
   service: AdminService;
+  providerFloatReport: jest.Mock;
   listByState: jest.Mock;
   getPacket: jest.Mock;
   listForDispute: jest.Mock;
@@ -145,6 +147,9 @@ function buildHarness(
   const listAllIntents = jest.fn().mockResolvedValue([]);
   const paymentsService = { listAllIntents } as unknown as PaymentsService;
 
+  const providerFloatReport = jest.fn().mockResolvedValue([]);
+  const providerFloatService = { report: providerFloatReport } as unknown as ProviderFloatService;
+
   const waitlistFindAll = jest.fn().mockResolvedValue({ items: [], total: 0 });
   const waitlistService = { findAll: waitlistFindAll } as unknown as WaitlistService;
 
@@ -189,6 +194,7 @@ function buildHarness(
     settlementService,
     payoutService,
     paymentsService,
+    providerFloatService,
     settingsService,
     configService,
     waitlistService,
@@ -198,6 +204,7 @@ function buildHarness(
 
   return {
     service,
+    providerFloatReport,
     listByState,
     getPacket,
     listForDispute,
@@ -507,5 +514,30 @@ describe('AdminService.updateUserStatus', () => {
     });
 
     expect(harness.revokeAllForUser).not.toHaveBeenCalled();
+  });
+});
+
+describe('AdminService.getProviderFloat', () => {
+  it('hands back a row per provider so an admin sees both balances at once', async () => {
+    const harness = buildHarness();
+    const report = [
+      {
+        provider: 'paystack' as const,
+        status: 'BALANCED' as const,
+        clearing: { amount: 4_230_000, currency: 'NGN' as const },
+        live: { amount: 4_230_000, currency: 'NGN' as const },
+        drift: { amount: 0, currency: 'NGN' as const },
+      },
+      {
+        provider: 'flutterwave' as const,
+        status: 'SHORTFALL' as const,
+        clearing: { amount: 915_000, currency: 'NGN' as const },
+        live: { amount: 910_000, currency: 'NGN' as const },
+        drift: { amount: 5_000, currency: 'NGN' as const },
+      },
+    ];
+    harness.providerFloatReport.mockResolvedValue(report);
+
+    await expect(harness.service.getProviderFloat()).resolves.toEqual(report);
   });
 });

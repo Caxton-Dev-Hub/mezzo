@@ -286,6 +286,22 @@ describe('PaystackHttpProvider.initiateTransfer', () => {
     });
   });
 
+  it('refuses a transfer Paystack accepted but parked for OTP confirmation', async () => {
+    const provider = buildProvider();
+    fetchMock
+      .mockResolvedValueOnce(okResponse({ status: true, data: { recipient_code: 'RCP_1' } }))
+      .mockResolvedValueOnce(
+        okResponse({
+          status: true,
+          data: { transfer_code: 'TRF_1', reference: 'payout-ref', status: 'otp' },
+        }),
+      );
+
+    await expect(provider.initiateTransfer(input)).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+  });
+
   it('does not attempt the transfer when the recipient cannot be created', async () => {
     const provider = buildProvider();
     fetchMock.mockResolvedValueOnce(errorResponse());
@@ -375,5 +391,43 @@ describe('PaystackHttpProvider.resolveAccount', () => {
     await expect(provider.resolveAccount(input)).rejects.toBeInstanceOf(
       ServiceUnavailableException,
     );
+  });
+});
+
+describe('PaystackHttpProvider.getBalance', () => {
+  it('returns the minor-unit balance for the requested currency', async () => {
+    const provider = buildProvider();
+    fetchMock.mockResolvedValue(
+      okResponse({
+        status: true,
+        data: [
+          { currency: 'USD', balance: 100_000 },
+          { currency: 'NGN', balance: 4_230_000 },
+        ],
+      }),
+    );
+
+    await expect(provider.getBalance('NGN')).resolves.toEqual({
+      amountKobo: 4_230_000,
+      currency: 'NGN',
+    });
+
+    expect(callArg<string>(fetchMock, 0, 0)).toBe(`${BASE_URL}/balance`);
+  });
+
+  it('rejects when the account holds no wallet in the requested currency', async () => {
+    const provider = buildProvider();
+    fetchMock.mockResolvedValue(
+      okResponse({ status: true, data: [{ currency: 'USD', balance: 1 }] }),
+    );
+
+    await expect(provider.getBalance('NGN')).rejects.toBeInstanceOf(ServiceUnavailableException);
+  });
+
+  it('surfaces an upstream http failure as a service unavailable error', async () => {
+    const provider = buildProvider();
+    fetchMock.mockResolvedValue(errorResponse());
+
+    await expect(provider.getBalance('NGN')).rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 });
