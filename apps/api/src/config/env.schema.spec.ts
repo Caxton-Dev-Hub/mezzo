@@ -47,9 +47,7 @@ describe('validateEnv rejects malformed values', () => {
   });
 
   it('rejects a jwt secret that is too short to be safe', () => {
-    expect(() => validateEnv(baseEnv({ JWT_ACCESS_SECRET: 'short' }))).toThrow(
-      /JWT_ACCESS_SECRET/,
-    );
+    expect(() => validateEnv(baseEnv({ JWT_ACCESS_SECRET: 'short' }))).toThrow(/JWT_ACCESS_SECRET/);
   });
 
   it('rejects a non-url Redis endpoint', () => {
@@ -159,5 +157,39 @@ describe('validateEnv cross-field rules', () => {
 
     expect(() => validateEnv(env)).toThrow(/DATABASE_URL/);
     expect(() => validateEnv(env)).toThrow(/GOOGLE_CLIENT_ID/);
+  });
+});
+
+describe('validateEnv treats a blank optional variable as unset', () => {
+  it('boots when the unused WhatsApp credentials are present but empty', () => {
+    const env = validateEnv(
+      baseEnv({
+        WHATSAPP_ACCESS_TOKEN: '',
+        WHATSAPP_PHONE_NUMBER_ID: '',
+        WHATSAPP_BUSINESS_ACCOUNT_ID: '',
+        WHATSAPP_WEBHOOK_VERIFY_TOKEN: '',
+        WHATSAPP_APP_SECRET: '',
+      }),
+    );
+
+    expect(env.WHATSAPP_ACCESS_TOKEN).toBeUndefined();
+  });
+
+  it('treats a whitespace-only value as unset', () => {
+    const env = validateEnv(baseEnv({ ANTHROPIC_API_KEY: '   ' }));
+
+    expect(env.ANTHROPIC_API_KEY).toBeUndefined();
+  });
+
+  it('reports a blank url as the missing variable it is, not as a malformed url', () => {
+    expect(() => validateEnv(baseEnv({ NODE_ENV: 'production', DATABASE_URL: '' }))).toThrow(
+      /DATABASE_URL is required when NODE_ENV is/,
+    );
+  });
+
+  it('still demands a credential the enabled feature needs', () => {
+    expect(() =>
+      validateEnv(baseEnv({ WHATSAPP_ENABLED: 'true', WHATSAPP_WEBHOOK_VERIFY_TOKEN: '' })),
+    ).toThrow(/WHATSAPP_WEBHOOK_VERIFY_TOKEN is required/);
   });
 });
