@@ -72,6 +72,7 @@ export class PaystackHttpProvider implements PaymentProvider {
         amount: input.amountKobo,
         currency: input.currency,
         reference: input.reference,
+        callback_url: `${this.configService.getOrThrow<string>('WEB_APP_URL')}/escrow/${input.escrowId}/fund`,
         metadata: input.metadata,
       }),
     });

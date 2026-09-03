@@ -5,6 +5,7 @@ import { callArg, callArgs } from '../../../test/support/mock-calls';
 
 const BASE_URL = 'https://api.paystack.test';
 const SECRET_KEY = 'sk_test_123';
+const WEB_APP_URL = 'https://app.mezzo.test';
 
 function buildProvider(): PaystackHttpProvider {
   const configService = {
@@ -14,6 +15,9 @@ function buildProvider(): PaystackHttpProvider {
       }
       if (key === 'PAYSTACK_BASE_URL') {
         return BASE_URL;
+      }
+      if (key === 'WEB_APP_URL') {
+        return WEB_APP_URL;
       }
       throw new Error(`Unexpected config key ${key}`);
     }),
@@ -79,6 +83,7 @@ describe('PaystackHttpProvider.initializeTransaction', () => {
       amount: 100_000,
       currency: 'NGN',
       reference: 'ref-1',
+      callback_url: `${WEB_APP_URL}/escrow/escrow-1/fund`,
       metadata: { escrowId: 'escrow-1' },
     });
   });
