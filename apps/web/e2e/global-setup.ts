@@ -91,6 +91,14 @@ export default async function globalSetup(): Promise<void> {
   const databaseUrl = postgres.getConnectionUri();
   const apiEnv: NodeJS.ProcessEnv = {
     ...process.env,
+    // Isolate the spawned API from whatever the developer's own apps/api/.env
+    // happens to contain — a blank-but-present optional var there (e.g. an
+    // unfilled WHATSAPP_ACCESS_TOKEN) fails z.string().min(1).optional() the
+    // same way a filled one being wrong would, breaking every e2e spec's boot
+    // for a reason invisible from this file. Everything the API needs is set
+    // explicitly below; anything else should come from the schema's own
+    // defaults, never from a file this process doesn't control.
+    ENV_FILE: '/dev/null',
     NODE_ENV: 'production',
     PORT: String(API_PORT),
     CORS_ORIGINS: WEB_URL,
