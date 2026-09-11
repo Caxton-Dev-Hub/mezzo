@@ -532,7 +532,7 @@ describe('PaymentsService charge webhook processing', () => {
     const lines = callArg<PostingLine[]>(harness.postTransaction, 0, 0);
     expect(lines).toEqual([
       expect.objectContaining({
-        accountRef: providerClearingRef('paystack'),
+        accountRef: providerClearingRef('paystack', 'NGN'),
         direction: EntryDirection.DEBIT,
         money: expect.objectContaining({ amount: 100_000, currency: 'NGN' }) as Money,
       }),

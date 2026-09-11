@@ -105,7 +105,7 @@ describe('WalletService.getBalances', () => {
 
     const balances = await harness.service.getBalances(USER_ID);
 
-    expect(harness.getBalanceOrZero).toHaveBeenCalledWith(userWalletRef(USER_ID), 'NGN');
+    expect(harness.getBalanceOrZero).toHaveBeenCalledWith(userWalletRef(USER_ID, 'NGN'), 'NGN');
     expect(balances.available).toEqual({ amount: 75_000, currency: 'NGN' });
   });
 

@@ -351,12 +351,12 @@ describe('SettlementService.release', () => {
         money: expect.objectContaining({ amount: 100_000, currency: 'NGN' }) as Money,
       }),
       expect.objectContaining({
-        accountRef: userWalletRef(SELLER_ID),
+        accountRef: userWalletRef(SELLER_ID, 'NGN'),
         direction: EntryDirection.CREDIT,
         money: expect.objectContaining({ amount: 97_500 }) as Money,
       }),
       expect.objectContaining({
-        accountRef: platformFeeRevenueRef(),
+        accountRef: platformFeeRevenueRef('NGN'),
         direction: EntryDirection.CREDIT,
         money: expect.objectContaining({ amount: 2_500 }) as Money,
       }),
@@ -525,7 +525,7 @@ describe('SettlementService.refund', () => {
         money: expect.objectContaining({ amount: 100_000 }) as Money,
       }),
       expect.objectContaining({
-        accountRef: userWalletRef(BUYER_ID),
+        accountRef: userWalletRef(BUYER_ID, 'NGN'),
         direction: EntryDirection.CREDIT,
         money: expect.objectContaining({ amount: 100_000 }) as Money,
       }),

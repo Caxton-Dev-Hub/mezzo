@@ -14,15 +14,45 @@ determine the account's `type` and `normalBalance`:
 
 | Ref pattern | Type | Normal balance |
 |---|---|---|
-| `user:{userId}:wallet` | `USER_WALLET` | CREDIT |
+| `user:{userId}:wallet:{CUR}` | `USER_WALLET` | CREDIT |
 | `escrow:{escrowId}:holding` | `ESCROW_HOLDING` | CREDIT |
-| `platform:fee_revenue` | `PLATFORM_FEE_REVENUE` | CREDIT |
-| `provider:{name}:clearing` | `PROVIDER_CLEARING` | DEBIT |
-| `treasury:{name}` | `TREASURY` | DEBIT |
+| `platform:fee_revenue:{CUR}` | `PLATFORM_FEE_REVENUE` | CREDIT |
+| `provider:{name}:clearing:{CUR}` | `PROVIDER_CLEARING` | DEBIT |
+| `treasury:{name}:{CUR}` | `TREASURY` | DEBIT |
 
 An account row is created lazily, the first time a posting references its
 `ref` — there is no separate "create account" step. A `ref` that matches no
 pattern throws `UnknownLedgerAccountRefError` before any transaction opens.
+
+### Why the currency is part of the ref
+
+A `ledger_accounts` row carries exactly one `currency`, fixed the first time
+the account is used, and `ref` is unique. So an account identity that does
+*not* name a currency can only ever hold one — and the second currency to
+arrive throws `CurrencyMismatchError` at posting time.
+
+That was invisible while every escrow was priced in naira. It stops being
+invisible the moment a second currency exists: `platform:fee_revenue` is a
+single global row, and `user:{id}:wallet` is a single row per person, so one
+USD release would have permanently pinned the platform's fee account to USD
+and made every subsequent NGN release fail. The Stellar rail (USD) made that
+reachable, but the collision was always there — a USD-priced escrow on the
+card rail would have done the same thing.
+
+The fix is to make currency part of the account's *identity* rather than a
+property discovered after the fact. `user:u1:wallet:NGN` and
+`user:u1:wallet:USD` are two accounts, as they always should have been: they
+hold different money and can never be added together. `getBalance(ref)` stays
+a single-argument lookup precisely because the ref now answers "which
+currency?" on its own — there is no ref whose currency is ambiguous.
+
+`escrow:{id}:holding` is deliberately *not* currency-qualified. An escrow has
+one price in one currency for its whole life, so the escrow id already
+determines the currency; adding it would be redundant.
+
+Migration `CurrencyQualifyLedgerAccountRefs1787350000000` rewrites existing
+rows by appending their own `currency` column to `ref`, which is exact for
+every row that exists — each one already held exactly one currency.
 
 ## Why `normalBalance` instead of one universal sign convention
 

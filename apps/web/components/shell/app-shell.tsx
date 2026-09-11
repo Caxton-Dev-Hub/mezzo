@@ -7,6 +7,8 @@ import { useLogout } from '../../hooks/use-logout';
 import { Wordmark } from './wordmark';
 import { Button } from '../ui/button';
 import { NotificationCenter } from '../notifications/notification-center';
+import { ConnectWalletButton } from '../stellar/connect-wallet-button';
+import { PoweredBy } from './powered-by';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const status = useAuthStore((state) => state.status);
@@ -21,6 +23,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Wordmark />
           </Link>
           <div className="flex items-center gap-3 sm:gap-4">
+            <ConnectWalletButton className="hidden sm:flex" />
             {status === 'authenticated' ? (
               <Link
                 href="/wallet"
@@ -61,6 +64,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-8 sm:px-8 sm:py-12">
         {children}
       </main>
+      <footer className="border-t border-line-soft">
+        <div className="mx-auto flex max-w-4xl items-center justify-between gap-4 px-5 py-6 sm:px-8">
+          <ConnectWalletButton className="sm:hidden" />
+          <PoweredBy className="ml-auto" />
+        </div>
+      </footer>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { Wordmark } from '../../components/shell/wordmark';
 import { DocsNav } from '../../components/docs/docs-nav';
+import { PoweredBy } from '../../components/shell/powered-by';
 
 export const metadata: Metadata = {
   title: {
@@ -49,10 +50,11 @@ export default function DocsLayout({ children }: { children: React.ReactNode }) 
       </div>
 
       <footer className="border-t border-line-soft">
-        <div className="mx-auto max-w-6xl px-6 py-8">
+        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-6 py-8 sm:flex-row sm:items-center sm:justify-between">
           <p className="font-mono text-[11px] tracking-[0.14em] text-mute">
             MEZZO ENGINEERING DOCS — INTERNAL
           </p>
+          <PoweredBy />
         </div>
       </footer>
     </div>

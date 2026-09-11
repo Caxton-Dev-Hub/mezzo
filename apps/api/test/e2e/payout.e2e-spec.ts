@@ -234,7 +234,7 @@ describe('Payout (e2e)', () => {
     const payout = response.body as PayoutResponseBody;
     expect(payout.status).toBe(PayoutStatus.PENDING);
 
-    expect(await ledger.getBalance(userWalletRef(seller.userId))).toEqual({
+    expect(await ledger.getBalance(userWalletRef(seller.userId, 'NGN'))).toEqual({
       amount: 50_000,
       currency: 'NGN',
     });
@@ -255,7 +255,7 @@ describe('Payout (e2e)', () => {
     expect(second.status).toBe(201);
     expect((second.body as PayoutResponseBody).id).toBe((first.body as PayoutResponseBody).id);
 
-    expect(await ledger.getBalance(userWalletRef(seller.userId))).toEqual({
+    expect(await ledger.getBalance(userWalletRef(seller.userId, 'NGN'))).toEqual({
       amount: 60_000,
       currency: 'NGN',
     });
@@ -311,7 +311,7 @@ describe('Payout (e2e)', () => {
 
     const confirmed = await payouts.findOneOrFail({ where: { id: payout.id } });
     expect(confirmed.status).toBe(PayoutStatus.CONFIRMED);
-    expect(await ledger.getBalance(userWalletRef(seller.userId))).toEqual({
+    expect(await ledger.getBalance(userWalletRef(seller.userId, 'NGN'))).toEqual({
       amount: 40_000,
       currency: 'NGN',
     });
@@ -328,7 +328,7 @@ describe('Payout (e2e)', () => {
       });
     const payout = response.body as PayoutResponseBody;
 
-    expect(await ledger.getBalance(userWalletRef(seller.userId))).toEqual({
+    expect(await ledger.getBalance(userWalletRef(seller.userId, 'NGN'))).toEqual({
       amount: 40_000,
       currency: 'NGN',
     });
@@ -340,12 +340,12 @@ describe('Payout (e2e)', () => {
 
     const failed = await payouts.findOneOrFail({ where: { id: payout.id } });
     expect(failed.status).toBe(PayoutStatus.FAILED);
-    expect(await ledger.getBalance(userWalletRef(seller.userId))).toEqual({
+    expect(await ledger.getBalance(userWalletRef(seller.userId, 'NGN'))).toEqual({
       amount: 60_000,
       currency: 'NGN',
     });
 
-    const clearingBalance = await ledger.getBalance(providerClearingRef('paystack'));
+    const clearingBalance = await ledger.getBalance(providerClearingRef('paystack', 'NGN'));
     expect(clearingBalance.currency).toBe('NGN');
   });
 

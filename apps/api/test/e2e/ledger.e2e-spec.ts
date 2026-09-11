@@ -44,7 +44,7 @@ describe('Ledger (e2e)', () => {
     return ledger.postTransaction(
       [
         {
-          accountRef: providerClearingRef(provider),
+          accountRef: providerClearingRef(provider, 'NGN'),
           direction: EntryDirection.DEBIT,
           money: Money.of(amountKobo, 'NGN'),
         },
@@ -64,7 +64,7 @@ describe('Ledger (e2e)', () => {
 
     expect(posting.id).toBeDefined();
     expect(await ledger.getBalance(escrowHoldingRef(escrowId))).toEqual({ amount: 100_000, currency: 'NGN' });
-    expect(await ledger.getBalance(providerClearingRef('paystack'))).toMatchObject({ currency: 'NGN' });
+    expect(await ledger.getBalance(providerClearingRef('paystack', 'NGN'))).toMatchObject({ currency: 'NGN' });
   });
 
   it('rejects an unbalanced posting atomically -- no posting or entries are created', async () => {
@@ -80,7 +80,7 @@ describe('Ledger (e2e)', () => {
             money: Money.of(1_000, 'NGN'),
           },
           {
-            accountRef: providerClearingRef('paystack'),
+            accountRef: providerClearingRef('paystack', 'NGN'),
             direction: EntryDirection.DEBIT,
             money: Money.of(900, 'NGN'),
           },
@@ -124,12 +124,12 @@ describe('Ledger (e2e)', () => {
           money: Money.of(feeAmount + releaseAmount, 'NGN'),
         },
         {
-          accountRef: userWalletRef('seller-1'),
+          accountRef: userWalletRef('seller-1', 'NGN'),
           direction: EntryDirection.CREDIT,
           money: Money.of(releaseAmount, 'NGN'),
         },
         {
-          accountRef: platformFeeRevenueRef(),
+          accountRef: platformFeeRevenueRef('NGN'),
           direction: EntryDirection.CREDIT,
           money: Money.of(feeAmount, 'NGN'),
         },
@@ -159,7 +159,7 @@ describe('Ledger (e2e)', () => {
             money: Money.of(20_000, 'USD'),
           },
           {
-            accountRef: userWalletRef('seller-2'),
+            accountRef: userWalletRef('seller-2', 'NGN'),
             direction: EntryDirection.CREDIT,
             money: Money.of(20_000, 'USD'),
           },
@@ -178,7 +178,7 @@ describe('Ledger (e2e)', () => {
           money: Money.of(20_000, 'NGN'),
         },
         {
-          accountRef: userWalletRef('seller-2'),
+          accountRef: userWalletRef('seller-2', 'NGN'),
           direction: EntryDirection.CREDIT,
           money: Money.of(20_000, 'NGN'),
         },
@@ -202,7 +202,7 @@ describe('Ledger (e2e)', () => {
         await ledger.postTransaction(
           [
             {
-              accountRef: providerClearingRef('paystack'),
+              accountRef: providerClearingRef('paystack', 'NGN'),
               direction: EntryDirection.DEBIT,
               money: Money.of(amount, 'NGN'),
             },
@@ -223,7 +223,7 @@ describe('Ledger (e2e)', () => {
               money: Money.of(amount, 'NGN'),
             },
             {
-              accountRef: userWalletRef(sellerId),
+              accountRef: userWalletRef(sellerId, 'NGN'),
               direction: EntryDirection.CREDIT,
               money: Money.of(amount, 'NGN'),
             },

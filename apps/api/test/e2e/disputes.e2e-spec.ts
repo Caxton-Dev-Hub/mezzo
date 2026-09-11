@@ -466,7 +466,7 @@ describe('Disputes (e2e)', () => {
       amount: 0,
       currency: 'NGN',
     });
-    expect(await ledger.getBalance(userWalletRef(seller.userId))).toEqual({
+    expect(await ledger.getBalance(userWalletRef(seller.userId, 'NGN'))).toEqual({
       amount: sellerAmount,
       currency: 'NGN',
     });
@@ -491,7 +491,7 @@ describe('Disputes (e2e)', () => {
       amount: 0,
       currency: 'NGN',
     });
-    expect(await ledger.getBalance(userWalletRef(buyer.userId))).toEqual({
+    expect(await ledger.getBalance(userWalletRef(buyer.userId, 'NGN'))).toEqual({
       amount: priceAmount,
       currency: 'NGN',
     });
@@ -518,9 +518,9 @@ describe('Disputes (e2e)', () => {
     const buyerAmount = priceAmount - releasedAmount;
 
     const holding = await ledger.getBalance(escrowHoldingRef(escrowId));
-    const sellerBalance = await ledger.getBalance(userWalletRef(seller.userId));
-    const buyerBalance = await ledger.getBalance(userWalletRef(buyer.userId));
-    const feeBalance = await ledger.getBalance(platformFeeRevenueRef());
+    const sellerBalance = await ledger.getBalance(userWalletRef(seller.userId, 'NGN'));
+    const buyerBalance = await ledger.getBalance(userWalletRef(buyer.userId, 'NGN'));
+    const feeBalance = await ledger.getBalance(platformFeeRevenueRef('NGN'));
 
     expect(holding).toEqual({ amount: 0, currency: 'NGN' });
     expect(sellerBalance).toEqual({ amount: sellerAmount, currency: 'NGN' });
@@ -554,7 +554,7 @@ describe('Disputes (e2e)', () => {
 
     const feeAmount = Math.floor((priceAmount * feeBps) / 10_000);
     const sellerAmount = priceAmount - feeAmount;
-    expect(await ledger.getBalance(userWalletRef(seller.userId))).toEqual({
+    expect(await ledger.getBalance(userWalletRef(seller.userId, 'NGN'))).toEqual({
       amount: sellerAmount,
       currency: 'NGN',
     });

@@ -95,7 +95,10 @@ export class PayoutService {
     }
 
     const requested = Money.of(dto.amount.amount, dto.amount.currency);
-    const balance = await this.ledgerService.getBalance(userWalletRef(sellerId));
+    const balance = await this.ledgerService.getBalanceOrZero(
+      userWalletRef(sellerId, requested.currency),
+      requested.currency,
+    );
     if (balance.currency !== requested.currency || balance.amount < requested.amount) {
       throw new InsufficientWalletBalanceError(balance.amount, requested.amount);
     }
@@ -136,9 +139,13 @@ export class PayoutService {
 
       await this.ledgerService.postTransaction(
         [
-          { accountRef: userWalletRef(sellerId), direction: EntryDirection.DEBIT, money: requested },
           {
-            accountRef: providerClearingRef(this.paymentProvider.name),
+            accountRef: userWalletRef(sellerId, requested.currency),
+            direction: EntryDirection.DEBIT,
+            money: requested,
+          },
+          {
+            accountRef: providerClearingRef(this.paymentProvider.name, requested.currency),
             direction: EntryDirection.CREDIT,
             money: requested,
           },
@@ -201,12 +208,12 @@ export class PayoutService {
       await this.ledgerService.postTransaction(
         [
           {
-            accountRef: providerClearingRef(payout.provider),
+            accountRef: providerClearingRef(payout.provider, payout.currency),
             direction: EntryDirection.DEBIT,
             money: Money.of(payout.amount, payout.currency),
           },
           {
-            accountRef: userWalletRef(payout.sellerId),
+            accountRef: userWalletRef(payout.sellerId, payout.currency),
             direction: EntryDirection.CREDIT,
             money: Money.of(payout.amount, payout.currency),
           },

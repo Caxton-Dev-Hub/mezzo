@@ -257,12 +257,12 @@ describe('Settlement (e2e)', () => {
       amount: 0,
       currency: 'NGN',
     });
-    expect(await ledger.getBalance(userWalletRef(seller.userId))).toEqual({
+    expect(await ledger.getBalance(userWalletRef(seller.userId, 'NGN'))).toEqual({
       amount: sellerAmount,
       currency: 'NGN',
     });
 
-    const feeBalance = await ledger.getBalance(platformFeeRevenueRef());
+    const feeBalance = await ledger.getBalance(platformFeeRevenueRef('NGN'));
     expect(feeBalance.amount).toBeGreaterThanOrEqual(feeAmount);
   });
 
@@ -309,7 +309,7 @@ describe('Settlement (e2e)', () => {
 
     const feeAmount = Math.floor((priceAmount * feeBps) / 10_000);
     const sellerAmount = priceAmount - feeAmount;
-    expect(await ledger.getBalance(userWalletRef(seller.userId))).toEqual({
+    expect(await ledger.getBalance(userWalletRef(seller.userId, 'NGN'))).toEqual({
       amount: sellerAmount,
       currency: 'NGN',
     });
@@ -355,7 +355,7 @@ describe('Settlement (e2e)', () => {
         amount: 0,
         currency: 'NGN',
       });
-      expect(await ledger.getBalance(userWalletRef(seller.userId))).toEqual({
+      expect(await ledger.getBalance(userWalletRef(seller.userId, 'NGN'))).toEqual({
         amount: sellerAmount,
         currency: 'NGN',
       });
@@ -389,7 +389,7 @@ describe('Settlement (e2e)', () => {
 
     const feeAmount = Math.floor((priceAmount * feeBps) / 10_000);
     const sellerAmount = priceAmount - feeAmount;
-    expect(await ledger.getBalance(userWalletRef(seller.userId))).toEqual({
+    expect(await ledger.getBalance(userWalletRef(seller.userId, 'NGN'))).toEqual({
       amount: sellerAmount,
       currency: 'NGN',
     });
@@ -403,7 +403,7 @@ describe('Settlement (e2e)', () => {
       .set(auth(buyer.accessToken));
     await request(server).post(`/escrows/${escrowId}/release`).set(auth(buyer.accessToken));
 
-    const balanceAfterRelease = await ledger.getBalance(userWalletRef(seller.userId));
+    const balanceAfterRelease = await ledger.getBalance(userWalletRef(seller.userId, 'NGN'));
 
     const lateDeliver = await request(server)
       .post(`/escrows/${escrowId}/confirm-delivery`)
@@ -419,7 +419,7 @@ describe('Settlement (e2e)', () => {
       code: 'ILLEGAL_ESCROW_TRANSITION',
     });
 
-    expect(await ledger.getBalance(userWalletRef(seller.userId))).toEqual(balanceAfterRelease);
+    expect(await ledger.getBalance(userWalletRef(seller.userId, 'NGN'))).toEqual(balanceAfterRelease);
   });
 
   it('refund credits the buyer wallet and leaves the escrow holding at zero', async () => {
@@ -434,7 +434,7 @@ describe('Settlement (e2e)', () => {
       amount: 0,
       currency: 'NGN',
     });
-    expect(await ledger.getBalance(userWalletRef(buyer.userId))).toEqual({
+    expect(await ledger.getBalance(userWalletRef(buyer.userId, 'NGN'))).toEqual({
       amount: 90_000,
       currency: 'NGN',
     });

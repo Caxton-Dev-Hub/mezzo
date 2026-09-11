@@ -216,7 +216,7 @@ export class PaymentsService {
       await this.ledgerService.postTransaction(
         [
           {
-            accountRef: providerClearingRef(intent.provider),
+            accountRef: providerClearingRef(intent.provider, intent.currency),
             direction: EntryDirection.DEBIT,
             money: Money.of(intent.amount, intent.currency),
           },
