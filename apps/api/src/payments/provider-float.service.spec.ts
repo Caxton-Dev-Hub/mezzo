@@ -71,8 +71,8 @@ afterEach(() => {
 describe('ProviderFloatService', () => {
   it('reports both providers even though only one processes payments', async () => {
     const harness = buildHarness(LIVE_ENV, {
-      [providerClearingRef('paystack')]: 4_230_000,
-      [providerClearingRef('flutterwave')]: 915_000,
+      [providerClearingRef('paystack', 'NGN')]: 4_230_000,
+      [providerClearingRef('flutterwave', 'NGN')]: 915_000,
     });
     harness.paystackGetBalance.mockResolvedValue({ amountKobo: 4_230_000, currency: 'NGN' });
     harness.flutterwaveGetBalance.mockResolvedValue({ amountKobo: 915_000, currency: 'NGN' });
@@ -85,7 +85,7 @@ describe('ProviderFloatService', () => {
 
   it('reports a shortfall when the live float is below the clearing account', async () => {
     const harness = buildHarness(LIVE_ENV, {
-      [providerClearingRef('flutterwave')]: 915_000,
+      [providerClearingRef('flutterwave', 'NGN')]: 915_000,
     });
     harness.paystackGetBalance.mockResolvedValue({ amountKobo: 0, currency: 'NGN' });
     harness.flutterwaveGetBalance.mockResolvedValue({ amountKobo: 910_000, currency: 'NGN' });
@@ -104,7 +104,7 @@ describe('ProviderFloatService', () => {
 
   it('reports a surplus when the live float exceeds the clearing account', async () => {
     const harness = buildHarness(LIVE_ENV, {
-      [providerClearingRef('paystack')]: 100_000,
+      [providerClearingRef('paystack', 'NGN')]: 100_000,
     });
     harness.paystackGetBalance.mockResolvedValue({ amountKobo: 130_000, currency: 'NGN' });
     harness.flutterwaveGetBalance.mockResolvedValue({ amountKobo: 0, currency: 'NGN' });
@@ -120,7 +120,7 @@ describe('ProviderFloatService', () => {
 
   it('keeps reporting the clearing balance when a provider is unreachable', async () => {
     const harness = buildHarness(LIVE_ENV, {
-      [providerClearingRef('paystack')]: 4_230_000,
+      [providerClearingRef('paystack', 'NGN')]: 4_230_000,
     });
     harness.paystackGetBalance.mockRejectedValue(
       new ServiceUnavailableException('Paystack balance retrieval failed'),
@@ -142,7 +142,7 @@ describe('ProviderFloatService', () => {
   it('never calls a provider whose secret key is absent', async () => {
     const harness = buildHarness(
       { PAYMENT_PROVIDER: 'paystack', PAYSTACK_SECRET_KEY: 'sk_test_123' },
-      { [providerClearingRef('flutterwave')]: 42 },
+      { [providerClearingRef('flutterwave', 'NGN')]: 42 },
     );
     harness.paystackGetBalance.mockResolvedValue({ amountKobo: 0, currency: 'NGN' });
 
@@ -178,7 +178,7 @@ describe('ProviderFloatService', () => {
   it('reads the fake provider instead of the live ones when running in fake mode', async () => {
     const harness = buildHarness(
       { PAYMENT_PROVIDER: 'fake', PAYSTACK_SECRET_KEY: 'sk_test_123' },
-      { [providerClearingRef('paystack')]: 700_00 },
+      { [providerClearingRef('paystack', 'NGN')]: 700_00 },
     );
     harness.fakeProvider.seedBalance(700_00);
 

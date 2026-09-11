@@ -39,7 +39,7 @@ export class WalletService {
     const escrowIds = await this.escrowService.listEscrowIdsForUser(userId);
 
     const [available, heldInEscrow, pending] = await Promise.all([
-      this.ledgerService.getBalanceOrZero(userWalletRef(userId), PLATFORM_CURRENCY),
+      this.ledgerService.getBalanceOrZero(userWalletRef(userId, PLATFORM_CURRENCY), PLATFORM_CURRENCY),
       this.ledgerService.sumBalances(escrowIds.map(escrowHoldingRef), PLATFORM_CURRENCY),
       this.sumPendingPayouts(userId),
     ]);
@@ -49,7 +49,7 @@ export class WalletService {
 
   async listActivity(userId: string): Promise<WalletActivityResponse[]> {
     const [entries, fundings] = await Promise.all([
-      this.ledgerService.listActivity(userWalletRef(userId), ACTIVITY_LIMIT),
+      this.ledgerService.listActivity(userWalletRef(userId, PLATFORM_CURRENCY), ACTIVITY_LIMIT),
       this.intents.find({
         where: { buyerId: userId, status: PaymentIntentStatus.FUNDED },
         order: { updatedAt: 'DESC' },

@@ -208,7 +208,11 @@ export class SettlementService {
         await this.ledgerService.postTransaction(
           [
             { accountRef: escrowHoldingRef(escrowId), direction: EntryDirection.DEBIT, money: price },
-            { accountRef: userWalletRef(buyer.userId), direction: EntryDirection.CREDIT, money: price },
+            {
+            accountRef: userWalletRef(buyer.userId, price.currency),
+            direction: EntryDirection.CREDIT,
+            money: price,
+          },
           ],
           { idempotencyKey: `refund:${escrowId}`, correlationId: escrowId },
           manager,
@@ -244,12 +248,12 @@ export class SettlementService {
           [
             { accountRef: escrowHoldingRef(escrowId), direction: EntryDirection.DEBIT, money: price },
             {
-              accountRef: userWalletRef(seller.userId),
+              accountRef: userWalletRef(seller.userId, sellerAmount.currency),
               direction: EntryDirection.CREDIT,
               money: sellerAmount,
             },
             {
-              accountRef: platformFeeRevenueRef(),
+              accountRef: platformFeeRevenueRef(feeAmount.currency),
               direction: EntryDirection.CREDIT,
               money: feeAmount,
             },

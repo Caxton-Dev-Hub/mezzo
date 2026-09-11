@@ -245,21 +245,21 @@ export class DisputeService {
     ];
     if (sellerAmount.amount > 0) {
       lines.push({
-        accountRef: userWalletRef(seller.userId),
+        accountRef: userWalletRef(seller.userId, sellerAmount.currency),
         direction: EntryDirection.CREDIT,
         money: sellerAmount,
       });
     }
     if (feeAmount.amount > 0) {
       lines.push({
-        accountRef: platformFeeRevenueRef(),
+        accountRef: platformFeeRevenueRef(feeAmount.currency),
         direction: EntryDirection.CREDIT,
         money: feeAmount,
       });
     }
     if (buyerAmount.amount > 0) {
       lines.push({
-        accountRef: userWalletRef(buyer.userId),
+        accountRef: userWalletRef(buyer.userId, buyerAmount.currency),
         direction: EntryDirection.CREDIT,
         money: buyerAmount,
       });

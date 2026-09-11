@@ -125,12 +125,12 @@ describe('Admin console (e2e)', () => {
     it('returns the entries of an account by its ref, newest first', async () => {
       const admin = await registerAndLogin(UserRole.ADMIN);
       const holder = await registerAndLogin();
-      const ref = userWalletRef(holder.userId);
+      const ref = userWalletRef(holder.userId, 'NGN');
 
       await ledger.postTransaction(
         [
           {
-            accountRef: treasuryRef(),
+            accountRef: treasuryRef('NGN'),
             direction: EntryDirection.DEBIT,
             money: Money.of(7_500, 'NGN'),
           },
@@ -161,7 +161,7 @@ describe('Admin console (e2e)', () => {
 
       const response = await request(server)
         .get('/admin/ledger/entries')
-        .query({ accountRef: userWalletRef(randomUUID()) })
+        .query({ accountRef: userWalletRef(randomUUID(), 'NGN') })
         .set(auth(admin.accessToken));
 
       expect(response.status).toBe(404);
@@ -172,7 +172,7 @@ describe('Admin console (e2e)', () => {
 
       const response = await request(server)
         .get('/admin/ledger/entries')
-        .query({ accountRef: userWalletRef(user.userId) })
+        .query({ accountRef: userWalletRef(user.userId, 'NGN') })
         .set(auth(user.accessToken));
 
       expect(response.status).toBe(403);

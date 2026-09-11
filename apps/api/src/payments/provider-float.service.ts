@@ -45,7 +45,7 @@ export class ProviderFloatService {
 
   private async reportFor({ name, provider }: FloatCandidate): Promise<ProviderFloatReport> {
     const clearing = await this.ledgerService.getBalanceOrZero(
-      providerClearingRef(name),
+      providerClearingRef(name, PLATFORM_CURRENCY),
       PLATFORM_CURRENCY,
     );
 

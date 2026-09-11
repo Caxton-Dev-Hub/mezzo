@@ -143,7 +143,12 @@ Flutterwave a constant-time compare of the `verif-hash` header against
 consumes. The clearing account a funding posts against comes from
 `PaymentIntent.provider` (and a payout reversal from `Payout.provider`), never
 from whichever provider happens to be active now, so money always settles
-against the gateway that actually took it.
+against the gateway that actually took it. The currency comes from the same
+row for the same reason — clearing and wallet accounts are identified per
+currency (`provider:paystack:clearing:NGN`), so a payout can never be drawn
+out of a balance denominated in something else. See the `ledger` README for
+why the currency is part of the account's identity rather than a property of
+it.
 
 Flutterwave quotes amounts in **major** units where Paystack quotes minor
 ones. The normalizer converts via `majorToMinorUnits()`, which parses the

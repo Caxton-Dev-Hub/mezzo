@@ -295,7 +295,7 @@ describe('Admin (e2e)', () => {
     expect((escrowResponse.body as EscrowDetailBody).state).toBe(EscrowState.RELEASED);
 
     const feeAmount = Math.floor((priceAmount * feeBps) / 10_000);
-    expect(await ledger.getBalance(userWalletRef(seller.userId))).toEqual({
+    expect(await ledger.getBalance(userWalletRef(seller.userId, 'NGN'))).toEqual({
       amount: priceAmount - feeAmount,
       currency: 'NGN',
     });
@@ -374,8 +374,8 @@ describe('Admin (e2e)', () => {
       .post('/admin/ledger/adjustments')
       .set(auth(arbiter.accessToken))
       .send({
-        debitAccountRef: treasuryRef(),
-        creditAccountRef: platformFeeRevenueRef(),
+        debitAccountRef: treasuryRef('NGN'),
+        creditAccountRef: platformFeeRevenueRef('NGN'),
         amount: 500,
         currency: 'NGN',
         reason: 'test adjustment',
@@ -386,8 +386,8 @@ describe('Admin (e2e)', () => {
       .post('/admin/ledger/adjustments')
       .set(auth(admin.accessToken))
       .send({
-        debitAccountRef: treasuryRef(),
-        creditAccountRef: platformFeeRevenueRef(),
+        debitAccountRef: treasuryRef('NGN'),
+        creditAccountRef: platformFeeRevenueRef('NGN'),
         amount: 500,
         currency: 'NGN',
         reason: 'correcting a manual fee reversal',
@@ -415,7 +415,7 @@ describe('Admin (e2e)', () => {
     await ledger.postTransaction(
       [
         {
-          accountRef: treasuryRef(),
+          accountRef: treasuryRef('NGN'),
           direction: EntryDirection.DEBIT,
           money: Money.of(10_000, 'NGN'),
         },

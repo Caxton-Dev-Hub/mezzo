@@ -34,7 +34,7 @@ describe('LedgerService.postTransaction', () => {
 
     await expect(
       service.postTransaction(
-        [{ accountRef: userWalletRef('u1'), direction: EntryDirection.CREDIT, money: Money.of(100, 'NGN') }],
+        [{ accountRef: userWalletRef('u1', 'NGN'), direction: EntryDirection.CREDIT, money: Money.of(100, 'NGN') }],
         { idempotencyKey: 'k1' },
       ),
     ).rejects.toBeInstanceOf(EmptyPostingError);
@@ -55,7 +55,7 @@ describe('LedgerService.postTransaction', () => {
             money: Money.of(1_000, 'NGN'),
           },
           {
-            accountRef: userWalletRef('u1'),
+            accountRef: userWalletRef('u1', 'NGN'),
             direction: EntryDirection.CREDIT,
             money: Money.of(900, 'NGN'),
           },
@@ -76,7 +76,7 @@ describe('LedgerService.postTransaction', () => {
     const result = await service.postTransaction(
       [
         { accountRef: escrowHoldingRef('e1'), direction: EntryDirection.DEBIT, money: Money.of(500, 'NGN') },
-        { accountRef: userWalletRef('u1'), direction: EntryDirection.CREDIT, money: Money.of(500, 'NGN') },
+        { accountRef: userWalletRef('u1', 'NGN'), direction: EntryDirection.CREDIT, money: Money.of(500, 'NGN') },
       ],
       { idempotencyKey: 'k3' },
     );
@@ -93,7 +93,7 @@ describe('LedgerService.postTransaction', () => {
       service.postTransaction(
         [
           { accountRef: escrowHoldingRef('e1'), direction: EntryDirection.DEBIT, money: Money.of(500, 'NGN') },
-          { accountRef: userWalletRef('u1'), direction: EntryDirection.CREDIT, money: Money.of(500, 'USD') },
+          { accountRef: userWalletRef('u1', 'NGN'), direction: EntryDirection.CREDIT, money: Money.of(500, 'USD') },
         ],
         { idempotencyKey: 'k4' },
       ),

@@ -520,7 +520,7 @@ describe('WhatsApp bot (e2e)', () => {
         amount: 0,
         currency: 'NGN',
       });
-      expect(await ledger.getBalance(userWalletRef(seller.userId))).toEqual({
+      expect(await ledger.getBalance(userWalletRef(seller.userId, 'NGN'))).toEqual({
         amount: sellerAmount,
         currency: 'NGN',
       });

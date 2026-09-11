@@ -9,7 +9,7 @@ import { LedgerEntry } from '../database/entities/ledger-entry.entity';
 import { Money } from '../common/money/money';
 
 const ACCOUNT_ID = 'account-1';
-const REF = userWalletRef('user-1');
+const REF = userWalletRef('user-1', 'NGN');
 
 function buildAccount(overrides: Partial<LedgerAccount> = {}): LedgerAccount {
   return {

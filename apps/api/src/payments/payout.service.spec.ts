@@ -16,6 +16,7 @@ import { providerClearingRef, userWalletRef } from '../ledger/account-refs';
 import { KycService } from '../kyc/kyc.service';
 import { KycTier } from '../kyc/entities/kyc-tier.enum';
 import { Money } from '../common/money/money';
+import { Currency } from '../common/money/currency';
 import { callArg } from '../../test/support/mock-calls';
 
 const SELLER_ID = 'seller-1';
@@ -133,11 +134,23 @@ function buildHarness(
     transaction: jest.fn().mockImplementation((cb: (m: EntityManager) => Promise<unknown>) => cb(manager)),
   } as unknown as DataSource;
 
-  const getBalance = jest
+  const walletBalance = options.balance ?? Money.of(100_000, 'NGN');
+  const getBalance = jest.fn().mockResolvedValue(walletBalance);
+  const getBalanceOrZero = jest
     .fn()
-    .mockResolvedValue(options.balance ?? Money.of(100_000, 'NGN'));
+    .mockImplementation((_ref: string, currency: Currency) =>
+      Promise.resolve(
+        walletBalance.currency === currency
+          ? { amount: walletBalance.amount, currency }
+          : { amount: 0, currency },
+      ),
+    );
   const postTransaction = jest.fn().mockResolvedValue(undefined);
-  const ledgerService = { getBalance, postTransaction } as unknown as LedgerService;
+  const ledgerService = {
+    getBalance,
+    getBalanceOrZero,
+    postTransaction,
+  } as unknown as LedgerService;
 
   const requireTier = jest.fn().mockResolvedValue(undefined);
   const kycService = { requireTier } as unknown as KycService;
@@ -303,12 +316,12 @@ describe('PayoutService.requestPayout', () => {
     const lines = callArg<PostingLine[]>(harness.postTransaction, 0, 0);
     expect(lines).toEqual([
       expect.objectContaining({
-        accountRef: userWalletRef(SELLER_ID),
+        accountRef: userWalletRef(SELLER_ID, 'NGN'),
         direction: EntryDirection.DEBIT,
         money: expect.objectContaining({ amount: 50_000, currency: 'NGN' }) as Money,
       }),
       expect.objectContaining({
-        accountRef: providerClearingRef('paystack'),
+        accountRef: providerClearingRef('paystack', 'NGN'),
         direction: EntryDirection.CREDIT,
         money: expect.objectContaining({ amount: 50_000, currency: 'NGN' }) as Money,
       }),
@@ -492,12 +505,12 @@ describe('PayoutService.handleTransferWebhook', () => {
     const lines = callArg<PostingLine[]>(harness.postTransaction, 0, 0);
     expect(lines).toEqual([
       expect.objectContaining({
-        accountRef: providerClearingRef('paystack'),
+        accountRef: providerClearingRef('paystack', 'NGN'),
         direction: EntryDirection.DEBIT,
         money: expect.objectContaining({ amount: 50_000 }) as Money,
       }),
       expect.objectContaining({
-        accountRef: userWalletRef(SELLER_ID),
+        accountRef: userWalletRef(SELLER_ID, 'NGN'),
         direction: EntryDirection.CREDIT,
         money: expect.objectContaining({ amount: 50_000 }) as Money,
       }),
