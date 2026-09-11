@@ -2,6 +2,8 @@
 
 **AI-assisted escrow infrastructure for peer-to-peer marketplace transactions.**
 
+_Powered by [caxton-dev-hub](https://github.com/caxton-dev-hub)._
+
 Mezzo enables buyers and sellers — often located in different cities or states — to transact safely without requiring prior trust between the parties. Sellers document the condition of an item at the point of listing using photo and video evidence. Buyers review that evidence before funding the transaction. Funds are held in escrow until delivery is confirmed, and in the event of a dispute, an AI-assisted arbitration layer analyzes the recorded evidence to produce a recommended resolution, subject to human review before any funds are moved.
 
 ---
@@ -199,6 +201,7 @@ apps/
       evidence/                media upload, hashing, EXIF extraction, integrity flags
       ledger/                  double-entry postings, accounts, reconciliation
       payments/                Paystack funding and payouts, webhook processing
+      stellar/                 on-chain USDC funding rail and settlement (Stellar)
       disputes/                dispute lifecycle, evidence windows, DisputePacket assembly
       arbitration/             AI recommendation engine and evaluation harness
       chat/                    in-transaction messaging
@@ -342,6 +345,11 @@ The importer saves by primary key, so it is safe to re-run. Uniqueness on `email
 | `CORS_ALLOWED_ORIGINS`                                          | Origins permitted to call the API (the web app's URL in each environment) |
 | `GOOGLE_AUTH_ENABLED`                                           | Turns the Google sign-in endpoint on; the API refuses it when unset       |
 | `GOOGLE_CLIENT_ID`                                              | OAuth client ID every Google ID token must be minted for                  |
+| `STELLAR_MODE`                                                  | `off` disables the rail, `dev` runs it against a simulated network, `live` against Horizon |
+| `STELLAR_NETWORK`                                               | `testnet` or `public`                                                     |
+| `STELLAR_ASSET_CODE` / `STELLAR_ASSET_ISSUER`                   | The asset escrows are funded in (USDC and its issuing account)            |
+| `STELLAR_HORIZON_URL`                                           | Horizon endpoint used when `STELLAR_MODE=live`                            |
+| `STELLAR_CUSTODY_SECRET`                                        | Signing seed for the account that holds escrowed USDC; required for `live` |
 
 ### `apps/web/.env.local`
 
@@ -351,6 +359,7 @@ The importer saves by primary key, so it is safe to re-run. Uniqueness on `email
 | `NEXT_PUBLIC_WS_URL`           | WebSocket endpoint for realtime updates                                           |
 | `NEXT_PUBLIC_MAX_UPLOAD_MB`    | Client-side cap enforced before an upload is attempted, mirroring the API's limit |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Same OAuth client ID as the API; absent, the Google button is not rendered        |
+| `NEXT_PUBLIC_STELLAR_MODE`     | `live` renders a working Connect wallet button; anything else renders "Stellar — coming soon" |
 
 ### Google sign-in
 

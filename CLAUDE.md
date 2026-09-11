@@ -12,7 +12,7 @@ Project conventions for AI-assisted development on Mezzo. Read this before start
 
 ## Architecture
 
-- Modular Nest monolith. Feature modules: `auth`, `users`, `kyc`, `escrow`, `evidence`, `ledger`, `payments`, `disputes`, `arbitration`, `chat`, `notifications`, `admin`.
+- Modular Nest monolith. Feature modules: `auth`, `users`, `kyc`, `escrow`, `evidence`, `ledger`, `payments`, `stellar`, `disputes`, `arbitration`, `chat`, `notifications`, `admin`.
 - Domain logic lives in services. Controllers are thin: request in, DTO validation, delegate to a service, response out.
 - Each module owns its own entities/models, service logic, test suite, and a `README.md` documenting its design decisions — not what the code does, but why. `scripts/check-touched-tests.mjs` warns (non-blocking) when a module's logic changes without its README changing in the same diff.
 - Request/response validation schemas live once in `packages/shared-types` as Zod schemas and are imported by both the API (DTO validation) and the web app (form validation). Never redefine a shape on the client.

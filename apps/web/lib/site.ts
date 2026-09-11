@@ -5,6 +5,10 @@ export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://mezzoescro
 
 export const SITE_NAME = 'Mezzo';
 
+export const BUILDER_NAME = 'caxton-dev-hub';
+
+export const BUILDER_URL = 'https://github.com/caxton-dev-hub';
+
 export const SITE_TAGLINE = 'Escrow that documents the item before money moves';
 
 export const SITE_DESCRIPTION =
@@ -35,6 +39,7 @@ export function organizationSchema(): Record<string, unknown> {
     url: absoluteUrl('/'),
     logo: absoluteUrl('/mezzo-mark.svg'),
     description: SITE_DESCRIPTION,
+    brand: { '@type': 'Organization', name: BUILDER_NAME, url: BUILDER_URL },
     areaServed: {
       '@type': 'Country',
       name: 'Nigeria',

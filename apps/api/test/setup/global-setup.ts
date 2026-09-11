@@ -69,6 +69,11 @@ export default async function globalSetup(): Promise<void> {
   process.env.WHATSAPP_PIN_LOCKOUT_MINUTES ??= '15';
   process.env.WHATSAPP_SESSION_TTL_SECONDS ??= '600';
   process.env.WHATSAPP_MESSAGE_DEDUPE_TTL_SECONDS ??= '300';
+  process.env.STELLAR_MODE ??= 'dev';
+  process.env.STELLAR_NETWORK ??= 'testnet';
+  process.env.STELLAR_ASSET_CODE ??= 'USDC';
+  process.env.STELLAR_ASSET_ISSUER ??= 'GBDRKK7NTD4ZGLJQRXIYJEOKJUAHRLVYEEFP72E7XBWPCG7JMSAM3UQ2';
+  process.env.STELLAR_HORIZON_URL ??= 'https://horizon-testnet.stellar.org';
 
   execSync('pnpm typeorm migration:run', {
     cwd: join(__dirname, '..', '..'),

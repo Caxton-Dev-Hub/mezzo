@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { Fingerprint, Scale, Layers } from 'lucide-react';
 import { REFRESH_COOKIE_NAME } from '../lib/server-config';
 import { Wordmark } from '../components/shell/wordmark';
+import { PoweredBy } from '../components/shell/powered-by';
 import { buttonVariants } from '../components/ui/button';
 import { EscrowOrb } from '../components/landing/escrow-orb';
 import { WaitlistForm } from '../components/landing/waitlist-form';
@@ -525,7 +526,10 @@ export default async function LandingPage() {
             <p className="font-mono text-[11px] tracking-[0.14em] text-mute">
               ESCROW THAT DOCUMENTS THE ITEM BEFORE MONEY MOVES
             </p>
-            <p className="text-[13px] text-mute">© {new Date().getFullYear()} Mezzo</p>
+            <div className="flex flex-col gap-1 sm:items-end">
+              <p className="text-[13px] text-mute">© {new Date().getFullYear()} Mezzo</p>
+              <PoweredBy />
+            </div>
           </div>
         </div>
       </footer>

@@ -16,6 +16,7 @@ const API_MODULES = [
   'ledger',
   'notifications',
   'payments',
+  'stellar',
   'users',
   'whatsapp',
 ];

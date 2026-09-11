@@ -36,6 +36,12 @@ const CORE: ModuleEntry[] = [
       'The funding and payout path. Money only enters the ledger from a cryptographically verified provider webhook, never a client-reported result.',
     hasReadme: true,
   },
+  {
+    name: 'stellar',
+    summary:
+      'The on-chain funding rail. A USD escrow can be funded in USDC and settled back to the party’s own wallet; a deposit is verified against the chain, never taken on the client’s word.',
+    hasReadme: true,
+  },
 ];
 
 const IDENTITY: ModuleEntry[] = [

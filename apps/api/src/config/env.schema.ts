@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { stellarAccountIdSchema } from '@mezzo/shared-types';
 import { DEFAULT_JSON_STORE_PATH } from '../database/persistence-mode';
 
 const blankToUndefined = (value: unknown): unknown =>
@@ -67,6 +68,12 @@ export const envSchema = z.object({
   FLUTTERWAVE_SECRET_HASH: optionalString,
   FLUTTERWAVE_BASE_URL: z.string().url().default('https://api.flutterwave.com/v3'),
   FLUTTERWAVE_PROXY_URL: optionalUrl,
+  STELLAR_MODE: z.enum(['off', 'dev', 'live']).default('off'),
+  STELLAR_NETWORK: z.enum(['testnet', 'public']).default('testnet'),
+  STELLAR_ASSET_CODE: z.string().min(1).max(12).default('USDC'),
+  STELLAR_ASSET_ISSUER: z.preprocess(blankToUndefined, stellarAccountIdSchema.optional()),
+  STELLAR_HORIZON_URL: z.string().url().default('https://horizon-testnet.stellar.org'),
+  STELLAR_CUSTODY_SECRET: optionalString,
   ARBITRATION_PROVIDER: z.enum(['fake', 'live']).default('fake'),
   ARBITRATION_CONFIDENCE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.75),
   ANTHROPIC_API_KEY: optionalString,
@@ -164,6 +171,31 @@ export const configSchema = envSchema.superRefine((env, ctx) => {
         });
       }
     }
+  }
+
+  if (env.STELLAR_MODE !== 'off' && !env.STELLAR_ASSET_ISSUER) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['STELLAR_ASSET_ISSUER'],
+      message: 'STELLAR_ASSET_ISSUER is required when STELLAR_MODE is not "off"',
+    });
+  }
+
+  if (env.STELLAR_MODE === 'live' && !env.STELLAR_CUSTODY_SECRET) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['STELLAR_CUSTODY_SECRET'],
+      message: 'STELLAR_CUSTODY_SECRET is required when STELLAR_MODE is "live"',
+    });
+  }
+
+  if (env.NODE_ENV === 'production' && env.STELLAR_MODE === 'dev') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['STELLAR_MODE'],
+      message:
+        'STELLAR_MODE "dev" runs against a simulated network and must never be enabled in production',
+    });
   }
 
   if (env.WHATSAPP_ENABLED) {
