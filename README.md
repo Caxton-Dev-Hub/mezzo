@@ -238,7 +238,9 @@ packages/
   shared-types/                Zod schemas and TypeScript types shared between api and web
   config/                      shared ESLint/TSConfig/Prettier base configs
 
-docker-compose.yml
+docker-compose.yml             full local stack: Postgres, Redis, MinIO, API, web
+apps/api/Dockerfile            API image (build, prune to prod deps, migrate on start)
+apps/web/Dockerfile            web image (NEXT_PUBLIC_* baked in at build time)
 CLAUDE.md                      project conventions for AI-assisted development
 prompts.md                     milestone-based build plan with acceptance test cases
 ```
@@ -248,7 +250,7 @@ prompts.md                     milestone-based build plan with acceptance test c
 ### Prerequisites
 
 - Node.js 20 or later
-- Docker (for local PostgreSQL and Redis)
+- Docker (for local PostgreSQL, Redis and MinIO — or for the whole stack, see below)
 - A Paystack test account
 - Anthropic and/or OpenAI API credentials
 
@@ -273,6 +275,54 @@ pnpm --filter @mezzo/web dev
 ```
 
 The API is served at `http://localhost:3000`; the web client at `http://localhost:3001`, configured to talk to the local API via `NEXT_PUBLIC_API_URL`. The API's `GET /health` endpoint verifies database and cache connectivity; both apps fail fast on startup if required configuration is missing.
+
+### Running the whole stack in Docker
+
+`docker compose up` runs every piece — Postgres, Redis, MinIO, the API and the
+web app — in containers, with no Node toolchain on the host:
+
+```bash
+docker compose up -d --build
+```
+
+The web app is served at `http://localhost:3001` and the API at
+`http://localhost:3000`; `docker compose logs -f api web` follows both. The API
+container runs pending migrations on start, so there is no separate
+`migration:run` step, and it creates the MinIO evidence bucket on boot.
+
+API configuration is layered: the `api` service reads `apps/api/.env.example`
+first, then your own `apps/api/.env` if it exists, so a fresh clone comes up on
+the example defaults (fake payment, KYC, notification and arbitration providers)
+and your real credentials override them when present. Compose then overrides the
+handful of values that have to differ inside the container network —
+`DATABASE_URL`, `REDIS_URL`, `S3_ENDPOINT` and `S3_PUBLIC_ENDPOINT` — so those
+are not worth setting in your `.env` for Docker.
+
+Note that whichever providers your `.env` selects are the ones the container
+uses. With `NOTIFICATION_EMAIL_PROVIDER=resend` and a live key, for instance,
+registration really does call Resend, and Resend rejects recipients outside your
+verified domain — so sign-up fails with a 500 on throwaway addresses. Set it to
+`fake` for local work.
+
+The web app is configured differently: every `NEXT_PUBLIC_*` value is inlined
+into the bundle at build time, so those are passed as build args in
+`docker-compose.yml` rather than read from an env file, and changing one means
+`docker compose build web`, not a restart. The only value it reads at run time is
+`API_INTERNAL_URL`, which compose points at `http://api:3000` for server-side
+rendering.
+
+If ports 5432, 6379, 3000, 3001, 9000 or 9001 are already taken on your machine
+— a local Postgres or Redis is the usual culprit — set the host-side port in a
+root `.env` and leave the rest alone:
+
+```bash
+POSTGRES_PORT=5434
+REDIS_PORT=6380
+```
+
+Compose reads that file for `POSTGRES_PORT`, `REDIS_PORT`, `MINIO_PORT`,
+`MINIO_CONSOLE_PORT`, `API_PORT` and `WEB_PORT`. Only the published host ports
+change; the containers always talk to each other on the standard ones.
 
 ### Running without PostgreSQL
 
