@@ -38,6 +38,23 @@ S3 → API on confirm. The API process never proxies the upload itself — that'
 the whole point of presigned URLs, and it's why `confirm` has to reach back
 out to S3 itself rather than receiving the file in the request body.
 
+## Why there are two S3 endpoints
+
+Because the bytes cross the wire from two different places, the API and the
+browser do not necessarily reach S3 at the same address. Running everything
+in Docker is the case that forces this apart: the API reaches MinIO over the
+compose network at `http://minio:9000`, while the browser can only reach the
+host-published `http://localhost:9000`. A presigned URL carries its host
+inside the signature, so signing with the internal address produces a URL the
+browser cannot resolve — and the upload fails at the one step that never
+touches the API, with nothing in the API logs to show for it.
+
+`S3_ENDPOINT` is therefore the address the *API* uses for its own calls
+(`CreateBucket`, `GetObject` on confirm, `DeleteObject`), and the optional
+`S3_PUBLIC_ENDPOINT` is the address presigned URLs are signed for. Leaving
+`S3_PUBLIC_ENDPOINT` unset — or blank — means the two are the same, which is
+the right answer everywhere the browser and the API share a view of storage.
+
 ## Why declared-vs-detected mime is a hard rejection, not a flag
 
 The milestone prompt's prose lists "mismatched declared vs. detected mime"

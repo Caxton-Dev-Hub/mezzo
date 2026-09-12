@@ -11,7 +11,7 @@ export class OpenAiLlmProvider implements LlmProvider {
   private readonly model: string;
 
   constructor(private readonly configService: ConfigService) {
-    this.client = new OpenAI({ apiKey: this.configService.get<string>('OPENAI_API_KEY') ?? 'not-configured' });
+    this.client = new OpenAI({ apiKey: this.configService.get<string>('OPENAI_API_KEY') || 'not-configured' });
     this.model = this.configService.getOrThrow<string>('OPENAI_MODEL');
   }
 

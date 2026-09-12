@@ -50,6 +50,7 @@ export const envSchema = z.object({
   ADMIN_RISK_STALE_INTENT_HOURS: z.coerce.number().int().positive().default(6),
   ADMIN_RISK_UNSETTLED_HOURS: z.coerce.number().int().positive().default(1),
   S3_ENDPOINT: z.string().url(),
+  S3_PUBLIC_ENDPOINT: optionalUrl,
   S3_REGION: z.string().min(1).default('us-east-1'),
   S3_ACCESS_KEY_ID: z.string().min(1),
   S3_SECRET_ACCESS_KEY: z.string().min(1),

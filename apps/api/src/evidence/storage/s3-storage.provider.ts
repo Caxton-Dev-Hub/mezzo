@@ -17,21 +17,28 @@ import { EvidenceObjectNotFoundError } from '../errors/evidence-object-not-found
 export class S3StorageProvider implements StorageProvider, OnModuleInit {
   private readonly logger = new Logger(S3StorageProvider.name);
   private readonly client: S3Client;
+  private readonly presignClient: S3Client;
   private readonly bucket: string;
   private readonly presignExpirySeconds: number;
 
   constructor(configService: ConfigService) {
     this.bucket = configService.getOrThrow<string>('S3_BUCKET');
     this.presignExpirySeconds = configService.getOrThrow<number>('S3_PRESIGN_EXPIRY_SECONDS');
-    this.client = new S3Client({
+    const endpoint = configService.getOrThrow<string>('S3_ENDPOINT');
+    const publicEndpoint = configService.get<string>('S3_PUBLIC_ENDPOINT') || endpoint;
+    const options = {
       region: configService.getOrThrow<string>('S3_REGION'),
-      endpoint: configService.getOrThrow<string>('S3_ENDPOINT'),
       forcePathStyle: configService.getOrThrow<boolean>('S3_FORCE_PATH_STYLE'),
       credentials: {
         accessKeyId: configService.getOrThrow<string>('S3_ACCESS_KEY_ID'),
         secretAccessKey: configService.getOrThrow<string>('S3_SECRET_ACCESS_KEY'),
       },
-    });
+    };
+    this.client = new S3Client({ ...options, endpoint });
+    this.presignClient =
+      publicEndpoint === endpoint
+        ? this.client
+        : new S3Client({ ...options, endpoint: publicEndpoint });
   }
 
   async onModuleInit(): Promise<void> {
@@ -51,12 +58,12 @@ export class S3StorageProvider implements StorageProvider, OnModuleInit {
       Key: key,
       ContentType: contentType,
     });
-    return getSignedUrl(this.client, command, { expiresIn: this.presignExpirySeconds });
+    return getSignedUrl(this.presignClient, command, { expiresIn: this.presignExpirySeconds });
   }
 
   getPresignedDownloadUrl(key: string): Promise<string> {
     const command = new GetObjectCommand({ Bucket: this.bucket, Key: key });
-    return getSignedUrl(this.client, command, { expiresIn: this.presignExpirySeconds });
+    return getSignedUrl(this.presignClient, command, { expiresIn: this.presignExpirySeconds });
   }
 
   async getObject(key: string): Promise<Buffer> {
