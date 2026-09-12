@@ -2,14 +2,18 @@
 
 import { useAuthStore } from '../../lib/auth-store';
 import { stellarRailMode } from '../../lib/stellar-config';
-import { FREIGHTER_INSTALL_URL, WalletUnavailableError } from '../../lib/stellar-wallet';
+import { WalletUnavailableError } from '../../lib/stellar-wallet';
 import {
   useConnectStellarWallet,
   useDisconnectStellarWallet,
   useStellarWallet,
+  useStellarWalletSessionSync,
+  useWalletAddress,
 } from '../../hooks/use-stellar-wallet';
 import { Button } from '../ui/button';
 import { StellarLogo } from './stellar-logo';
+
+const WALLET_DIRECTORY_URL = 'https://stellar.org/ecosystem/wallets';
 
 function shortenAccountId(accountId: string): string {
   return `${accountId.slice(0, 4)}…${accountId.slice(-4)}`;
@@ -17,12 +21,17 @@ function shortenAccountId(accountId: string): string {
 
 export function ConnectWalletButton({ className }: { className?: string }) {
   const authenticated = useAuthStore((state) => state.status) === 'authenticated';
-  const mode = stellarRailMode();
-  const wallet = useStellarWallet(authenticated && mode === 'live');
+  const live = stellarRailMode() === 'live';
+  const enabled = authenticated && live;
+
+  useStellarWalletSessionSync();
+
+  const wallet = useStellarWallet(enabled);
+  const walletAddress = useWalletAddress(enabled);
   const connect = useConnectStellarWallet();
   const disconnect = useDisconnectStellarWallet();
 
-  if (mode !== 'live') {
+  if (!live) {
     return (
       <span
         className={`inline-flex items-center gap-2 rounded-full border border-line bg-surface px-4 py-2 text-[13px] text-fog shadow-hairline ${className ?? ''}`}
@@ -37,23 +46,35 @@ export function ConnectWalletButton({ className }: { className?: string }) {
     );
   }
 
-  if (wallet.data) {
+  const linked = wallet.data;
+  const drifted = Boolean(linked && walletAddress.data && walletAddress.data !== linked.accountId);
+
+  if (linked) {
     return (
-      <Button
-        variant="secondary"
-        size="sm"
-        className={className}
-        onClick={() => disconnect.mutate()}
-        loading={disconnect.isPending}
-        title={wallet.data.accountId}
-      >
-        <StellarLogo className="h-4 w-4" />
-        <span className="font-mono text-[12px]">{shortenAccountId(wallet.data.accountId)}</span>
-      </Button>
+      <div className={`flex flex-col items-end gap-1 ${className ?? ''}`}>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => disconnect.mutate()}
+          loading={disconnect.isPending}
+          title={linked.accountId}
+        >
+          <StellarLogo className="h-4 w-4" />
+          <span className="font-mono text-[12px]">{shortenAccountId(linked.accountId)}</span>
+        </Button>
+        {drifted ? (
+          <button
+            type="button"
+            onClick={() => connect.mutate()}
+            className="text-[11px] text-mute underline decoration-line underline-offset-2 hover:text-vellum"
+            data-testid="stellar-wallet-drift"
+          >
+            Your wallet is on a different account — re-link
+          </button>
+        ) : null}
+      </div>
     );
   }
-
-  const unavailable = connect.error instanceof WalletUnavailableError;
 
   return (
     <div className={`flex flex-col items-end gap-1 ${className ?? ''}`}>
@@ -68,14 +89,14 @@ export function ConnectWalletButton({ className }: { className?: string }) {
       </Button>
       {connect.error ? (
         <p className="text-[11px] text-mute">
-          {unavailable ? (
+          {connect.error instanceof WalletUnavailableError ? (
             <a
-              href={FREIGHTER_INSTALL_URL}
+              href={WALLET_DIRECTORY_URL}
               target="_blank"
               rel="noreferrer noopener"
               className="underline decoration-line underline-offset-2 hover:text-vellum"
             >
-              Install Freighter to connect
+              No Stellar wallet detected — get one
             </a>
           ) : (
             connect.error.message

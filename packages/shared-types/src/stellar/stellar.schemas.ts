@@ -30,8 +30,25 @@ export const stellarRailConfigResponseSchema = z.object({
 
 export type StellarRailConfigResponse = z.infer<typeof stellarRailConfigResponseSchema>;
 
+export const stellarLinkChallengeRequestSchema = z.object({
+  accountId: stellarAccountIdSchema,
+});
+
+export type StellarLinkChallengeRequestDto = z.infer<typeof stellarLinkChallengeRequestSchema>;
+
+export const stellarLinkChallengeResponseSchema = z.object({
+  accountId: stellarAccountIdSchema,
+  message: z.string().min(1),
+  expiresAt: z.coerce.date(),
+});
+
+export type StellarLinkChallengeResponse = z.infer<typeof stellarLinkChallengeResponseSchema>;
+
+export const stellarSignatureSchema = z.string().trim().min(1).max(512);
+
 export const linkStellarAccountSchema = z.object({
   accountId: stellarAccountIdSchema,
+  signature: stellarSignatureSchema,
 });
 
 export type LinkStellarAccountDto = z.infer<typeof linkStellarAccountSchema>;

@@ -1,11 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { StellarLinkChallengeResponse } from '@mezzo/shared-types';
 import { StellarAccount } from '../database/entities/stellar-account.entity';
 import { isStellarAccountId } from './stellar-account-id';
 import { StellarConfigService } from './stellar-config.service';
+import { StellarLinkChallengeService } from './stellar-link-challenge.service';
+import { verifyStellarSignature } from './stellar-signature';
 import { InvalidStellarAccountError } from './errors/invalid-stellar-account.error';
 import { StellarAccountNotLinkedError } from './errors/stellar-account-not-linked.error';
+import { StellarSignatureInvalidError } from './errors/stellar-signature-invalid.error';
 
 @Injectable()
 export class StellarWalletService {
@@ -13,14 +17,22 @@ export class StellarWalletService {
     @InjectRepository(StellarAccount)
     private readonly accounts: Repository<StellarAccount>,
     private readonly stellarConfig: StellarConfigService,
+    private readonly challenges: StellarLinkChallengeService,
   ) {}
 
-  async link(userId: string, accountId: string): Promise<StellarAccount> {
+  async createChallenge(userId: string, accountId: string): Promise<StellarLinkChallengeResponse> {
+    this.stellarConfig.assertEnabled();
+    return this.challenges.issue(userId, this.assertAccountId(accountId));
+  }
+
+  async link(userId: string, accountId: string, signature: string): Promise<StellarAccount> {
     this.stellarConfig.assertEnabled();
 
-    const trimmed = accountId.trim();
-    if (!isStellarAccountId(trimmed)) {
-      throw new InvalidStellarAccountError(trimmed);
+    const trimmed = this.assertAccountId(accountId);
+    const message = await this.challenges.claim(userId, trimmed);
+
+    if (!verifyStellarSignature(trimmed, message, signature)) {
+      throw new StellarSignatureInvalidError(trimmed);
     }
 
     const network = this.stellarConfig.networkName;
@@ -31,6 +43,14 @@ export class StellarWalletService {
     account.linkedAt = new Date();
 
     return this.accounts.save(account);
+  }
+
+  private assertAccountId(accountId: string): string {
+    const trimmed = accountId.trim();
+    if (!isStellarAccountId(trimmed)) {
+      throw new InvalidStellarAccountError(trimmed);
+    }
+    return trimmed;
   }
 
   find(userId: string): Promise<StellarAccount | null> {

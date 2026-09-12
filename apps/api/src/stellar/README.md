@@ -74,6 +74,53 @@ escrow.
 which costs nothing in memory and proves the interface does not secretly
 assume a single account.
 
+## A linked wallet is proven, not claimed
+
+`POST /stellar/wallet` is the settlement destination: on a release the sweep
+pays whatever account sits in that row. So the row cannot be an unverified
+claim, and linking is a two-step challenge instead of a single write.
+
+1. `POST /stellar/wallet/challenge` returns a human-readable message naming the
+   account, the Mezzo user id, the network, a 16-byte nonce and the time. The
+   message is stored in Redis under `stellar:link-challenge:{userId}` with a
+   five-minute TTL.
+2. `POST /stellar/wallet` takes that account plus a signature over the message.
+   The challenge is claimed with `GETDEL` — atomically, so it is single-use —
+   and the signature is checked against the account's own public key.
+
+The three things this binds together are worth naming, because each one is a
+separate attack: the **signature** proves control of the Stellar key, the
+**nonce** stops a captured signature being replayed, and keying the challenge
+by `userId` from the JWT means a challenge issued to one session cannot be
+spent by another. A challenge issued for one account will not verify a link to
+a different one either — the stored account is compared before the signature is
+checked.
+
+The threat this closes is not theft from another user: the JWT already pins the
+link to the caller's own row. It is a user linking an account they do not
+control — by typo, by paste, or because a page told them to — and then losing
+their own release proceeds to it irrecoverably. On-chain payments do not bounce.
+
+`verifyStellarSignature()` is deliberately permissive about *encoding* and
+strict about *provenance*. Wallets disagree on both halves of what `signMessage`
+returns, so it accepts base64 (what SEP-43 specifies) or hex, and checks the
+signature against the message bytes or their SHA-256 digest, requiring exactly
+64 bytes. Every one of those candidates is still a signature over a payload
+uniquely derived from this challenge's nonce, so widening the encodings costs
+nothing: an attacker needs the private key either way.
+
+`signMessage` is a required method on the kit's module interface, but a few
+hardware and bridge wallets reject it at runtime; those wallets cannot link an
+account, and the web app says so rather than falling back to an unproven link.
+
+`StellarSignatureInvalidError` is a **403, and must never be a 401**. The web
+app's `apiRequest` treats 401 as a stale access token: it silently refreshes the
+session and replays the request. Replaying a link attempt hits a challenge that
+the first attempt already spent with `GETDEL`, so the caller sees
+`STELLAR_LINK_CHALLENGE_NOT_FOUND` and the real failure — a signature that did
+not verify — is swallowed. 401 has to keep meaning "your session is bad", not
+"your proof is bad". A test asserts the status code for exactly this reason.
+
 ## A deposit is verified, never asserted
 
 `confirmDeposit()` takes a transaction hash from the client, and then believes

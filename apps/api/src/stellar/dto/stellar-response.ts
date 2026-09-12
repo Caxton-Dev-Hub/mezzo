@@ -1,6 +1,7 @@
 import {
   StellarAccountResponse,
   StellarEscrowResponse,
+  StellarLinkChallengeResponse,
   StellarRailConfigResponse,
 } from '@mezzo/shared-types';
 import { StellarAccount } from '../../database/entities/stellar-account.entity';
@@ -9,7 +10,12 @@ import { Money } from '../../common/money/money';
 import { toStellarAmount } from '../stellar-amount';
 import { StellarConfigService } from '../stellar-config.service';
 
-export { StellarAccountResponse, StellarEscrowResponse, StellarRailConfigResponse };
+export {
+  StellarAccountResponse,
+  StellarEscrowResponse,
+  StellarLinkChallengeResponse,
+  StellarRailConfigResponse,
+};
 
 export function toStellarRailConfigResponse(
   stellarConfig: StellarConfigService,

@@ -1,7 +1,9 @@
 import type {
   ConfirmStellarDepositDto,
+  LinkStellarAccountDto,
   StellarAccountResponse,
   StellarEscrowResponse,
+  StellarLinkChallengeResponse,
   StellarRailConfigResponse,
 } from '@mezzo/shared-types';
 import { apiRequest } from './api-client';
@@ -14,10 +16,19 @@ export function getStellarWallet(): Promise<StellarAccountResponse | null> {
   return apiRequest<StellarAccountResponse | null>('/stellar/wallet');
 }
 
-export function linkStellarWallet(accountId: string): Promise<StellarAccountResponse> {
-  return apiRequest<StellarAccountResponse>('/stellar/wallet', {
+export function requestStellarLinkChallenge(
+  accountId: string,
+): Promise<StellarLinkChallengeResponse> {
+  return apiRequest<StellarLinkChallengeResponse>('/stellar/wallet/challenge', {
     method: 'POST',
     body: { accountId },
+  });
+}
+
+export function linkStellarWallet(dto: LinkStellarAccountDto): Promise<StellarAccountResponse> {
+  return apiRequest<StellarAccountResponse>('/stellar/wallet', {
+    method: 'POST',
+    body: dto,
   });
 }
 

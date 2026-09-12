@@ -4,6 +4,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import request from 'supertest';
+import { Keypair } from '@stellar/stellar-sdk';
 import { Repository } from 'typeorm';
 import { AppModule } from '../../src/app.module';
 import { EscrowState } from '../../src/escrow/entities/escrow-state.enum';
@@ -159,8 +160,27 @@ describe('Stellar rail (e2e)', () => {
     return { escrowId: draft.id, buyer, seller };
   }
 
-  async function linkWallet(accessToken: string, accountId = randomAccountId()): Promise<string> {
-    await request(server).post('/stellar/wallet').set(auth(accessToken)).send({ accountId });
+  async function requestChallenge(accessToken: string, accountId: string): Promise<string> {
+    const response = await request(server)
+      .post('/stellar/wallet/challenge')
+      .set(auth(accessToken))
+      .send({ accountId });
+    return (response.body as { message: string }).message;
+  }
+
+  function sign(keypair: Keypair, message: string): string {
+    return keypair.sign(Buffer.from(message, 'utf8')).toString('base64');
+  }
+
+  async function linkWallet(accessToken: string, keypair = Keypair.random()): Promise<string> {
+    const accountId = keypair.publicKey();
+    const message = await requestChallenge(accessToken, accountId);
+
+    await request(server)
+      .post('/stellar/wallet')
+      .set(auth(accessToken))
+      .send({ accountId, signature: sign(keypair, message) });
+
     return accountId;
   }
 
@@ -212,12 +232,14 @@ describe('Stellar rail (e2e)', () => {
 
   it('links, reads back, and unlinks a Stellar wallet', async () => {
     const user = await registerAndLogin();
-    const accountId = randomAccountId();
+    const keypair = Keypair.random();
+    const accountId = keypair.publicKey();
+    const message = await requestChallenge(user.accessToken, accountId);
 
     const linkResponse = await request(server)
       .post('/stellar/wallet')
       .set(auth(user.accessToken))
-      .send({ accountId });
+      .send({ accountId, signature: sign(keypair, message) });
     expect(linkResponse.status).toBe(200);
     expect((linkResponse.body as { accountId: string }).accountId).toBe(accountId);
 
@@ -234,13 +256,78 @@ describe('Stellar rail (e2e)', () => {
 
   it('rejects an account id that fails the StrKey checksum', async () => {
     const user = await registerAndLogin();
+    const keypair = Keypair.random();
 
     const response = await request(server)
       .post('/stellar/wallet')
       .set(auth(user.accessToken))
-      .send({ accountId: `G${'A'.repeat(55)}` });
+      .send({ accountId: `G${'A'.repeat(55)}`, signature: sign(keypair, 'anything') });
 
     expect(response.status).toBe(400);
+  });
+
+  it('refuses to link an account nobody proved they own', async () => {
+    const user = await registerAndLogin();
+    const keypair = Keypair.random();
+    const message = await requestChallenge(user.accessToken, keypair.publicKey());
+
+    const response = await request(server)
+      .post('/stellar/wallet')
+      .set(auth(user.accessToken))
+      .send({ accountId: keypair.publicKey(), signature: sign(Keypair.random(), message) });
+
+    expect(response.status).toBe(403);
+    expect((response.body as ErrorBody).code).toBe('STELLAR_SIGNATURE_INVALID');
+    expect((await request(server).get('/stellar/wallet').set(auth(user.accessToken))).body).toEqual(
+      {},
+    );
+  });
+
+  it('refuses a link that was never challenged, and refuses a replay of a spent one', async () => {
+    const user = await registerAndLogin();
+    const keypair = Keypair.random();
+    const accountId = keypair.publicKey();
+
+    const unchallenged = await request(server)
+      .post('/stellar/wallet')
+      .set(auth(user.accessToken))
+      .send({ accountId, signature: sign(keypair, 'never issued') });
+    expect(unchallenged.status).toBe(400);
+    expect((unchallenged.body as ErrorBody).code).toBe('STELLAR_LINK_CHALLENGE_NOT_FOUND');
+
+    const message = await requestChallenge(user.accessToken, accountId);
+    const signature = sign(keypair, message);
+
+    expect(
+      (
+        await request(server)
+          .post('/stellar/wallet')
+          .set(auth(user.accessToken))
+          .send({ accountId, signature })
+      ).status,
+    ).toBe(200);
+
+    const replay = await request(server)
+      .post('/stellar/wallet')
+      .set(auth(user.accessToken))
+      .send({ accountId, signature });
+    expect(replay.status).toBe(400);
+    expect((replay.body as ErrorBody).code).toBe('STELLAR_LINK_CHALLENGE_NOT_FOUND');
+  });
+
+  it('scopes a challenge to the session that asked for it', async () => {
+    const owner = await registerAndLogin();
+    const attacker = await registerAndLogin();
+    const keypair = Keypair.random();
+    const message = await requestChallenge(owner.accessToken, keypair.publicKey());
+
+    const response = await request(server)
+      .post('/stellar/wallet')
+      .set(auth(attacker.accessToken))
+      .send({ accountId: keypair.publicKey(), signature: sign(keypair, message) });
+
+    expect(response.status).toBe(400);
+    expect((response.body as ErrorBody).code).toBe('STELLAR_LINK_CHALLENGE_NOT_FOUND');
   });
 
   it('funds an escrow end to end: deposit address, verified payment, FUNDED, ledger', async () => {
@@ -376,8 +463,11 @@ describe('Stellar rail (e2e)', () => {
     const stranger = await registerAndLogin();
 
     expect(
-      (await request(server).post(`/stellar/escrows/${escrowId}/fund`).set(auth(seller.accessToken)))
-        .status,
+      (
+        await request(server)
+          .post(`/stellar/escrows/${escrowId}/fund`)
+          .set(auth(seller.accessToken))
+      ).status,
     ).toBe(403);
 
     await openFunding(escrowId, buyer.accessToken);
@@ -409,14 +499,19 @@ describe('Stellar rail (e2e)', () => {
       .send({ transactionHash: payment.transactionHash });
 
     await request(server).post(`/escrows/${escrowId}/ship`).set(auth(seller.accessToken)).send({});
-    await request(server).post(`/escrows/${escrowId}/confirm-delivery`).set(auth(buyer.accessToken));
+    await request(server)
+      .post(`/escrows/${escrowId}/confirm-delivery`)
+      .set(auth(buyer.accessToken));
     await settlement.release(escrowId, buyer.userId);
 
     const admin = await registerAndLogin();
     await users.update({ id: admin.userId }, { role: UserRole.ADMIN });
     const adminLogin = await request(server)
       .post('/auth/login')
-      .send({ email: (await users.findOneOrFail({ where: { id: admin.userId } })).email, password });
+      .send({
+        email: (await users.findOneOrFail({ where: { id: admin.userId } })).email,
+        password,
+      });
 
     const runResponse = await request(server)
       .post('/stellar/settlements/run')
@@ -460,14 +555,19 @@ describe('Stellar rail (e2e)', () => {
       .send({ transactionHash: payment.transactionHash });
 
     await request(server).post(`/escrows/${escrowId}/ship`).set(auth(seller.accessToken)).send({});
-    await request(server).post(`/escrows/${escrowId}/confirm-delivery`).set(auth(buyer.accessToken));
+    await request(server)
+      .post(`/escrows/${escrowId}/confirm-delivery`)
+      .set(auth(buyer.accessToken));
     await settlement.release(escrowId, buyer.userId);
 
     const admin = await registerAndLogin();
     await users.update({ id: admin.userId }, { role: UserRole.ADMIN });
     const adminLogin = await request(server)
       .post('/auth/login')
-      .send({ email: (await users.findOneOrFail({ where: { id: admin.userId } })).email, password });
+      .send({
+        email: (await users.findOneOrFail({ where: { id: admin.userId } })).email,
+        password,
+      });
 
     const runResponse = await request(server)
       .post('/stellar/settlements/run')

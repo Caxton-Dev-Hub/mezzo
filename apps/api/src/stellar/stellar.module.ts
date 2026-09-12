@@ -9,6 +9,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { StellarController } from './stellar.controller';
 import { StellarConfigService } from './stellar-config.service';
 import { StellarWalletService } from './stellar-wallet.service';
+import { StellarLinkChallengeService } from './stellar-link-challenge.service';
 import { StellarEscrowService } from './stellar-escrow.service';
 import { StellarSettlementService } from './stellar-settlement.service';
 import { FakeStellarProvider } from './providers/fake-stellar.provider';
@@ -26,6 +27,7 @@ import { STELLAR_NETWORK, StellarNetworkClient } from './providers/stellar-netwo
   providers: [
     StellarConfigService,
     StellarWalletService,
+    StellarLinkChallengeService,
     StellarEscrowService,
     StellarSettlementService,
     FakeStellarProvider,

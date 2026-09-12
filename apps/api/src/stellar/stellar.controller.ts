@@ -1,13 +1,4 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Param,
-  Post,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -23,10 +14,13 @@ import {
   confirmStellarDepositSchema,
   LinkStellarAccountDto,
   linkStellarAccountSchema,
+  StellarLinkChallengeRequestDto,
+  stellarLinkChallengeRequestSchema,
 } from './dto/stellar.schemas';
 import {
   StellarAccountResponse,
   StellarEscrowResponse,
+  StellarLinkChallengeResponse,
   StellarRailConfigResponse,
   toStellarAccountResponse,
   toStellarEscrowResponse,
@@ -56,13 +50,23 @@ export class StellarController {
     return account ? toStellarAccountResponse(account) : null;
   }
 
+  @Post('wallet/challenge')
+  @HttpCode(HttpStatus.OK)
+  requestLinkChallenge(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Body(new ZodValidationPipe(stellarLinkChallengeRequestSchema))
+    dto: StellarLinkChallengeRequestDto,
+  ): Promise<StellarLinkChallengeResponse> {
+    return this.walletService.createChallenge(currentUser.id, dto.accountId);
+  }
+
   @Post('wallet')
   @HttpCode(HttpStatus.OK)
   async linkWallet(
     @CurrentUser() currentUser: AuthenticatedUser,
     @Body(new ZodValidationPipe(linkStellarAccountSchema)) dto: LinkStellarAccountDto,
   ): Promise<StellarAccountResponse> {
-    const account = await this.walletService.link(currentUser.id, dto.accountId);
+    const account = await this.walletService.link(currentUser.id, dto.accountId, dto.signature);
     return toStellarAccountResponse(account);
   }
 
