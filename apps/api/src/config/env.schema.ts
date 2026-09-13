@@ -124,7 +124,7 @@ export const envSchema = z.object({
 type PaymentProviderSetting = z.infer<typeof envSchema>['PAYMENT_PROVIDER'];
 
 const PAYMENT_PROVIDER_CREDENTIALS: Record<PaymentProviderSetting, readonly (keyof Env)[]> = {
-  fake: ['PAYSTACK_SECRET_KEY'],
+  fake: [],
   paystack: ['PAYSTACK_SECRET_KEY'],
   flutterwave: ['FLUTTERWAVE_SECRET_KEY', 'FLUTTERWAVE_SECRET_HASH'],
 };

@@ -70,6 +70,13 @@ describe('validateEnv rejects malformed values', () => {
 });
 
 describe('validateEnv cross-field rules', () => {
+  it('asks for no payment credentials when the provider is the fake one', () => {
+    const env = baseEnv();
+    delete env.PAYSTACK_SECRET_KEY;
+
+    expect(validateEnv(env).PAYMENT_PROVIDER).toBe('fake');
+  });
+
   it('demands a paystack key when paystack is the provider', () => {
     const env = baseEnv({ PAYMENT_PROVIDER: 'paystack' });
     delete env.PAYSTACK_SECRET_KEY;
