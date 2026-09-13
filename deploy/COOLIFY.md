@@ -91,11 +91,10 @@ In the dashboard (`http://<SERVER_IP>:8000`):
 
 1. **Projects → + Add → Project**, name it `mezzo`, then open its `production`
    environment.
-2. **+ New → Private Repository (with deploy key)** for
-   `git@github.com:Caxton-Dev-Hub/mezzo.git`. Coolify generates a public key —
-   add it to the repository under **Settings → Deploy keys** on GitHub. (Choose
-   **Public Repository** instead if the repo is public, or **GitHub App** if you
-   want automatic deploys on push plus preview deployments.)
+2. **+ New → Public Repository** for `https://github.com/Caxton-Dev-Hub/mezzo` —
+   the HTTPS URL, not the SSH one. No credentials needed. Do not pick the
+   **Docker Compose** tile: it is for pasting a compose file with no repository
+   behind it, and it cannot build images from a `build:` context.
 3. Set **Branch** to `main`.
 4. Set **Build Pack** to **Docker Compose**. This is the setting that matters
    most — Nixpacks and the Dockerfile pack each build a single app and cannot
@@ -104,6 +103,11 @@ In the dashboard (`http://<SERVER_IP>:8000`):
    `/docker-compose.prod.yml`.
 
 Save. Coolify parses the compose file and lists the five services.
+
+Deploys are manual with a public repository source. Once the Coolify dashboard
+has its own hostname, switch the source to **GitHub App** to get a deploy on
+every push — setting that up while the dashboard is still on a bare
+`http://<SERVER_IP>:8000` tends to fail on the OAuth callback.
 
 ## Step 5 — Environment variables
 
