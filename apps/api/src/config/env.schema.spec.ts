@@ -130,35 +130,6 @@ describe('validateEnv cross-field rules', () => {
     expect(env.GOOGLE_AUTH_ENABLED).toBe(true);
   });
 
-  it('demands the full dojah credential set when the live KYC provider is selected', () => {
-    expect(() => validateEnv(baseEnv({ KYC_PROVIDER: 'dojah' }))).toThrow(
-      /DOJAH_BASE_URL is required/,
-    );
-    expect(() => validateEnv(baseEnv({ KYC_PROVIDER: 'dojah' }))).toThrow(
-      /DOJAH_APP_ID is required/,
-    );
-    expect(() => validateEnv(baseEnv({ KYC_PROVIDER: 'dojah' }))).toThrow(
-      /DOJAH_PRIVATE_KEY is required/,
-    );
-    expect(() => validateEnv(baseEnv({ KYC_PROVIDER: 'dojah' }))).toThrow(
-      /DOJAH_WEBHOOK_SECRET is required/,
-    );
-  });
-
-  it('accepts a complete dojah configuration', () => {
-    const env = validateEnv(
-      baseEnv({
-        KYC_PROVIDER: 'dojah',
-        DOJAH_BASE_URL: 'https://api.dojah.io',
-        DOJAH_APP_ID: 'dojah-app-id',
-        DOJAH_PRIVATE_KEY: 'dojah-private-key',
-        DOJAH_WEBHOOK_SECRET: 'dojah-webhook-secret',
-      }),
-    );
-
-    expect(env.KYC_PROVIDER).toBe('dojah');
-  });
-
   it('reports every problem at once rather than one per boot', () => {
     const env = baseEnv({ NODE_ENV: 'production', GOOGLE_AUTH_ENABLED: 'true' });
 

@@ -7,6 +7,7 @@ import request from 'supertest';
 import { Repository } from 'typeorm';
 import { AppModule } from '../../src/app.module';
 import { User } from '../../src/database/entities/user.entity';
+import { KycVerification } from '../../src/database/entities/kyc-verification.entity';
 import { UserRole } from '../../src/users/entities/user-role.enum';
 import { KycTier } from '../../src/kyc/entities/kyc-tier.enum';
 import { KycVerificationStatus } from '../../src/kyc/entities/kyc-verification-status.enum';
@@ -52,6 +53,7 @@ describe('Admin console (e2e)', () => {
   let app: INestApplication;
   let server: Server;
   let users: Repository<User>;
+  let verifications: Repository<KycVerification>;
   let ledger: LedgerService;
   let redis: RedisService;
   let userCounter = 0;
@@ -87,6 +89,7 @@ describe('Admin console (e2e)', () => {
     await app.init();
     server = app.getHttpServer() as Server;
     users = app.get<Repository<User>>(getRepositoryToken(User));
+    verifications = app.get<Repository<KycVerification>>(getRepositoryToken(KycVerification));
     ledger = app.get(LedgerService);
     redis = app.get(RedisService);
   });
@@ -184,10 +187,15 @@ describe('Admin console (e2e)', () => {
       const admin = await registerAndLogin(UserRole.ADMIN);
       const applicant = await registerAndLogin();
 
-      await request(server)
-        .post('/kyc/submissions')
-        .set(auth(applicant.accessToken))
-        .send({ tier: KycTier.TIER_1 });
+      await verifications.save(
+        verifications.create({
+          userId: applicant.userId,
+          requestedTier: KycTier.TIER_1,
+          status: KycVerificationStatus.PENDING,
+          provider: 'manual',
+          providerReference: `manual-submission:${randomUUID()}`,
+        }),
+      );
 
       const response = await request(server).get('/admin/kyc/queue').set(auth(admin.accessToken));
 

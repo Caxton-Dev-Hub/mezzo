@@ -68,13 +68,12 @@ is already `SENT`, and treats a unique-constraint violation on insert as
 
 `EMAIL_CHANNEL`/`SMS_CHANNEL` are two DI tokens resolved by a
 `useFactory`, the same "interface + Symbol token + Fake/real,
-factory-selected by an env enum" shape as `KYC_PROVIDER`/
+factory-selected by an env enum" shape as
 `PAYSTACK_PROVIDER`/`ARBITRATION_PROVIDER`:
 `NOTIFICATION_EMAIL_PROVIDER`/`NOTIFICATION_SMS_PROVIDER`, each
 `fake` (default, everywhere except a real deployment) or a real provider
 (`resend`, `termii`). `FakeNotificationChannel` records every delivery in
-memory (`.sent`) so tests can assert on it directly, exactly like
-`FakeKycProvider`.
+memory (`.sent`) so tests can assert on it directly.
 
 Delivery failure marks the `Notification` row `FAILED` and rethrows, so
 BullMQ's `attempts`/`backoff` (`NOTIFICATION_QUEUE_ATTEMPTS`/

@@ -119,8 +119,7 @@ digits>`, `OPTOUT`/`OPTIN`, `HELP`.
 - **`client/`** — `WhatsAppClient` interface,
   `FakeWhatsAppClient` (records `.sent` for tests),
   `MetaWhatsAppClient` (real Graph API `fetch` calls), selected by
-  `WHATSAPP_CLIENT_PROVIDER` exactly like `KYC_PROVIDER`/
-  `PAYMENT_PROVIDER`.
+  `WHATSAPP_CLIENT_PROVIDER` exactly like `PAYMENT_PROVIDER`.
 - **`database/entities/whatsapp-account.entity.ts`** /
   **`whatsapp-link-code.entity.ts`** — TypeORM-only (no JSON-store
   support), since this module only registers when Postgres/Redis/

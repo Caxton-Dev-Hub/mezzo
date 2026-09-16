@@ -1,29 +1,12 @@
-import type { Request } from 'express';
-import {
-  Body,
-  Controller,
-  Get,
-  Headers,
-  HttpCode,
-  HttpStatus,
-  Post,
-  RawBodyRequest,
-  Req,
-} from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { KycService } from './kyc.service';
-import { KycWebhookSignatureService } from './webhook-signature.service';
 import { SettingsService } from '../settings/settings.service';
-import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
 import { AuthenticatedUser } from '../common/types/authenticated-user';
 import { KycTier } from './entities/kyc-tier.enum';
 import { KycDocumentType } from './entities/kyc-document-type.enum';
 import {
-  kycWebhookSchema,
-  KycWebhookDto,
-  submitKycSchema,
-  SubmitKycDto,
   presignKycDocumentSchema,
   PresignKycDocumentDto,
   confirmKycDocumentSchema,
@@ -44,19 +27,8 @@ import { KycDocumentResponse } from '@mezzo/shared-types';
 export class KycController {
   constructor(
     private readonly kycService: KycService,
-    private readonly webhookSignature: KycWebhookSignatureService,
     private readonly settingsService: SettingsService,
   ) {}
-
-  @Post('submissions')
-  @HttpCode(HttpStatus.CREATED)
-  async submit(
-    @CurrentUser() currentUser: AuthenticatedUser,
-    @Body(new ZodValidationPipe(submitKycSchema)) dto: SubmitKycDto,
-  ): Promise<KycVerificationResponse> {
-    const verification = await this.kycService.submit(currentUser.id, KycTier[dto.tier]);
-    return toKycVerificationResponse(verification);
-  }
 
   @Post('documents/presign')
   @HttpCode(HttpStatus.CREATED)
@@ -97,19 +69,6 @@ export class KycController {
       KycTier[dto.tier],
       dto.documentIds,
     );
-    return toKycVerificationResponse(verification);
-  }
-
-  @Public()
-  @Post('webhook')
-  @HttpCode(HttpStatus.OK)
-  async webhook(
-    @Req() request: RawBodyRequest<Request>,
-    @Headers('x-dojah-signature') signature: string | undefined,
-    @Body(new ZodValidationPipe(kycWebhookSchema)) dto: KycWebhookDto,
-  ): Promise<KycVerificationResponse> {
-    this.webhookSignature.verify(request.rawBody ?? Buffer.alloc(0), signature);
-    const verification = await this.kycService.handleProviderCallback(dto);
     return toKycVerificationResponse(verification);
   }
 

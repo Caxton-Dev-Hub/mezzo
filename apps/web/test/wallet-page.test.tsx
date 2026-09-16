@@ -36,7 +36,6 @@ function stubFetch(
   options: {
     tier?: KycTier;
     payouts?: PayoutResponse[];
-    onSubmitKyc?: () => Response;
     onRequestPayout?: () => Response;
     verificationEnabled?: boolean;
     payoutAccount?: PayoutAccountResponse | null;
@@ -45,7 +44,6 @@ function stubFetch(
   const {
     tier = 'TIER_1',
     payouts = [],
-    onSubmitKyc,
     onRequestPayout,
     verificationEnabled = true,
     payoutAccount = SAVED_PAYOUT_ACCOUNT,
@@ -100,20 +98,6 @@ function stubFetch(
         return jsonResponse(payout, 201);
       }
       return jsonResponse([...requested, ...payouts]);
-    }
-    if (url.endsWith('/kyc/submissions')) {
-      return onSubmitKyc
-        ? onSubmitKyc()
-        : jsonResponse(
-            {
-              id: 'verification-1',
-              status: 'PENDING',
-              requestedTier: 'TIER_1',
-              providerReference: 'provider-ref',
-              createdAt: new Date().toISOString(),
-            },
-            201,
-          );
     }
     return jsonResponse({ tier, latestVerification: null, verificationEnabled });
   });

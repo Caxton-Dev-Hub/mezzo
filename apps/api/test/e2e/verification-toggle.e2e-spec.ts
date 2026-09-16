@@ -1,4 +1,5 @@
 import type { Server } from 'node:http';
+import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -127,9 +128,9 @@ describe('Verification availability toggle (e2e)', () => {
     await setVerification(admin.accessToken, false, 'Provider not live yet');
 
     const response = await request(server)
-      .post('/kyc/submissions')
+      .post('/kyc/manual-submissions')
       .set(auth(user.accessToken))
-      .send({ tier: KycTier.TIER_1 });
+      .send({ tier: KycTier.TIER_1, documentIds: [randomUUID()] });
 
     expect(response.status).toBe(409);
     expect((response.body as { code: string }).code).toBe('VERIFICATION_DISABLED');
@@ -169,7 +170,7 @@ describe('Verification availability toggle (e2e)', () => {
   it('records who changed the setting and why', async () => {
     const admin = await registerAndLogin(UserRole.ADMIN);
 
-    await setVerification(admin.accessToken, false, 'Dojah contract not signed');
+    await setVerification(admin.accessToken, false, 'Review team not staffed yet');
 
     const events = await auditEvents.find({
       where: { entityType: 'platform_flag', entityId: VERIFICATION_FLAG_KEY },
@@ -179,7 +180,7 @@ describe('Verification availability toggle (e2e)', () => {
     expect(events.length).toBeGreaterThan(0);
     expect(events[0].actorId).toBe(admin.userId);
     expect(events[0].action).toBe('VERIFICATION_AVAILABILITY_CHANGED');
-    expect(events[0].reason).toBe('Dojah contract not signed');
+    expect(events[0].reason).toBe('Review team not staffed yet');
     expect(events[0].afterState).toEqual({ verificationEnabled: false });
   });
 

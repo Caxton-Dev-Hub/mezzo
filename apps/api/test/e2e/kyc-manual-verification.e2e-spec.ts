@@ -136,7 +136,7 @@ describe('KYC manual verification (e2e)', () => {
     await redis.flushdb();
   });
 
-  it('lets a buyer submit documents for manual review, and an admin approve, without touching Dojah', async () => {
+  it('lets a buyer submit documents for manual review, and an admin approve', async () => {
     const buyer = await registerAndLogin();
     const admin = await registerAndLogin(UserRole.ADMIN);
 

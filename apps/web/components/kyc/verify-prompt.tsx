@@ -2,12 +2,12 @@
 
 import Link from 'next/link';
 import { BadgeCheck, Clock, ShieldCheck } from 'lucide-react';
-import type { KycStatusResponse, SubmitKycDto } from '@mezzo/shared-types';
+import type { KycStatusResponse, SubmitManualKycDto } from '@mezzo/shared-types';
 import { buttonVariants } from '../ui/button';
 
 interface VerifyPromptProps {
   status: KycStatusResponse;
-  requiredTier: SubmitKycDto['tier'];
+  requiredTier: SubmitManualKycDto['tier'];
   reason: string;
 }
 

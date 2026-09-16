@@ -1,7 +1,7 @@
-import type { KycStatusResponse, KycTier, SubmitKycDto } from '@mezzo/shared-types';
+import type { KycStatusResponse, KycTier, SubmitManualKycDto } from '@mezzo/shared-types';
 import { ApiError } from './api-error';
 
-type SubmittableTier = SubmitKycDto['tier'];
+type SubmittableTier = SubmitManualKycDto['tier'];
 
 const TIER_ORDER: readonly KycTier[] = ['TIER_0', 'TIER_1', 'TIER_2', 'TIER_3'];
 

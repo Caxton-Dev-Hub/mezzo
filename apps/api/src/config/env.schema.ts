@@ -38,14 +38,9 @@ export const envSchema = z.object({
     .enum(['true', 'false'])
     .default('true')
     .transform((value) => value === 'true'),
-  KYC_PROVIDER: z.enum(['fake', 'dojah']).default('fake'),
   KYC_TIER_1_CAP_KOBO: z.coerce.number().int().positive().default(50_000_000),
   KYC_TIER_2_CAP_KOBO: z.coerce.number().int().positive().default(500_000_000),
   KYC_VERIFICATION_EXEMPT_THRESHOLD_KOBO: z.coerce.number().int().positive().default(10_000_000),
-  DOJAH_BASE_URL: optionalUrl,
-  DOJAH_APP_ID: optionalString,
-  DOJAH_PRIVATE_KEY: optionalString,
-  DOJAH_WEBHOOK_SECRET: optionalString,
   ESCROW_INVITE_EXPIRY_HOURS: z.coerce.number().int().positive().default(72),
   QUEUE_ENQUEUE_TIMEOUT_MS: z.coerce.number().int().positive().default(5_000),
   ADMIN_RISK_UNSHIPPED_HOURS: z.coerce.number().int().positive().default(48),
@@ -158,23 +153,6 @@ export const configSchema = envSchema.superRefine((env, ctx) => {
       path: ['GOOGLE_CLIENT_ID'],
       message: 'GOOGLE_CLIENT_ID is required when GOOGLE_AUTH_ENABLED is "true"',
     });
-  }
-
-  if (env.KYC_PROVIDER === 'dojah') {
-    for (const key of [
-      'DOJAH_BASE_URL',
-      'DOJAH_APP_ID',
-      'DOJAH_PRIVATE_KEY',
-      'DOJAH_WEBHOOK_SECRET',
-    ] as const) {
-      if (!env[key]) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: [key],
-          message: `${key} is required when KYC_PROVIDER is "dojah"`,
-        });
-      }
-    }
   }
 
   if (env.STELLAR_MODE !== 'off' && !env.STELLAR_ASSET_ISSUER) {

@@ -7,7 +7,6 @@ import { KycTier } from './entities/kyc-tier.enum';
 import { KycVerificationStatus } from './entities/kyc-verification-status.enum';
 import { KycEventType } from './entities/kyc-event-type.enum';
 import { KycDocumentType } from './entities/kyc-document-type.enum';
-import { KycProvider } from './providers/kyc-provider.interface';
 import { StorageProvider } from '../evidence/storage/storage-provider.interface';
 import { MediaAnalysisService, MediaAnalysisResult } from '../evidence/media-analysis.service';
 import { KycTierRequiredError } from './errors/kyc-tier-required.error';
@@ -60,15 +59,12 @@ class InMemoryVerificationRepository {
     where,
     order,
   }: {
-    where: { id?: string; providerReference?: string; userId?: string };
+    where: { id?: string; userId?: string };
     order?: { createdAt: 'DESC' | 'ASC' };
   }): Promise<KycVerification | null> {
     let candidates = this.rows;
     if (where.id) {
       candidates = candidates.filter((row) => row.id === where.id);
-    }
-    if (where.providerReference) {
-      candidates = candidates.filter((row) => row.providerReference === where.providerReference);
     }
     if (where.userId) {
       candidates = candidates.filter((row) => row.userId === where.userId);
@@ -90,16 +86,6 @@ class InMemoryEventRepository {
   save(entity: KycEvent): Promise<KycEvent> {
     this.rows.push(entity);
     return Promise.resolve(entity);
-  }
-}
-
-class StubKycProvider implements KycProvider {
-  readonly name = 'FAKE';
-  private counter = 0;
-
-  submit(): Promise<{ providerReference: string }> {
-    this.counter += 1;
-    return Promise.resolve({ providerReference: `stub-ref-${this.counter}` });
   }
 }
 
@@ -163,7 +149,6 @@ function buildHarness(verificationEnabled = true): {
   } as unknown as ConfigService;
 
   const caps = new KycCapsService(configService);
-  const provider = new StubKycProvider();
 
   const settingsService = {
     isVerificationEnabled: jest.fn().mockResolvedValue(verificationEnabled),
@@ -221,7 +206,6 @@ function buildHarness(verificationEnabled = true): {
     events as unknown as Repository<KycEvent>,
     documents,
     dataSource,
-    provider,
     storage,
     mediaAnalysis as unknown as MediaAnalysisService,
     caps,
@@ -327,116 +311,7 @@ describe('KycService', () => {
     });
   });
 
-  describe('submit', () => {
-    it('creates a PENDING verification and a SUBMITTED audit event', async () => {
-      const { service, users, verifications, events } = buildHarness();
-      const user = buildUser(KycTier.TIER_0);
-      await users.save(user);
-
-      const verification = await service.submit(user.id, KycTier.TIER_1);
-
-      expect(verification.status).toBe(KycVerificationStatus.PENDING);
-      expect(verifications.rows).toHaveLength(1);
-      expect(events.rows).toHaveLength(1);
-      expect(events.rows[0].type).toBe(KycEventType.SUBMITTED);
-      expect(events.rows[0].previousTier).toBe(KycTier.TIER_0);
-      expect(events.rows[0].newTier).toBeNull();
-    });
-  });
-
-  describe('handleProviderCallback', () => {
-    it('grants the requested tier on approval and records an audit event', async () => {
-      const { service, users, events } = buildHarness();
-      const user = buildUser(KycTier.TIER_0);
-      await users.save(user);
-      const verification = await service.submit(user.id, KycTier.TIER_1);
-
-      const result = await service.handleProviderCallback({
-        providerReference: verification.providerReference,
-        status: 'APPROVED',
-      });
-
-      expect(result.status).toBe(KycVerificationStatus.APPROVED);
-      expect(await service.getTier(user.id)).toBe(KycTier.TIER_1);
-      const approvedEvent = events.rows.find((event) => event.type === KycEventType.APPROVED);
-      expect(approvedEvent?.previousTier).toBe(KycTier.TIER_0);
-      expect(approvedEvent?.newTier).toBe(KycTier.TIER_1);
-    });
-
-    it('does not raise the tier on rejection, but records it as auditable', async () => {
-      const { service, users, events } = buildHarness();
-      const user = buildUser(KycTier.TIER_0);
-      await users.save(user);
-      const verification = await service.submit(user.id, KycTier.TIER_1);
-
-      const result = await service.handleProviderCallback({
-        providerReference: verification.providerReference,
-        status: 'REJECTED',
-      });
-
-      expect(result.status).toBe(KycVerificationStatus.REJECTED);
-      expect(await service.getTier(user.id)).toBe(KycTier.TIER_0);
-      const rejectedEvent = events.rows.find((event) => event.type === KycEventType.REJECTED);
-      expect(rejectedEvent).toBeDefined();
-      expect(rejectedEvent?.newTier).toBeNull();
-    });
-
-    it('does not raise the tier on expiry, and records it as auditable', async () => {
-      const { service, users, events } = buildHarness();
-      const user = buildUser(KycTier.TIER_0);
-      await users.save(user);
-      const verification = await service.submit(user.id, KycTier.TIER_1);
-
-      const result = await service.handleProviderCallback({
-        providerReference: verification.providerReference,
-        status: 'EXPIRED',
-      });
-
-      expect(result.status).toBe(KycVerificationStatus.EXPIRED);
-      expect(await service.getTier(user.id)).toBe(KycTier.TIER_0);
-      expect(events.rows.some((event) => event.type === KycEventType.EXPIRED)).toBe(true);
-    });
-
-    it('is idempotent: replaying the same callback does not double-grant or duplicate events', async () => {
-      const { service, users, events } = buildHarness();
-      const user = buildUser(KycTier.TIER_0);
-      await users.save(user);
-      const verification = await service.submit(user.id, KycTier.TIER_1);
-
-      const payload = {
-        providerReference: verification.providerReference,
-        status: 'APPROVED' as const,
-      };
-      await service.handleProviderCallback(payload);
-      const eventCountAfterFirst = events.rows.length;
-
-      const replayed = await service.handleProviderCallback(payload);
-
-      expect(replayed.status).toBe(KycVerificationStatus.APPROVED);
-      expect(events.rows).toHaveLength(eventCountAfterFirst);
-      expect(await service.getTier(user.id)).toBe(KycTier.TIER_1);
-    });
-
-    it('throws for an unknown provider reference', async () => {
-      const { service } = buildHarness();
-
-      await expect(
-        service.handleProviderCallback({ providerReference: 'does-not-exist', status: 'APPROVED' }),
-      ).rejects.toBeInstanceOf(UnknownKycVerificationError);
-    });
-  });
-
   describe('when an admin has turned verification off', () => {
-    it('refuses new submissions', async () => {
-      const { service, users } = buildHarness(false);
-      const user = buildUser(KycTier.TIER_0);
-      await users.save(user);
-
-      await expect(service.submit(user.id, KycTier.TIER_1)).rejects.toBeInstanceOf(
-        VerificationDisabledError,
-      );
-    });
-
     it('lets a TIER_0 user through a tier gate', async () => {
       const { service, users } = buildHarness(false);
       const user = buildUser(KycTier.TIER_0);

@@ -118,7 +118,7 @@ The following properties hold across the entire system and are enforced structur
 | Cache / queues        | Redis, BullMQ                                                                                     |
 | Authentication        | JWT (access + rotating refresh), Passport, role-based access control                              |
 | Payments              | Paystack (NGN funding and payouts)                                                                |
-| Identity verification | Dojah / Mono                                                                                      |
+| Identity verification | Document upload with manual admin review                                                          |
 | Media storage         | S3-compatible object storage                                                                      |
 | AI arbitration        | Anthropic (primary) and OpenAI (fallback), via LangChain, with schema-validated structured output |
 | Realtime              | WebSocket (NestJS gateway)                                                                        |
@@ -387,7 +387,6 @@ The importer saves by primary key, so it is safe to re-run. Uniqueness on `email
 | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET`                      | Token signing secrets                                                     |
 | `PAYSTACK_SECRET_KEY`                                           | Paystack API credential                                                   |
 | `PAYSTACK_WEBHOOK_SECRET`                                       | Webhook signature verification                                            |
-| `KYC_PROVIDER_API_KEY`                                          | Identity verification provider credential                                 |
 | `S3_ENDPOINT` / `S3_BUCKET` / `S3_ACCESS_KEY` / `S3_SECRET_KEY` | Media storage configuration                                               |
 | `ANTHROPIC_API_KEY`                                             | Primary arbitration model provider                                        |
 | `OPENAI_API_KEY`                                                | Fallback arbitration model provider                                       |

@@ -11,12 +11,6 @@ export const kycVerificationStatusSchema = z.enum(['PENDING', 'APPROVED', 'REJEC
 
 export type KycVerificationStatus = z.infer<typeof kycVerificationStatusSchema>;
 
-export const submitKycSchema = z.object({
-  tier: kycTierSchema.exclude(['TIER_0']),
-});
-
-export type SubmitKycDto = z.infer<typeof submitKycSchema>;
-
 export const kycVerificationResponseSchema = z.object({
   id: z.string().uuid(),
   status: kycVerificationStatusSchema,

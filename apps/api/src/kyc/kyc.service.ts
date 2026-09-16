@@ -11,9 +11,7 @@ import { KycTier, tierRank } from './entities/kyc-tier.enum';
 import { KycVerificationStatus } from './entities/kyc-verification-status.enum';
 import { KycEventType } from './entities/kyc-event-type.enum';
 import { KycDocumentType } from './entities/kyc-document-type.enum';
-import { KYC_PROVIDER, KycProvider } from './providers/kyc-provider.interface';
 import { KycCapsService } from './kyc-caps.service';
-import { KycWebhookDto } from './dto/kyc.schemas';
 import { KycTierRequiredError } from './errors/kyc-tier-required.error';
 import { TransactionCapExceededError } from './errors/transaction-cap-exceeded.error';
 import { UnknownKycVerificationError } from './errors/unknown-kyc-verification.error';
@@ -40,99 +38,12 @@ export class KycService {
     private readonly documents: Repository<KycDocument>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
-    @Inject(KYC_PROVIDER)
-    private readonly provider: KycProvider,
     @Inject(STORAGE_PROVIDER)
     private readonly storage: StorageProvider,
     private readonly mediaAnalysis: MediaAnalysisService,
     private readonly caps: KycCapsService,
     private readonly settingsService: SettingsService,
   ) {}
-
-  async submit(userId: string, tier: KycTier): Promise<KycVerification> {
-    if (!(await this.settingsService.isVerificationEnabled())) {
-      throw new VerificationDisabledError();
-    }
-
-    const user = await this.getUserOrThrow(userId);
-    const { providerReference } = await this.provider.submit({ userId, tier });
-
-    const verification = await this.verifications.save(
-      this.verifications.create({
-        userId,
-        requestedTier: tier,
-        status: KycVerificationStatus.PENDING,
-        provider: this.provider.name,
-        providerReference,
-      }),
-    );
-
-    await this.events.save(
-      this.events.create({
-        userId,
-        verificationId: verification.id,
-        type: KycEventType.SUBMITTED,
-        previousTier: user.kycTier,
-        newTier: null,
-        providerReference,
-      }),
-    );
-
-    return verification;
-  }
-
-  async handleProviderCallback(dto: KycWebhookDto): Promise<KycVerification> {
-    const verification = await this.verifications.findOne({
-      where: { providerReference: dto.providerReference },
-    });
-
-    if (!verification) {
-      throw new UnknownKycVerificationError();
-    }
-
-    if (verification.status !== KycVerificationStatus.PENDING) {
-      return verification;
-    }
-
-    const user = await this.getUserOrThrow(verification.userId);
-    const previousTier = user.kycTier;
-
-    if (dto.status === 'APPROVED') {
-      verification.status = KycVerificationStatus.APPROVED;
-      await this.verifications.save(verification);
-
-      user.kycTier = verification.requestedTier;
-      await this.users.save(user);
-
-      await this.events.save(
-        this.events.create({
-          userId: verification.userId,
-          verificationId: verification.id,
-          type: KycEventType.APPROVED,
-          previousTier,
-          newTier: verification.requestedTier,
-          providerReference: dto.providerReference,
-        }),
-      );
-    } else {
-      verification.status =
-        dto.status === 'EXPIRED' ? KycVerificationStatus.EXPIRED : KycVerificationStatus.REJECTED;
-      await this.verifications.save(verification);
-
-      await this.events.save(
-        this.events.create({
-          userId: verification.userId,
-          verificationId: verification.id,
-          type: dto.status === 'EXPIRED' ? KycEventType.EXPIRED : KycEventType.REJECTED,
-          previousTier,
-          newTier: null,
-          providerReference: dto.providerReference,
-        }),
-      );
-    }
-
-    return verification;
-  }
 
   async requireTier(userId: string, minTier: KycTier): Promise<void> {
     if (!(await this.settingsService.isVerificationEnabled())) {

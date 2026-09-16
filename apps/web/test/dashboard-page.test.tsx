@@ -67,19 +67,6 @@ function stubEscrows(
       );
     }
 
-    if (url.includes('/kyc/submissions')) {
-      return new Response(
-        JSON.stringify({
-          id: '33333333-3333-4333-8333-333333333333',
-          status: 'PENDING',
-          requestedTier: 'TIER_1',
-          providerReference: 'ref-1',
-          createdAt: new Date('2026-07-31T10:00:00Z'),
-        }),
-        { status: 201 },
-      );
-    }
-
     if (!Array.isArray(escrows)) {
       return new Response(
         JSON.stringify({

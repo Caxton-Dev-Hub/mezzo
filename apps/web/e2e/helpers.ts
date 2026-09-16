@@ -83,27 +83,26 @@ export async function registerUser(prefix: string): Promise<TestUser> {
   return { email, password: PASSWORD };
 }
 
+/**
+ * A tier is only ever granted by an admin reviewing uploaded documents. The
+ * specs that call this need a verified buyer as a precondition, not a test of
+ * that review, so the tier is set directly in the e2e database — the same
+ * shortcut markEmailVerified takes.
+ */
 export async function grantTier1(user: TestUser): Promise<void> {
-  const api = await apiContext();
+  const { databaseUrl } = JSON.parse(readFileSync(HANDOFF_PATH, 'utf8')) as StackHandoff;
+  const client = new Client({ connectionString: databaseUrl });
 
-  const login = await api.post('/auth/login', {
-    data: { email: user.email, password: user.password },
-  });
-  const { accessToken } = (await login.json()) as { accessToken: string };
-
-  const submission = await api.post('/kyc/submissions', {
-    headers: { Authorization: `Bearer ${accessToken}` },
-    data: { tier: 'TIER_1' },
-  });
-  expect(submission.ok(), `kyc submission: ${await submission.text()}`).toBe(true);
-  const { providerReference } = (await submission.json()) as { providerReference: string };
-
-  const callback = await api.post('/kyc/webhook', {
-    data: { providerReference, status: 'APPROVED' },
-  });
-  expect(callback.ok(), `kyc webhook: ${await callback.text()}`).toBe(true);
-
-  await api.dispose();
+  await client.connect();
+  try {
+    const result = await client.query(
+      "UPDATE users SET kyc_tier = 'TIER_1' WHERE lower(email) = lower($1)",
+      [user.email],
+    );
+    expect(result.rowCount, `grant TIER_1 to ${user.email}`).toBe(1);
+  } finally {
+    await client.end();
+  }
 }
 
 export async function login(page: Page, user: TestUser): Promise<void> {

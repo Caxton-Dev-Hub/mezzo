@@ -5,47 +5,50 @@ thing that gates how much money they can move** — `payments` reads it to cap
 funding and to require a minimum tier for payouts, and nothing outside this
 module is ever allowed to write `User.kycTier` directly.
 
-## Provider-driven verification flow
+## Verification is manual review only
 
 ```mermaid
 sequenceDiagram
     participant User
     participant API
-    participant Dojah
+    participant Storage
+    participant Admin
     participant DB as kyc_verifications / kyc_events
 
-    User->>API: POST /kyc/submissions { tier }
+    User->>API: POST /kyc/documents/presign { documentType, mimeType }
+    API-->>User: uploadUrl, key
+    User->>Storage: PUT document bytes
+    User->>API: POST /kyc/documents/confirm { key, documentType, declaredMime }
+    API->>Storage: download + byte-sniff MIME
+    User->>API: POST /kyc/manual-submissions { tier, documentIds }
     API->>API: verification enabled? (platform flag)
-    API->>Dojah: submit(userId, tier)
-    Dojah-->>API: providerReference
-    API->>DB: insert verification (PENDING) + SUBMITTED event
-    API-->>User: KycVerificationResponse (PENDING)
-
-    Dojah->>Dojah: runs the actual identity check (out of band)
-    Dojah->>API: POST /kyc/webhook { providerReference, status } (x-dojah-signature)
-    API->>API: verify HMAC-SHA256 over the raw body
-    API->>DB: find verification by providerReference
-    alt status APPROVED
-        API->>DB: verification -> APPROVED, user.kycTier -> requestedTier
-        API->>DB: insert APPROVED event (previousTier -> newTier)
-    else status REJECTED or EXPIRED
-        API->>DB: verification -> REJECTED/EXPIRED, tier unchanged
-        API->>DB: insert REJECTED/EXPIRED event
+    API->>DB: verification (PENDING) + documents attached + SUBMITTED event, one transaction
+    Admin->>API: POST /admin/kyc/verifications/:id/approve or /reject
+    alt approve
+        API->>DB: verification -> APPROVED, user.kycTier -> requestedTier, APPROVED event
+    else reject
+        API->>DB: verification -> REJECTED, tier unchanged, REJECTED event
     end
 ```
 
-There is no synchronous "verify now" path: a submission is always `PENDING`
-until a callback resolves it. `handleProviderCallback` is also the only
-place `User.kycTier` is ever written from outside an admin action, and it is
-idempotent by construction — once a verification leaves `PENDING` the
-handler returns the (already-resolved) row unchanged instead of re-applying
-the tier change, so a replayed webhook can never move a user's tier twice or
-downgrade an already-approved verification.
+There is no third-party identity provider and no automated path to a tier.
+An earlier design submitted to Dojah and resolved the verification from a
+`POST /kyc/webhook` callback, with a `FakeKycProvider` standing in when no
+Dojah account was configured. That whole path — `POST /kyc/submissions`,
+the webhook, the provider abstraction and `KYC_PROVIDER`/`DOJAH_*` config —
+was removed rather than left dormant, because with the fake provider active
+the webhook was public and unsigned: any user could submit, read their own
+`providerReference` from the response, and post `APPROVED` for it to raise
+their own tier and funding cap. A tier-granting endpoint only an admin can
+reach is the safe default; if a live provider is added again it should come
+back with its signature check unconditional, not gated on which provider is
+selected.
 
-## The manual (document-upload) path
+Existing `kyc_verifications` rows keep whatever `provider` value they were
+written with (`FAKE`, `DOJAH`, `manual`); the column is a free-form label,
+so no migration was needed.
 
-Not every deployment has a live provider, and even with one, a human review
-lane is needed for edge cases. A user can instead:
+## The document-upload flow
 
 1. `POST /kyc/documents/presign` — get a presigned upload URL under
    `kyc-documents/{userId}/{uuid}`, the same presign-then-confirm shape the
@@ -64,15 +67,15 @@ lane is needed for edge cases. A user can instead:
    writes the `SUBMITTED` event. The transaction exists so a submission can
    never end up referencing documents that didn't actually get attached.
 
-A manual submission never resolves itself — an admin must call
+A submission never resolves itself — an admin must call
 `POST /admin/kyc/verifications/:id/approve` or `/reject`
 (`AdminService` → `KycService.approveVerification` /
 `rejectVerification`), which both reject a verification that isn't
 `PENDING` with `KycVerificationNotPendingError` so a reviewed submission
-can't be reviewed twice. Approval is the only place besides the webhook
-handler that raises `user.kycTier`.
+can't be reviewed twice. Approval is one of only two places that raise
+`user.kycTier`.
 
-`overrideTier()` is a third, separate path used by `POST
+`overrideTier()` is the other, used by `POST
 /admin/kyc/users/:userId/tier` — it skips submissions and documents
 entirely, writing an already-`APPROVED` verification with
 `provider: 'manual'` and reference `manual-override:{uuid}`. It exists for
@@ -111,7 +114,7 @@ payout cap, only a wallet-balance check
   `VERIFICATION_ENABLED` env var (default `true`) when no row exists yet.
   Both `requireTier()` and `assertCanFund()` short-circuit to "allowed" the
   moment this is off — an admin can disable verification platform-wide (e.g.
-  while the provider integration is being stood up) without touching a
+  while there is nobody available to review submissions) without touching a
   single escrow's terms.
 - **Per-escrow exemption, with a floor.** `EscrowTerms.requiresVerification`
   is set per escrow at creation, but `payments.service.ts` ORs it with the
@@ -121,49 +124,10 @@ payout cap, only a wallet-balance check
   the terms say, because the threshold check happens outside this module
   and this module only ever sees the final boolean.
 
-## Provider abstraction
-
-One `KycProvider` implementation is active at a time, chosen at boot by
-`KYC_PROVIDER`:
-
-| `KYC_PROVIDER` | Implementation | Required config |
-| --- | --- | --- |
-| `fake` (default) | `FakeKycProvider` | none |
-| `dojah` | `DojahKycProvider` | `DOJAH_BASE_URL`, `DOJAH_APP_ID`, `DOJAH_PRIVATE_KEY`, `DOJAH_WEBHOOK_SECRET` |
-
-The env schema fails boot if `KYC_PROVIDER=dojah` is selected without all
-four Dojah variables set — the same fail-fast pattern `payments` uses for
-its own provider credentials. `FakeKycProvider.submit()` returns a random
-`fake-{uuid}` reference and nothing else; there is no in-memory double that
-fabricates a webhook callback (unlike `FakePaystackProvider`'s
-`seedTransaction()`), so exercising the approve/reject path in tests and
-local dev goes through the manual submission + admin review flow instead of
-a simulated provider callback. The root README's tech-stack table also
-names Mono as an identity provider; only Dojah has an implementation in
-`providers/` — there is no `MonoKycProvider` and no `mono` value in the
-`KYC_PROVIDER` enum.
-
-## Webhook signature: narrower than payments'
-
-`KycWebhookSignatureService.verify()` only runs its check at all when
-`KYC_PROVIDER === 'dojah'` — with the `fake` provider active, `/kyc/webhook`
-accepts any payload unsigned, since there's no real Dojah account to have
-signed it. This is different from `payments`, where **both** webhook
-endpoints are always signature-checked regardless of which provider is
-active, because a payment provider can be swapped while intents funded
-through the old one are still in flight; a KYC provider has no equivalent
-"in-flight money" to protect, so gating the check on the active provider is
-safe here in a way it wouldn't be there. The scheme itself is also
-different: HMAC-**SHA256** (Dojah's `x-dojah-signature` header) versus
-Paystack's HMAC-SHA512, but the shape is the same as both payment
-providers' checks — compute over the raw, unparsed body
-(`RawBodyRequest`/`request.rawBody`, `main.ts`'s `{ rawBody: true }`) and
-compare with `timingSafeEqual`, never a `===` on the parsed JSON.
-
 ## Key pieces
 
-- **`KycService`** — submission (both paths), the webhook handler, the two
-  gate checks (`requireTier`, `assertCanFund`), document presign/confirm,
+- **`KycService`** — manual submission, the two gate checks
+  (`requireTier`, `assertCanFund`), document presign/confirm,
   and the admin operations (`approveVerification`, `rejectVerification`,
   `overrideTier`, `listVerifications`, `listDocuments`). Controllers for
   both `/kyc/*` and `/admin/kyc/*` are thin wrappers over this one service.
@@ -186,13 +150,13 @@ compare with `timingSafeEqual`, never a `===` on the parsed JSON.
 
 ## Invariants
 
-- **`User.kycTier` changes in exactly three places**: a resolved provider
-  webhook, an admin approval, and an admin override — never a direct write
-  from a controller, and never as a side effect of funding or a payout.
-- **A verification is reviewed at most once.** Both the webhook handler and
-  the admin approve/reject endpoints refuse to act on a verification that
-  isn't `PENDING` — the webhook returns the existing row unchanged, the
-  admin path throws `KycVerificationNotPendingError`.
+- **`User.kycTier` changes in exactly two places**: an admin approval and
+  an admin override — never a direct write from a controller, never from an
+  unauthenticated endpoint, and never as a side effect of funding or a
+  payout.
+- **A verification is reviewed at most once.** The admin approve/reject
+  endpoints refuse to act on a verification that isn't `PENDING` and throw
+  `KycVerificationNotPendingError`.
 - **A document only becomes evidence for a submission it was explicitly
   attached to.** `confirmDocument` always stores `verificationId: null`;
   only `submitManual`'s transaction — never the presign/confirm calls
