@@ -258,17 +258,52 @@ a build from before `PAYMENT_PROVIDER_CREDENTIALS` in
 `apps/api/src/config/env.schema.ts` was corrected to `fake: []`. Pull `main` and
 redeploy, or set any non-empty placeholder to get moving.
 
-**A blank optional variable crashes the boot** — most optional variables run
-through a blank-to-undefined preprocessor, but a few are plain
-`z.string().min(1).default(...)` and reject an empty string outright. The one that
-bites here is `RESEND_FROM_EMAIL`, which is why `docker-compose.prod.yml` defaults
-it to a real-looking address rather than an empty string. If you add more
-variables to the compose file, check the schema before giving one an empty
-default.
+**A blank variable crashes the boot** — fixed as of the `stringWithDefault`
+helper in `apps/api/src/config/env.schema.ts`: every defaulted string now runs
+through the blank-to-undefined preprocessor, so a present-but-empty value falls
+back to its default instead of failing `min(1)`. Before that fix a blank
+`RESEND_FROM_EMAIL` crash-looped the API on a real deployment. Coolify creates an
+entry for every `${VAR}` it finds in the compose file and injects it into the
+container even when empty, which is what defeats the compose-level `:-` default —
+so a Coolify entry that exists but is blank still overrides it. Pull `main` if you
+see this.
 
 **Certificate not issued** — DNS must resolve to this server and port 80 must be
 reachable. Re-run the `dig` check from step 1; if you are behind Cloudflare, set
 the record to DNS-only.
+
+**Something else already owns port 80** — the single most expensive problem on a
+first deploy. A stock nginx from the Ubuntu image holds port 80, so every
+Let's Encrypt HTTP-01 challenge lands on nginx and no certificate is ever issued,
+while Traefik still answers 443 with `TRAEFIK DEFAULT CERT`. Check with
+`sudo ss -tlnp | grep -E ':(80|443) '` — you want `docker-proxy` on both ports and
+nothing else. If nginx appears: `sudo systemctl disable --now nginx`, then
+`sudo docker restart coolify-proxy`.
+
+**One bad hostname blocks a certificate for its siblings** — every domain on the
+same service shares one Traefik router, so Let's Encrypt issues a single
+certificate covering all of them and validates each one. A hostname without a DNS
+record fails its challenge and takes the whole order down with it, including the
+hostnames that would have passed. A stray `www.s3.<domain>` did exactly this.
+Delete unused hostnames rather than leaving them to fail.
+
+**`503 no available server` from Traefik** — the router matched but the service
+has no backend. Either the container is down (`sudo docker ps`), or the container
+is running with stale Traefik labels. Labels are written when a container is
+*created*, so a domain change needs a **Deploy**, not a Restart. Confirm what
+Traefik was actually told with:
+
+```bash
+sudo docker inspect $(sudo docker ps -qf "name=^minio-") \
+  -f '{{json .Config.Labels}}' | tr ',' '\n' | grep -i traefik
+```
+
+A healthy service shows both an http and an https router plus
+`loadbalancer.server.port`.
+
+**`pull access denied for minio/minio`** — MinIO removed their Docker Hub
+repository; the image now lives at `quay.io/minio/minio`, pinned in both compose
+files to a release tag. `minio/minio:latest` no longer resolves at all.
 
 **Build killed / exit code 137** — out of memory. Add the swap from step 2, or
 resize the VPS.

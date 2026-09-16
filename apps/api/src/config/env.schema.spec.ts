@@ -194,6 +194,27 @@ describe('validateEnv treats a blank optional variable as unset', () => {
     );
   });
 
+  it.each([
+    ['CORS_ORIGINS', 'http://localhost:3001,http://localhost:3100'],
+    ['S3_REGION', 'us-east-1'],
+    ['STELLAR_ASSET_CODE', 'USDC'],
+    ['ANTHROPIC_MODEL', 'claude-sonnet-5'],
+    ['OPENAI_MODEL', 'gpt-4o-mini'],
+    ['RESEND_FROM_EMAIL', 'notifications@mezzo.app'],
+    ['TERMII_SENDER_ID', 'Mezzo'],
+    ['OTEL_SERVICE_NAME', 'mezzo-api'],
+  ])('falls back to the default when %s is present but blank', (key, fallback) => {
+    const env = validateEnv(baseEnv({ [key]: '' })) as unknown as Record<string, string>;
+
+    expect(env[key]).toBe(fallback);
+  });
+
+  it('keeps a real value for a variable that also tolerates a blank one', () => {
+    const env = validateEnv(baseEnv({ RESEND_FROM_EMAIL: 'notifications@mezzoescrow.xyz' }));
+
+    expect(env.RESEND_FROM_EMAIL).toBe('notifications@mezzoescrow.xyz');
+  });
+
   it('still demands a credential the enabled feature needs', () => {
     expect(() =>
       validateEnv(baseEnv({ WHATSAPP_ENABLED: 'true', WHATSAPP_WEBHOOK_VERIFY_TOKEN: '' })),

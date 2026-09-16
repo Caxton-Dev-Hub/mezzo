@@ -8,13 +8,16 @@ const blankToUndefined = (value: unknown): unknown =>
 const optionalString = z.preprocess(blankToUndefined, z.string().min(1).optional());
 const optionalUrl = z.preprocess(blankToUndefined, z.string().url().optional());
 
+const stringWithDefault = (fallback: string) =>
+  z.preprocess(blankToUndefined, z.string().min(1).default(fallback));
+
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
-  CORS_ORIGINS: z.string().min(1).default('http://localhost:3001,http://localhost:3100'),
+  CORS_ORIGINS: stringWithDefault('http://localhost:3001,http://localhost:3100'),
   WEB_APP_URL: z.string().url().default('http://localhost:3001'),
   DATABASE_URL: optionalUrl,
-  JSON_STORE_PATH: z.string().min(1).default(DEFAULT_JSON_STORE_PATH),
+  JSON_STORE_PATH: stringWithDefault(DEFAULT_JSON_STORE_PATH),
   REDIS_URL: z.string().url(),
   JWT_ACCESS_SECRET: z.string().min(32),
   JWT_REFRESH_SECRET: z.string().min(32),
@@ -51,7 +54,7 @@ export const envSchema = z.object({
   ADMIN_RISK_UNSETTLED_HOURS: z.coerce.number().int().positive().default(1),
   S3_ENDPOINT: z.string().url(),
   S3_PUBLIC_ENDPOINT: optionalUrl,
-  S3_REGION: z.string().min(1).default('us-east-1'),
+  S3_REGION: stringWithDefault('us-east-1'),
   S3_ACCESS_KEY_ID: z.string().min(1),
   S3_SECRET_ACCESS_KEY: z.string().min(1),
   S3_BUCKET: z.string().min(1),
@@ -71,16 +74,16 @@ export const envSchema = z.object({
   FLUTTERWAVE_PROXY_URL: optionalUrl,
   STELLAR_MODE: z.enum(['off', 'dev', 'live']).default('off'),
   STELLAR_NETWORK: z.enum(['testnet', 'public']).default('testnet'),
-  STELLAR_ASSET_CODE: z.string().min(1).max(12).default('USDC'),
+  STELLAR_ASSET_CODE: z.preprocess(blankToUndefined, z.string().min(1).max(12).default('USDC')),
   STELLAR_ASSET_ISSUER: z.preprocess(blankToUndefined, stellarAccountIdSchema.optional()),
   STELLAR_HORIZON_URL: z.string().url().default('https://horizon-testnet.stellar.org'),
   STELLAR_CUSTODY_SECRET: optionalString,
   ARBITRATION_PROVIDER: z.enum(['fake', 'live']).default('fake'),
   ARBITRATION_CONFIDENCE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.75),
   ANTHROPIC_API_KEY: optionalString,
-  ANTHROPIC_MODEL: z.string().min(1).default('claude-sonnet-5'),
+  ANTHROPIC_MODEL: stringWithDefault('claude-sonnet-5'),
   OPENAI_API_KEY: optionalString,
-  OPENAI_MODEL: z.string().min(1).default('gpt-4o-mini'),
+  OPENAI_MODEL: stringWithDefault('gpt-4o-mini'),
   NOTIFICATION_EMAIL_PROVIDER: z.enum(['fake', 'resend']).default('fake'),
   NOTIFICATION_SMS_PROVIDER: z.enum(['fake', 'termii']).default('fake'),
   NOTIFICATION_QUEUE_ATTEMPTS: z.coerce.number().int().positive().default(5),
@@ -88,16 +91,16 @@ export const envSchema = z.object({
   NOTIFICATION_QUEUE_ENQUEUE_TIMEOUT_MS: z.coerce.number().int().positive().default(5_000),
   INSPECTION_ENDING_SOON_LEAD_HOURS: z.coerce.number().int().positive().default(6),
   RESEND_API_KEY: optionalString,
-  RESEND_FROM_EMAIL: z.string().min(1).default('notifications@mezzo.app'),
+  RESEND_FROM_EMAIL: stringWithDefault('notifications@mezzo.app'),
   TERMII_API_KEY: optionalString,
   TERMII_BASE_URL: z.string().url().default('https://api.ng.termii.com'),
-  TERMII_SENDER_ID: z.string().min(1).default('Mezzo'),
+  TERMII_SENDER_ID: stringWithDefault('Mezzo'),
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']).default('info'),
   OTEL_ENABLED: z
     .enum(['true', 'false'])
     .default('false')
     .transform((value) => value === 'true'),
-  OTEL_SERVICE_NAME: z.string().min(1).default('mezzo-api'),
+  OTEL_SERVICE_NAME: stringWithDefault('mezzo-api'),
   WHATSAPP_ENABLED: z
     .enum(['true', 'false'])
     .default('false')
