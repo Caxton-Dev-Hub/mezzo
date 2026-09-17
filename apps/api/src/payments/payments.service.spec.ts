@@ -300,17 +300,28 @@ describe('PaymentsService.initiateFunding', () => {
 
     const response = await harness.service.initiateFunding(BUYER_ID, ESCROW_ID);
 
-    expect(harness.initializeTransaction).toHaveBeenCalledWith(
-      expect.objectContaining({ reference: 'PAY-000001' }),
-    );
+    const { reference } = callArg<{ reference: string }>(harness.initializeTransaction, 0, 0);
+    expect(reference).toMatch(/^PAY-000001-[0-9A-F]{6}$/);
     expect(harness.intentsSave).toHaveBeenCalledWith(
       expect.objectContaining({
-        providerReference: 'PAY-000001',
+        providerReference: reference,
         status: PaymentIntentStatus.PENDING,
         authorizationUrl: 'https://pay.example/checkout',
       }),
     );
     expect(response.authorizationUrl).toBe('https://pay.example/checkout');
+  });
+
+  it('never repeats a reference across databases sitting at the same sequence value', async () => {
+    const references = new Set<string>();
+
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const harness = buildHarness();
+      await harness.service.initiateFunding(BUYER_ID, ESCROW_ID);
+      references.add(callArg<{ reference: string }>(harness.initializeTransaction, 0, 0).reference);
+    }
+
+    expect(references.size).toBe(20);
   });
 
   it('leaves the earlier pending intent untouched so its checkout can still fund the escrow', async () => {

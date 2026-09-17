@@ -84,6 +84,20 @@ previous reference.
   reference outright, and Flutterwave integrations have hit "Transaction
   Reference already exist" when retrying with a fixed reference.
 
+### The reference carries a random suffix, not just the sequence
+
+`PAY-{nextval}` alone is only unique within one database, but a provider
+stores references per **account**, and every environment pointing at the same
+Flutterwave or Paystack account shares that namespace. A restored or rebuilt
+database restarts the sequence and reissues `PAY-000001`, which the provider
+has already seen — Flutterwave then serves the checkout page with "This
+transaction reference already exists with a different amount or currency" and
+refuses the payment. A local dev database funding through the same test key
+collides the same way. So the reference is
+`PAY-{nextval}-{6 hex chars}`: the sequence keeps it readable in receipts and
+support conversations, and the random suffix makes it globally unique.
+Payout references are already `randomUUID()` and were never affected.
+
 Earlier attempts are left `PENDING`, not cancelled. A buyer who paid through
 an older tab must still fund the escrow, and the webhook matches on the
 reference, so that intent has to stay live.

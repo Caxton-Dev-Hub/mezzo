@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
@@ -63,7 +64,7 @@ export class PaymentsService {
     const [{ value }] = await this.dataSource.query<[{ value: string }]>(
       "SELECT nextval('payment_reference_seq') AS value",
     );
-    return `PAY-${value.padStart(6, '0')}`;
+    return `PAY-${value.padStart(6, '0')}-${randomBytes(3).toString('hex').toUpperCase()}`;
   }
 
   async initiateFunding(buyerId: string, escrowId: string): Promise<PaymentIntentResponse> {
