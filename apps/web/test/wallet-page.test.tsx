@@ -74,8 +74,8 @@ function stubFetch(
     }
     if (url.endsWith('/payouts/banks')) {
       return jsonResponse([
-        { code: '058', name: 'GTBank' },
         { code: '011', name: 'First Bank of Nigeria' },
+        { code: '058', name: 'GTBank' },
       ]);
     }
     if (url.endsWith('/payouts/verify-account')) {
@@ -190,7 +190,8 @@ describe('WalletPage', () => {
     renderWithProviders(<WalletPage />);
     await user.click(await screen.findByRole('button', { name: 'Add payout account' }));
 
-    await user.selectOptions(await screen.findByLabelText('Bank'), 'GTBank');
+    await user.type(await screen.findByLabelText('Bank'), 'gtb');
+    await user.click(await screen.findByRole('option', { name: 'GTBank' }));
     await user.type(screen.getByLabelText('Account number'), '0123456789');
     await user.click(screen.getByRole('button', { name: 'Verify account' }));
 
@@ -199,6 +200,48 @@ describe('WalletPage', () => {
     await user.click(screen.getByRole('button', { name: 'Save payout account' }));
 
     expect(await screen.findByRole('button', { name: 'Withdraw' })).toBeInTheDocument();
+  });
+
+  it('narrows the bank list as the seller searches, and says so when nothing matches', async () => {
+    const user = userEvent.setup();
+    stubFetch({ payoutAccount: null });
+
+    renderWithProviders(<WalletPage />);
+    await user.click(await screen.findByRole('button', { name: 'Add payout account' }));
+
+    const bankField = await screen.findByLabelText('Bank');
+    await user.click(bankField);
+
+    const listbox = await screen.findByRole('listbox', { name: 'Bank' });
+    expect(within(listbox).getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'First Bank of Nigeria',
+      'GTBank',
+    ]);
+
+    await user.type(bankField, 'first');
+    expect(within(listbox).getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'First Bank of Nigeria',
+    ]);
+
+    await user.clear(bankField);
+    await user.type(bankField, 'zzz');
+    expect(within(listbox).queryAllByRole('option')).toHaveLength(0);
+    expect(within(listbox).getByText('No bank matches that search')).toBeInTheDocument();
+  });
+
+  it('picks a searched bank with the keyboard alone', async () => {
+    const user = userEvent.setup();
+    stubFetch({ payoutAccount: null });
+
+    renderWithProviders(<WalletPage />);
+    await user.click(await screen.findByRole('button', { name: 'Add payout account' }));
+
+    const bankField = await screen.findByLabelText('Bank');
+    await user.type(bankField, 'gtb');
+    await user.keyboard('{Enter}');
+
+    expect(bankField).toHaveValue('GTBank');
+    expect(screen.queryByRole('listbox', { name: 'Bank' })).not.toBeInTheDocument();
   });
 
   it('lets a verified user with a saved payout account request a payout, which lands as pending', async () => {

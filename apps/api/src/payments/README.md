@@ -267,6 +267,16 @@ number, not just checking the field isn't empty. `POST
 /payouts/verify-account` exposes the same resolution as a preview so the
 frontend can show the resolved name before the seller commits to saving it.
 
+### The bank list is sorted by the API, not by each caller
+
+`listBanks()` sorts the provider's list by name with `localeCompare` before
+returning it. Providers return their bank lists in their own order (roughly
+by bank code), which is useless to a seller hunting for their bank among
+hundreds of entries, and case-sensitive sorting would strand lowercase
+microfinance names after `Zenith`. Sorting here rather than in the web app
+keeps one ordering for every caller, so the frontend renders the list as it
+arrives and only filters it.
+
 `requestPayout()` re-resolves the saved account against the provider again,
 immediately before transferring, and compares the freshly resolved name to
 the one stored at save time (whitespace/case-insensitive). A mismatch

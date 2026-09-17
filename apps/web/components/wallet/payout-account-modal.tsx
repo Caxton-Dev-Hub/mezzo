@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { payoutAccountInputSchema, type PayoutAccountInput } from '@mezzo/shared-types';
@@ -9,8 +9,8 @@ import { Modal } from '../ui/modal';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { Select } from '../ui/select';
 import { FieldError } from '../ui/field-error';
+import { BankSelect } from './bank-select';
 import {
   getPayoutBanks,
   savePayoutAccount,
@@ -31,6 +31,7 @@ export function PayoutAccountModal({ open, onClose }: PayoutAccountModalProps) {
   const banksQuery = useQuery({ queryKey: ['payout-banks'], queryFn: getPayoutBanks, enabled: open });
 
   const {
+    control,
     register,
     handleSubmit,
     watch,
@@ -107,19 +108,21 @@ export function PayoutAccountModal({ open, onClose }: PayoutAccountModalProps) {
 
         <div>
           <Label htmlFor="bankCode">Bank</Label>
-          <Select
-            id="bankCode"
-            aria-invalid={Boolean(errors.bankCode)}
-            disabled={banksQuery.isLoading}
-            {...register('bankCode')}
-          >
-            <option value="">{banksQuery.isLoading ? 'Loading banks…' : 'Select your bank'}</option>
-            {(banksQuery.data ?? []).map((bank) => (
-              <option key={bank.code} value={bank.code}>
-                {bank.name}
-              </option>
-            ))}
-          </Select>
+          <Controller
+            control={control}
+            name="bankCode"
+            render={({ field }) => (
+              <BankSelect
+                id="bankCode"
+                banks={banksQuery.data ?? []}
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                loading={banksQuery.isLoading}
+                invalid={Boolean(errors.bankCode)}
+              />
+            )}
+          />
           <FieldError message={errors.bankCode?.message} />
         </div>
 

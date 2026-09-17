@@ -43,7 +43,8 @@ export class PayoutService {
   ) {}
 
   async listBanks(): Promise<Bank[]> {
-    return this.paymentProvider.listBanks();
+    const banks = await this.paymentProvider.listBanks();
+    return [...banks].sort((a, b) => a.name.localeCompare(b.name));
   }
 
   async verifyAccount(input: PayoutAccountInput): Promise<VerifyPayoutAccountResponse> {

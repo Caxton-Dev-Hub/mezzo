@@ -372,10 +372,30 @@ describe('PayoutService.listPayouts', () => {
 });
 
 describe('PayoutService.listBanks', () => {
-  it('returns the bank list from the active provider', async () => {
+  it('returns the bank list from the active provider sorted by name', async () => {
     const harness = buildHarness();
 
-    await expect(harness.service.listBanks()).resolves.toEqual(BANKS);
+    await expect(harness.service.listBanks()).resolves.toEqual([
+      { code: '011', name: 'First Bank of Nigeria' },
+      { code: '058', name: 'GTBank' },
+    ]);
+  });
+
+  it('sorts case-insensitively so a lowercase name is not pushed to the end', async () => {
+    const harness = buildHarness();
+    harness.listBanks.mockResolvedValue([
+      { code: '050', name: 'zenith microfinance' },
+      { code: '058', name: 'GTBank' },
+      { code: '044', name: 'Access Bank' },
+    ]);
+
+    const banks = await harness.service.listBanks();
+
+    expect(banks.map((bank) => bank.name)).toEqual([
+      'Access Bank',
+      'GTBank',
+      'zenith microfinance',
+    ]);
   });
 });
 
