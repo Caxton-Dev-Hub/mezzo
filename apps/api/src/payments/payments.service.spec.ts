@@ -290,24 +290,57 @@ describe('PaymentsService.initiateFunding', () => {
     expect(harness.intentsSave).not.toHaveBeenCalled();
   });
 
-  it('reuses a live intent rather than charging the buyer twice', async () => {
-    const existing = buildIntent();
-    const harness = buildHarness({ existingIntent: existing });
+  it('reuses a pending intent and its reference rather than opening a second charge', async () => {
+    const harness = buildHarness({ existingIntent: buildIntent() });
 
     const response = await harness.service.initiateFunding(BUYER_ID, ESCROW_ID);
 
     expect(response.id).toBe(INTENT_ID);
-    expect(harness.initializeTransaction).not.toHaveBeenCalled();
-    expect(harness.intentsSave).not.toHaveBeenCalled();
+    expect(harness.initializeTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ reference: 'ref-1' }),
+    );
+    expect(harness.intentsSave).toHaveBeenCalledTimes(1);
+    expect(harness.intentsSave).toHaveBeenCalledWith(
+      expect.objectContaining({ id: INTENT_ID, providerReference: 'ref-1' }),
+    );
   });
 
-  it('returns the persisted checkout url when reusing a pending intent', async () => {
-    const existing = buildIntent({ authorizationUrl: 'https://pay.example/checkout/original' });
+  it('replaces a possibly expired checkout url with a fresh one for a pending intent', async () => {
+    const existing = buildIntent({ authorizationUrl: 'https://pay.example/checkout/expired' });
     const harness = buildHarness({ existingIntent: existing });
 
     const response = await harness.service.initiateFunding(BUYER_ID, ESCROW_ID);
 
-    expect(response.authorizationUrl).toBe('https://pay.example/checkout/original');
+    expect(response.authorizationUrl).toBe('https://pay.example/checkout');
+    expect(harness.intentsSave).toHaveBeenCalledWith(
+      expect.objectContaining({ authorizationUrl: 'https://pay.example/checkout' }),
+    );
+  });
+
+  it('returns the stored checkout url for a pending intent owned by a different provider', async () => {
+    const harness = buildHarness({
+      existingIntent: buildIntent({
+        provider: 'flutterwave',
+        authorizationUrl: 'https://pay.example/checkout/flutterwave',
+      }),
+    });
+
+    const response = await harness.service.initiateFunding(BUYER_ID, ESCROW_ID);
+
+    expect(response.authorizationUrl).toBe('https://pay.example/checkout/flutterwave');
+    expect(harness.initializeTransaction).not.toHaveBeenCalled();
+    expect(harness.intentsSave).not.toHaveBeenCalled();
+  });
+
+  it('does not reinitialize a funded intent', async () => {
+    const harness = buildHarness({
+      existingIntent: buildIntent({ status: PaymentIntentStatus.FUNDED }),
+    });
+
+    await harness.service.initiateFunding(BUYER_ID, ESCROW_ID);
+
+    expect(harness.initializeTransaction).not.toHaveBeenCalled();
+    expect(harness.intentsSave).not.toHaveBeenCalled();
   });
 
   it('starts a fresh intent when the previous one was quarantined', async () => {

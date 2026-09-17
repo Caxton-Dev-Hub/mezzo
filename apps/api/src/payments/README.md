@@ -69,6 +69,26 @@ moved but the escrow didn't, or vice versa.
   funded through two different provider events (shouldn't happen, but the
   ledger doesn't have to trust that it can't).
 
+## One reference per escrow, a fresh checkout link per attempt
+
+A repeated `POST /payments/escrows/{id}/fund` never opens a second charge
+while a `PENDING` intent exists — two live references for one escrow could
+both be paid, and the second would land on an escrow that is already
+`FUNDED`. But the checkout link itself cannot be reused: Flutterwave's
+hosted `flwlnk-…` pages expire, and returning the persisted link meant every
+retry after expiry showed the buyer a dead page with no way to get a new one.
+So a pending intent keeps its `providerReference` and the provider is asked
+for a new link under that same reference, overwriting `authorizationUrl`.
+The reference is what the webhook matches on, so whichever link the buyer
+ends up paying through still funds the one intent.
+
+This relies on the provider accepting a repeated reference for an unpaid
+transaction. A pending intent belonging to a provider other than the active
+one is left alone and its stored link returned, since reinitializing it with
+the current provider would issue a link under a gateway that
+`PaymentIntent.provider` does not record. `QUARANTINED` intents still start
+over with a new intent and reference.
+
 ## Why signature verification needs `rawBody`
 
 Paystack signs the exact bytes it sent; re-serializing the parsed JSON body

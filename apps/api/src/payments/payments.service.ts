@@ -93,7 +93,12 @@ export class PaymentsService {
       where: { escrowId },
       order: { createdAt: 'DESC' },
     });
-    if (existing && existing.status !== PaymentIntentStatus.QUARANTINED) {
+    const refreshable =
+      existing?.status === PaymentIntentStatus.PENDING &&
+      existing.provider === this.paymentProvider.name
+        ? existing
+        : null;
+    if (existing && existing.status !== PaymentIntentStatus.QUARANTINED && !refreshable) {
       return toPaymentIntentResponse(existing, existing.authorizationUrl);
     }
 
@@ -102,7 +107,7 @@ export class PaymentsService {
       throw new NotFoundException('Buyer not found');
     }
 
-    const reference = await this.generatePaymentReference();
+    const reference = refreshable?.providerReference ?? (await this.generatePaymentReference());
     const { authorizationUrl } = await this.paymentProvider.initializeTransaction({
       email: buyer.email,
       amountKobo: price.amount,
@@ -111,6 +116,12 @@ export class PaymentsService {
       escrowId,
       metadata: { escrowId },
     });
+
+    if (refreshable) {
+      refreshable.authorizationUrl = authorizationUrl;
+      const refreshed = await this.intents.save(refreshable);
+      return toPaymentIntentResponse(refreshed, authorizationUrl);
+    }
 
     const intent = await this.intents.save(
       this.intents.create({
