@@ -290,57 +290,38 @@ describe('PaymentsService.initiateFunding', () => {
     expect(harness.intentsSave).not.toHaveBeenCalled();
   });
 
-  it('reuses a pending intent and its reference rather than opening a second charge', async () => {
-    const harness = buildHarness({ existingIntent: buildIntent() });
+  it('issues a new reference and checkout url when a pending intent is retried', async () => {
+    const harness = buildHarness({
+      existingIntent: buildIntent({ authorizationUrl: 'https://pay.example/checkout/expired' }),
+    });
+    harness.initializeTransaction.mockImplementation((input: { reference: string }) =>
+      Promise.resolve({ authorizationUrl: 'https://pay.example/checkout', reference: input.reference }),
+    );
 
     const response = await harness.service.initiateFunding(BUYER_ID, ESCROW_ID);
 
-    expect(response.id).toBe(INTENT_ID);
     expect(harness.initializeTransaction).toHaveBeenCalledWith(
-      expect.objectContaining({ reference: 'ref-1' }),
+      expect.objectContaining({ reference: 'PAY-000001' }),
     );
-    expect(harness.intentsSave).toHaveBeenCalledTimes(1);
     expect(harness.intentsSave).toHaveBeenCalledWith(
-      expect.objectContaining({ id: INTENT_ID, providerReference: 'ref-1' }),
-    );
-  });
-
-  it('replaces a possibly expired checkout url with a fresh one for a pending intent', async () => {
-    const existing = buildIntent({ authorizationUrl: 'https://pay.example/checkout/expired' });
-    const harness = buildHarness({ existingIntent: existing });
-
-    const response = await harness.service.initiateFunding(BUYER_ID, ESCROW_ID);
-
-    expect(response.authorizationUrl).toBe('https://pay.example/checkout');
-    expect(harness.intentsSave).toHaveBeenCalledWith(
-      expect.objectContaining({ authorizationUrl: 'https://pay.example/checkout' }),
-    );
-  });
-
-  it('returns the stored checkout url for a pending intent owned by a different provider', async () => {
-    const harness = buildHarness({
-      existingIntent: buildIntent({
-        provider: 'flutterwave',
-        authorizationUrl: 'https://pay.example/checkout/flutterwave',
+      expect.objectContaining({
+        providerReference: 'PAY-000001',
+        status: PaymentIntentStatus.PENDING,
+        authorizationUrl: 'https://pay.example/checkout',
       }),
-    });
-
-    const response = await harness.service.initiateFunding(BUYER_ID, ESCROW_ID);
-
-    expect(response.authorizationUrl).toBe('https://pay.example/checkout/flutterwave');
-    expect(harness.initializeTransaction).not.toHaveBeenCalled();
-    expect(harness.intentsSave).not.toHaveBeenCalled();
+    );
+    expect(response.authorizationUrl).toBe('https://pay.example/checkout');
   });
 
-  it('does not reinitialize a funded intent', async () => {
-    const harness = buildHarness({
-      existingIntent: buildIntent({ status: PaymentIntentStatus.FUNDED }),
-    });
+  it('leaves the earlier pending intent untouched so its checkout can still fund the escrow', async () => {
+    const earlier = buildIntent();
+    const harness = buildHarness({ existingIntent: earlier });
 
     await harness.service.initiateFunding(BUYER_ID, ESCROW_ID);
 
-    expect(harness.initializeTransaction).not.toHaveBeenCalled();
-    expect(harness.intentsSave).not.toHaveBeenCalled();
+    expect(harness.intentsSave).toHaveBeenCalledTimes(1);
+    expect(harness.intentsSave).not.toHaveBeenCalledWith(expect.objectContaining({ id: INTENT_ID }));
+    expect(earlier.status).toBe(PaymentIntentStatus.PENDING);
   });
 
   it('starts a fresh intent when the previous one was quarantined', async () => {
@@ -554,6 +535,35 @@ describe('PaymentsService charge webhook processing', () => {
 
     expect(intent.status).toBe(PaymentIntentStatus.QUARANTINED);
     expect(harness.postTransaction).not.toHaveBeenCalled();
+  });
+
+  it('quarantines a second charge through an earlier checkout once the escrow is already funded', async () => {
+    const harness = buildHarness({ escrowState: EscrowState.FUNDED });
+    const earlierAttempt = buildIntent();
+    harness.intentsFindOne.mockResolvedValue(earlierAttempt);
+
+    await deliver(harness, paystackCharge());
+
+    expect(earlierAttempt.status).toBe(PaymentIntentStatus.QUARANTINED);
+    expect(harness.intentsSave).toHaveBeenCalledWith(earlierAttempt);
+    expect(harness.postTransaction).not.toHaveBeenCalled();
+    expect(harness.transition).not.toHaveBeenCalled();
+    expect(harness.webhookSave).toHaveBeenCalledWith(
+      expect.objectContaining({ providerEventId: '1', escrowId: ESCROW_ID }),
+    );
+    expect(harness.notify).not.toHaveBeenCalled();
+  });
+
+  it('quarantines a charge that lands after the escrow was cancelled', async () => {
+    const harness = buildHarness({ escrowState: EscrowState.CANCELLED });
+    const intent = buildIntent();
+    harness.intentsFindOne.mockResolvedValue(intent);
+
+    await deliver(harness, paystackCharge());
+
+    expect(intent.status).toBe(PaymentIntentStatus.QUARANTINED);
+    expect(harness.postTransaction).not.toHaveBeenCalled();
+    expect(harness.transition).not.toHaveBeenCalled();
   });
 
   it('moves the charged amount from provider clearing into the escrow holding account', async () => {

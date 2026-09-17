@@ -56,6 +56,18 @@ updates a `LedgerEntry` or a cached balance directly outside that method;
 "editing the ledger" as an admin action does not exist. Every adjustment is
 audited with the reason the caller supplied.
 
+## Only the latest funding attempt counts as a stuck payment
+
+Every Fund click creates a new payment intent with its own reference (see the
+`payments` README), and earlier attempts stay `PENDING` so a checkout already
+open in another tab can still fund the escrow. Flagging each of those as
+`PAYMENT_INTENT_STUCK` would bury the at-risk list in abandoned tabs.
+`computeRiskItems` therefore flags a stale `PENDING` intent only when it is
+the most recent intent for its escrow. A replaced attempt is not stuck, since
+the buyer moved on to a newer checkout. A `QUARANTINED` intent is flagged
+whatever its position, because a quarantine means money arrived and needs a
+human decision.
+
 ## `AuditEvent` — the immutable record of privileged actions
 
 `AuditService.record()` is an append-only insert; there is no `update` or

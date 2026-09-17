@@ -89,25 +89,12 @@ export class PaymentsService {
     const requiresVerification = terms.requiresVerification || price.amount >= exemptThresholdKobo;
     await this.kycService.assertCanFund(buyerId, price, requiresVerification);
 
-    const existing = await this.intents.findOne({
-      where: { escrowId },
-      order: { createdAt: 'DESC' },
-    });
-    const refreshable =
-      existing?.status === PaymentIntentStatus.PENDING &&
-      existing.provider === this.paymentProvider.name
-        ? existing
-        : null;
-    if (existing && existing.status !== PaymentIntentStatus.QUARANTINED && !refreshable) {
-      return toPaymentIntentResponse(existing, existing.authorizationUrl);
-    }
-
     const buyer = await this.usersService.findById(buyerId);
     if (!buyer) {
       throw new NotFoundException('Buyer not found');
     }
 
-    const reference = refreshable?.providerReference ?? (await this.generatePaymentReference());
+    const reference = await this.generatePaymentReference();
     const { authorizationUrl } = await this.paymentProvider.initializeTransaction({
       email: buyer.email,
       amountKobo: price.amount,
@@ -116,12 +103,6 @@ export class PaymentsService {
       escrowId,
       metadata: { escrowId },
     });
-
-    if (refreshable) {
-      refreshable.authorizationUrl = authorizationUrl;
-      const refreshed = await this.intents.save(refreshable);
-      return toPaymentIntentResponse(refreshed, authorizationUrl);
-    }
 
     const intent = await this.intents.save(
       this.intents.create({
@@ -214,9 +195,10 @@ export class PaymentsService {
       return;
     }
 
+    const { escrow: current, parties } = await this.escrowService.getDetail(intent.escrowId);
     const amountMatches = event.amount === intent.amount && event.currency === intent.currency;
 
-    if (!amountMatches) {
+    if (!amountMatches || current.state !== EscrowState.AGREED) {
       intent.status = PaymentIntentStatus.QUARANTINED;
       await this.intents.save(intent);
       await this.recordWebhookEvent(event, intent.escrowId);
@@ -267,7 +249,6 @@ export class PaymentsService {
       return fundedEscrow;
     });
 
-    const { parties } = await this.escrowService.getDetail(intent.escrowId);
     await this.notificationsService.notify({
       escrowId: intent.escrowId,
       sourceEventId: `${intent.escrowId}_${escrow.state}_${escrow.version}`,

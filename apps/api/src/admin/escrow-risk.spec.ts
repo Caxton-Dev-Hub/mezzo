@@ -217,6 +217,45 @@ describe('computeRiskItems money rules', () => {
     expect(stale).toHaveLength(1);
     expect(stale[0].reason).toBe('PAYMENT_INTENT_STUCK');
   });
+
+  it('flags only the latest checkout attempt for an escrow, not the pending attempts it replaced', () => {
+    const replaced = {
+      ...buildIntent(PaymentIntentStatus.PENDING, hoursAgo(30), hoursAgo(30)),
+      id: '77777777-7777-4777-8777-777777777777',
+      providerReference: 'intent-0',
+    };
+    const latest = buildIntent(PaymentIntentStatus.PENDING, hoursAgo(10), hoursAgo(10));
+
+    const items = compute({ intents: [replaced, latest] });
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ id: latest.id, reason: 'PAYMENT_INTENT_STUCK' });
+  });
+
+  it('stops flagging replaced pending attempts once a later attempt funds the escrow', () => {
+    const replaced = {
+      ...buildIntent(PaymentIntentStatus.PENDING, hoursAgo(30), hoursAgo(30)),
+      id: '77777777-7777-4777-8777-777777777777',
+      providerReference: 'intent-0',
+    };
+    const funded = buildIntent(PaymentIntentStatus.FUNDED, hoursAgo(10), hoursAgo(9));
+
+    expect(compute({ intents: [replaced, funded] })).toEqual([]);
+  });
+
+  it('still flags a quarantined earlier attempt even after a later attempt exists', () => {
+    const quarantined = {
+      ...buildIntent(PaymentIntentStatus.QUARANTINED, hoursAgo(30), hoursAgo(2)),
+      id: '77777777-7777-4777-8777-777777777777',
+      providerReference: 'intent-0',
+    };
+    const funded = buildIntent(PaymentIntentStatus.FUNDED, hoursAgo(10), hoursAgo(9));
+
+    const items = compute({ intents: [quarantined, funded] });
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ id: quarantined.id, reason: 'PAYMENT_QUARANTINED' });
+  });
 });
 
 describe('computeRiskItems ordering', () => {

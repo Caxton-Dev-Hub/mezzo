@@ -393,6 +393,41 @@ describe('Payments (e2e)', () => {
     expect(eventCount).toBe(1);
   });
 
+  it('issues a fresh reference per funding attempt and quarantines a late charge on an already funded escrow', async () => {
+    const { escrowId, buyer } = await createAgreedEscrow({ amount: 65_000, currency: 'NGN' });
+
+    const firstAttempt = (
+      await request(server).post(`/payments/escrows/${escrowId}/fund`).set(auth(buyer.accessToken))
+    ).body as PaymentIntentBody;
+    const retry = await request(server)
+      .post(`/payments/escrows/${escrowId}/fund`)
+      .set(auth(buyer.accessToken));
+    expect(retry.status).toBe(201);
+    const secondAttempt = retry.body as PaymentIntentBody;
+
+    expect(secondAttempt.id).not.toBe(firstAttempt.id);
+    expect(secondAttempt.reference).not.toBe(firstAttempt.reference);
+    expect(secondAttempt.authorizationUrl).not.toBe(firstAttempt.authorizationUrl);
+
+    const paidThroughEarlierLink = await postSignedWebhook(
+      chargeSuccessPayload(firstAttempt.reference, 65_000),
+    );
+    expect(paidThroughEarlierLink.status).toBe(200);
+    expect((await getEscrow(escrowId, buyer.accessToken)).state).toBe(EscrowState.FUNDED);
+
+    const latePayment = await postSignedWebhook(
+      chargeSuccessPayload(secondAttempt.reference, 65_000),
+    );
+    expect(latePayment.status).toBe(200);
+
+    const late = await paymentIntents.findOneOrFail({ where: { id: secondAttempt.id } });
+    expect(late.status).toBe(PaymentIntentStatus.QUARANTINED);
+    expect(await ledger.getBalance(escrowHoldingRef(escrowId))).toEqual({
+      amount: 65_000,
+      currency: 'NGN',
+    });
+  });
+
   it('rejects a webhook with a tampered signature and posts nothing', async () => {
     const { escrowId, buyer } = await createAgreedEscrow({ amount: 55_000, currency: 'NGN' });
     const fundResponse = await request(server)

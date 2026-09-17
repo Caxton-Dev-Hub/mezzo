@@ -69,25 +69,39 @@ moved but the escrow didn't, or vice versa.
   funded through two different provider events (shouldn't happen, but the
   ledger doesn't have to trust that it can't).
 
-## One reference per escrow, a fresh checkout link per attempt
+## A new reference for every funding attempt
 
-A repeated `POST /payments/escrows/{id}/fund` never opens a second charge
-while a `PENDING` intent exists — two live references for one escrow could
-both be paid, and the second would land on an escrow that is already
-`FUNDED`. But the checkout link itself cannot be reused: Flutterwave's
-hosted `flwlnk-…` pages expire, and returning the persisted link meant every
-retry after expiry showed the buyer a dead page with no way to get a new one.
-So a pending intent keeps its `providerReference` and the provider is asked
-for a new link under that same reference, overwriting `authorizationUrl`.
-The reference is what the webhook matches on, so whichever link the buyer
-ends up paying through still funds the one intent.
+Each `POST /payments/escrows/{id}/fund` while the escrow is `AGREED` creates a
+new `PENDING` intent with a new `PAY-…` reference and a new checkout link. It
+never hands back a previous attempt's link, and never re-initializes a
+previous reference.
 
-This relies on the provider accepting a repeated reference for an unpaid
-transaction. A pending intent belonging to a provider other than the active
-one is left alone and its stored link returned, since reinitializing it with
-the current provider would issue a link under a gateway that
-`PaymentIntent.provider` does not record. `QUARANTINED` intents still start
-over with a new intent and reference.
+- **Why not return the stored link:** Flutterwave's hosted `flwlnk-…` pages
+  expire. Returning the persisted link meant every retry after expiry showed
+  the buyer a dead page with no way to get a working one.
+- **Why not re-initialize the same reference:** providers treat the
+  reference as the identity of one transaction. Paystack rejects a repeated
+  reference outright, and Flutterwave integrations have hit "Transaction
+  Reference already exist" when retrying with a fixed reference.
+
+Earlier attempts are left `PENDING`, not cancelled. A buyer who paid through
+an older tab must still fund the escrow, and the webhook matches on the
+reference, so that intent has to stay live.
+
+That means an escrow can be paid twice: once through each open checkout. The
+webhook handles it by checking the escrow state before posting anything. A
+charge whose escrow is no longer `AGREED` (already `FUNDED` by another
+attempt, or `CANCELLED`) quarantines its intent, exactly like an amount
+mismatch. No ledger posting and no state transition happen, and the refund is
+a manual admin decision. Two such webhooks racing on a still-`AGREED` escrow
+are settled by the state machine: the loser's transition fails, its
+transaction rolls back, the provider retries, and the retry sees `FUNDED` and
+quarantines.
+
+A double-click can't open a checkout for money already held: funding moves the
+escrow out of `AGREED` in the same transaction, and `initiateFunding` refuses
+any escrow that isn't `AGREED`. The admin at-risk list only flags the latest attempt per escrow as
+stuck (see the `admin` README).
 
 ## Why signature verification needs `rawBody`
 

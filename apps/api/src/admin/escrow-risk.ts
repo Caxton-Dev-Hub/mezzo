@@ -196,7 +196,19 @@ export function computeRiskItems(
     }
   }
 
+  const latestIntentByEscrow = new Map<string, PaymentIntent>();
   for (const intent of input.intents) {
+    const latest = latestIntentByEscrow.get(intent.escrowId);
+    if (!latest || intent.createdAt > latest.createdAt) {
+      latestIntentByEscrow.set(intent.escrowId, intent);
+    }
+  }
+
+  for (const intent of input.intents) {
+    const superseded = latestIntentByEscrow.get(intent.escrowId) !== intent;
+    if (superseded && intent.status === PaymentIntentStatus.PENDING) {
+      continue;
+    }
     const risk = intentRisk(intent, thresholds, input.now);
     if (risk) {
       items.push(risk);
