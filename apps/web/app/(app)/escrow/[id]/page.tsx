@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ShieldAlert } from 'lucide-react';
+import { ArrowLeft, ShieldAlert } from 'lucide-react';
 import { useAuthStore } from '../../../../lib/auth-store';
 import { getEscrow, getEscrowEvents } from '../../../../lib/escrow-client';
 import { listEscrowDisputes } from '../../../../lib/dispute-client';
@@ -127,7 +127,15 @@ export default function EscrowDetailPage() {
 
   return (
     <div>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <Link
+        href="/dashboard"
+        className="inline-flex items-center gap-1.5 text-[13px] text-mute hover:text-vellum"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Back to dashboard
+      </Link>
+
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-display text-[1.75rem] leading-tight text-vellum sm:text-[2rem]">
             {escrow.terms?.itemDescription ?? 'Escrow'}
