@@ -14,7 +14,7 @@ export class NotificationsController {
   }
 
   @Patch('read-all')
-  @HttpCode(HttpStatus.OK)
+  @HttpCode(HttpStatus.NO_CONTENT)
   markAllRead(@CurrentUser() currentUser: AuthenticatedUser): Promise<void> {
     return this.notificationsService.markAllRead(currentUser.id);
   }

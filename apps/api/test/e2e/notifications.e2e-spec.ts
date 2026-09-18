@@ -270,7 +270,7 @@ describe('Notifications (e2e)', () => {
     const markAllResponse = await request(server)
       .patch('/notifications/read-all')
       .set(auth(buyer.accessToken));
-    expect(markAllResponse.status).toBe(200);
+    expect(markAllResponse.status).toBe(204);
 
     const listResponse = await request(server).get('/notifications').set(auth(buyer.accessToken));
     const rows = listResponse.body as { isRead: boolean }[];
