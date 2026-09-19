@@ -43,9 +43,11 @@ function buildHarness(): Harness {
 }
 
 let loggerError: jest.SpyInstance;
+let loggerWarn: jest.SpyInstance;
 
 beforeEach(() => {
   loggerError = jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+  loggerWarn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
 });
 
 afterEach(() => {
@@ -85,6 +87,24 @@ describe('DomainExceptionFilter with domain errors', () => {
     harness.filter.catch(new TestDomainError('No details'), harness.host);
 
     expect(callArg(harness.json, 0, 0)).not.toHaveProperty('details');
+  });
+
+  it('logs the code, status and message so a rejected request is traceable', () => {
+    const harness = buildHarness();
+
+    harness.filter.catch(new TestDomainError('Conflicting state'), harness.host);
+
+    expect(loggerWarn).toHaveBeenCalledWith('TEST_DOMAIN_ERROR (409): Conflicting state');
+  });
+
+  it('includes the details in the log line when the error carries them', () => {
+    const harness = buildHarness();
+
+    harness.filter.catch(new DetailedDomainError(), harness.host);
+
+    expect(loggerWarn).toHaveBeenCalledWith(
+      'DETAILED_ERROR (422): Something specific went wrong {"field":"price","limit":100}',
+    );
   });
 });
 
