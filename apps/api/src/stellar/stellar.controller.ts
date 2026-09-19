@@ -123,7 +123,20 @@ export class StellarController {
   @Post('settlements/run')
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
-  runSettlements(): Promise<StellarSettlementOutcome[]> {
-    return this.settlementService.settleDue();
+  runSettlements(
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ): Promise<StellarSettlementOutcome[]> {
+    return this.settlementService.settleDue(currentUser.id);
+  }
+
+  @Post('escrows/:escrowId/requeue-settlement')
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async requeueSettlement(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param('escrowId') escrowId: string,
+  ): Promise<StellarEscrowResponse> {
+    const stellarEscrow = await this.settlementService.requeue(escrowId, currentUser.id);
+    return toStellarEscrowResponse(stellarEscrow);
   }
 }

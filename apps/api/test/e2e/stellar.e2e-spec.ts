@@ -1,5 +1,5 @@
 import type { Server } from 'node:http';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -11,6 +11,8 @@ import { EscrowState } from '../../src/escrow/entities/escrow-state.enum';
 import { EscrowRole } from '../../src/escrow/entities/escrow-role.enum';
 import { SettlementService } from '../../src/escrow/settlement.service';
 import { User } from '../../src/database/entities/user.entity';
+import { AuditEvent } from '../../src/database/entities/audit-event.entity';
+import { StellarEscrow } from '../../src/database/entities/stellar-escrow.entity';
 import { EvidenceItem } from '../../src/database/entities/evidence-item.entity';
 import { EvidencePhase } from '../../src/evidence/entities/evidence-phase.enum';
 import { KycTier } from '../../src/kyc/entities/kyc-tier.enum';
@@ -30,6 +32,10 @@ import { StellarEscrowStatus } from '../../src/stellar/entities/stellar-escrow-s
 import { STELLAR_LEDGER_PROVIDER } from '../../src/stellar/stellar-ledger-provider.constant';
 import { encodeStellarAccountId } from '../../src/stellar/stellar-account-id';
 import { FakeStellarProvider } from '../../src/stellar/providers/fake-stellar.provider';
+import {
+  StellarPaymentRequest,
+  StellarPreparedPayment,
+} from '../../src/stellar/providers/stellar-network.interface';
 import { RedisService } from '../../src/redis/redis.service';
 
 interface AuthTokensBody {
@@ -56,10 +62,23 @@ interface StellarEscrowBody {
   settlementTransactionHash: string | null;
 }
 
+interface StellarSettlementOutcomeBody {
+  escrowId: string;
+  settled: boolean;
+  transactionHash: string | null;
+  blockedBy: string | null;
+}
+
 interface ErrorBody {
   statusCode: number;
   code: string;
   message: string;
+}
+
+function sep53Payload(message: string): Buffer {
+  return createHash('sha256')
+    .update(Buffer.concat([Buffer.from('Stellar Signed Message:\n', 'utf8'), Buffer.from(message, 'utf8')]))
+    .digest();
 }
 
 function randomAccountId(): string {
@@ -72,6 +91,8 @@ describe('Stellar rail (e2e)', () => {
   let app: INestApplication;
   let server: Server;
   let users: Repository<User>;
+  let auditEvents: Repository<AuditEvent>;
+  let stellarEscrows: Repository<StellarEscrow>;
   let evidenceItems: Repository<EvidenceItem>;
   let ledger: LedgerService;
   let settlement: SettlementService;
@@ -169,7 +190,7 @@ describe('Stellar rail (e2e)', () => {
   }
 
   function sign(keypair: Keypair, message: string): string {
-    return keypair.sign(Buffer.from(message, 'utf8')).toString('base64');
+    return keypair.sign(sep53Payload(message)).toString('base64');
   }
 
   async function linkWallet(accessToken: string, keypair = Keypair.random()): Promise<string> {
@@ -182,6 +203,42 @@ describe('Stellar rail (e2e)', () => {
       .send({ accountId, signature: sign(keypair, message) });
 
     return accountId;
+  }
+
+  async function registerAdmin(): Promise<{ userId: string; accessToken: string }> {
+    const admin = await registerAndLogin();
+    await users.update({ id: admin.userId }, { role: UserRole.ADMIN });
+    const email = (await users.findOneOrFail({ where: { id: admin.userId } })).email;
+    const loginResponse = await request(server).post('/auth/login').send({ email, password });
+    return {
+      userId: admin.userId,
+      accessToken: (loginResponse.body as AuthTokensBody).accessToken,
+    };
+  }
+
+  async function auditTrail(escrowId: string): Promise<AuditEvent[]> {
+    return auditEvents.find({
+      where: { entityType: 'stellar_escrow', entityId: escrowId },
+      order: { createdAt: 'ASC' },
+    });
+  }
+
+  async function fundEscrow(
+    escrowId: string,
+    accessToken: string,
+  ): Promise<{ opened: StellarEscrowBody; transactionHash: string }> {
+    const opened = await openFunding(escrowId, accessToken);
+    const payment = await network.receivePayment({
+      from: randomAccountId(),
+      to: opened.depositAccountId,
+      amount: opened.expectedAssetAmount,
+      memo: opened.memo,
+    });
+    await request(server)
+      .post(`/stellar/escrows/${escrowId}/confirm`)
+      .set(auth(accessToken))
+      .send({ transactionHash: payment.transactionHash });
+    return { opened, transactionHash: payment.transactionHash };
   }
 
   async function openFunding(escrowId: string, accessToken: string): Promise<StellarEscrowBody> {
@@ -202,6 +259,8 @@ describe('Stellar rail (e2e)', () => {
     await app.init();
     server = app.getHttpServer() as Server;
     users = app.get<Repository<User>>(getRepositoryToken(User));
+    auditEvents = app.get<Repository<AuditEvent>>(getRepositoryToken(AuditEvent));
+    stellarEscrows = app.get<Repository<StellarEscrow>>(getRepositoryToken(StellarEscrow));
     evidenceItems = app.get<Repository<EvidenceItem>>(getRepositoryToken(EvidenceItem));
     ledger = app.get(LedgerService);
     settlement = app.get(SettlementService);
@@ -225,6 +284,7 @@ describe('Stellar rail (e2e)', () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
       enabled: true,
+      simulated: true,
       network: 'testnet',
       asset: { code: 'USDC', issuer: expect.stringMatching(/^G[A-Z2-7]{55}$/) as string },
     });
@@ -653,5 +713,293 @@ describe('Stellar rail (e2e)', () => {
     expect(
       (await request(server).post('/stellar/settlements/run').set(auth(user.accessToken))).status,
     ).toBe(403);
+  });
+
+  it('writes an audit trail across the whole rail: opened, funded, paid out', async () => {
+    const { escrowId, buyer, seller } = await createAgreedEscrow();
+    const sellerAccountId = await linkWallet(seller.accessToken);
+    const { transactionHash } = await fundEscrow(escrowId, buyer.accessToken);
+
+    await request(server).post(`/escrows/${escrowId}/ship`).set(auth(seller.accessToken)).send({});
+    await request(server)
+      .post(`/escrows/${escrowId}/confirm-delivery`)
+      .set(auth(buyer.accessToken));
+    await settlement.release(escrowId, buyer.userId);
+
+    const admin = await registerAdmin();
+    await request(server).post('/stellar/settlements/run').set(auth(admin.accessToken));
+
+    const trail = await auditTrail(escrowId);
+    expect(trail.map((event) => event.action)).toEqual([
+      'STELLAR_FUNDING_OPENED',
+      'STELLAR_DEPOSIT_CONFIRMED',
+      'STELLAR_SETTLEMENT_PAID',
+    ]);
+
+    const [opened, confirmed, paid] = trail;
+    expect(opened.actorId).toBe(buyer.userId);
+    expect(opened.correlationId).toBe(escrowId);
+
+    expect(confirmed.actorId).toBe(buyer.userId);
+    expect(confirmed.afterState).toMatchObject({
+      transactionHash,
+      creditedAmount: 100_000,
+      creditedCurrency: 'USD',
+    });
+
+    expect(paid.actorId).toBe(admin.userId);
+    expect(paid.afterState).toMatchObject({
+      destinationAccountId: sellerAccountId,
+      recipientUserId: seller.userId,
+      amount: '975.0000000',
+    });
+  });
+
+  it('records a rejected deposit without funding the escrow', async () => {
+    const { escrowId, buyer } = await createAgreedEscrow();
+    const opened = await openFunding(escrowId, buyer.accessToken);
+    const payment = await network.receivePayment({
+      from: randomAccountId(),
+      to: opened.depositAccountId,
+      amount: opened.expectedAssetAmount,
+      memo: 'a-memo-for-another-escrow',
+    });
+
+    const response = await request(server)
+      .post(`/stellar/escrows/${escrowId}/confirm`)
+      .set(auth(buyer.accessToken))
+      .send({ transactionHash: payment.transactionHash });
+
+    expect(response.status).toBe(422);
+
+    const rejected = (await auditTrail(escrowId)).find(
+      (event) => event.action === 'STELLAR_DEPOSIT_REJECTED',
+    );
+    expect(rejected?.reason).toContain('MEMO');
+    expect(rejected?.afterState).toMatchObject({ transactionHash: payment.transactionHash });
+    expect((await getEscrow(escrowId, buyer.accessToken)).state).toBe(EscrowState.AGREED);
+  });
+
+  it('pays the seller exactly once when two settlement sweeps run concurrently', async () => {
+    const { escrowId, buyer, seller } = await createAgreedEscrow();
+    await linkWallet(seller.accessToken);
+    await fundEscrow(escrowId, buyer.accessToken);
+
+    await request(server).post(`/escrows/${escrowId}/ship`).set(auth(seller.accessToken)).send({});
+    await request(server)
+      .post(`/escrows/${escrowId}/confirm-delivery`)
+      .set(auth(buyer.accessToken));
+    await settlement.release(escrowId, buyer.userId);
+
+    const admin = await registerAdmin();
+    const [first, second] = await Promise.all([
+      request(server).post('/stellar/settlements/run').set(auth(admin.accessToken)),
+      request(server).post('/stellar/settlements/run').set(auth(admin.accessToken)),
+    ]);
+
+    const outcomes = [
+      ...(first.body as StellarSettlementOutcomeBody[]),
+      ...(second.body as StellarSettlementOutcomeBody[]),
+    ].filter((outcome) => outcome.escrowId === escrowId);
+
+    expect(outcomes.filter((outcome) => outcome.settled)).toHaveLength(1);
+
+    const paid = (await auditTrail(escrowId)).filter(
+      (event) => event.action === 'STELLAR_SETTLEMENT_PAID',
+    );
+    expect(paid).toHaveLength(1);
+
+    const settled = (
+      await request(server).get(`/stellar/escrows/${escrowId}`).set(auth(buyer.accessToken))
+    ).body as StellarEscrowBody;
+    expect(settled.status).toBe(StellarEscrowStatus.SETTLED);
+  });
+
+  it('lets an admin requeue a payout stuck mid-settlement, and refuses one that is not stuck', async () => {
+    const { escrowId, buyer, seller } = await createAgreedEscrow();
+    await linkWallet(seller.accessToken);
+    await fundEscrow(escrowId, buyer.accessToken);
+    const admin = await registerAdmin();
+
+    const notStuck = await request(server)
+      .post(`/stellar/escrows/${escrowId}/requeue-settlement`)
+      .set(auth(admin.accessToken));
+    expect(notStuck.status).toBe(409);
+    expect((notStuck.body as ErrorBody).code).toBe('STELLAR_SETTLEMENT_NOT_STUCK');
+
+    await stellarEscrows.update({ escrowId }, { status: StellarEscrowStatus.SETTLING });
+
+    const requeued = await request(server)
+      .post(`/stellar/escrows/${escrowId}/requeue-settlement`)
+      .set(auth(admin.accessToken));
+    expect(requeued.status).toBe(200);
+    expect((requeued.body as StellarEscrowBody).status).toBe(StellarEscrowStatus.FUNDED);
+
+    const refused = await request(server)
+      .post(`/stellar/escrows/${escrowId}/requeue-settlement`)
+      .set(auth(buyer.accessToken));
+    expect(refused.status).toBe(403);
+  });
+
+  async function releaseAndReadyToSweep(): Promise<{
+    escrowId: string;
+    buyer: { userId: string; accessToken: string };
+    sellerAccountId: string;
+  }> {
+    const { escrowId, buyer, seller } = await createAgreedEscrow();
+    const sellerAccountId = await linkWallet(seller.accessToken);
+    await fundEscrow(escrowId, buyer.accessToken);
+
+    await request(server).post(`/escrows/${escrowId}/ship`).set(auth(seller.accessToken)).send({});
+    await request(server)
+      .post(`/escrows/${escrowId}/confirm-delivery`)
+      .set(auth(buyer.accessToken));
+    await settlement.release(escrowId, buyer.userId);
+
+    return { escrowId, buyer, sellerAccountId };
+  }
+
+  function interceptPayout(options: { land: boolean; expiresAt: Date }): {
+    spy: jest.SpyInstance<Promise<StellarPreparedPayment>, [StellarPaymentRequest]>;
+    attempted: string[];
+  } {
+    const prepare = network.preparePayment.bind(network);
+    const attempted: string[] = [];
+    const spy = jest
+      .spyOn(network, 'preparePayment')
+      .mockImplementationOnce(async (payoutRequest: StellarPaymentRequest) => {
+        const prepared = await prepare(payoutRequest);
+        attempted.push(prepared.transactionHash);
+        return {
+          transactionHash: prepared.transactionHash,
+          expiresAt: options.expiresAt,
+          submit: async (): Promise<string> => {
+            if (options.land) {
+              await prepared.submit();
+            }
+            throw new Error('horizon timed out');
+          },
+        };
+      });
+    return { spy, attempted };
+  }
+
+  async function sweep(
+    accessToken: string,
+    escrowId: string,
+  ): Promise<StellarSettlementOutcomeBody> {
+    const response = await request(server).post('/stellar/settlements/run').set(auth(accessToken));
+    return (response.body as StellarSettlementOutcomeBody[]).find(
+      (outcome) => outcome.escrowId === escrowId,
+    ) as StellarSettlementOutcomeBody;
+  }
+
+  it('does not pay twice when a payout landed but the submission reported failure', async () => {
+    const { escrowId, buyer, sellerAccountId } = await releaseAndReadyToSweep();
+    const admin = await registerAdmin();
+
+    const { spy, attempted } = interceptPayout({
+      land: true,
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    const uncertain = await sweep(admin.accessToken, escrowId);
+    expect(uncertain.settled).toBe(false);
+    spy.mockRestore();
+
+    const held = (
+      await request(server).get(`/stellar/escrows/${escrowId}`).set(auth(buyer.accessToken))
+    ).body as StellarEscrowBody;
+    expect(held.status).toBe(StellarEscrowStatus.SETTLING);
+
+    const reconciled = await sweep(admin.accessToken, escrowId);
+    expect(reconciled.settled).toBe(true);
+
+    const settled = (
+      await request(server).get(`/stellar/escrows/${escrowId}`).set(auth(buyer.accessToken))
+    ).body as StellarEscrowBody;
+    expect(settled.status).toBe(StellarEscrowStatus.SETTLED);
+
+    const payout = await network.findPayment(settled.settlementTransactionHash as string);
+    expect(payout?.to).toBe(sellerAccountId);
+    expect(payout?.amount).toBe('975.0000000');
+
+    expect(settled.settlementTransactionHash).toBe(attempted[0]);
+
+    const paid = (await auditTrail(escrowId)).filter(
+      (event) => event.action === 'STELLAR_SETTLEMENT_PAID',
+    );
+    expect(paid).toHaveLength(1);
+    expect(paid[0].reason).toContain('had already landed');
+  });
+
+  it('retries a payout that provably never applied, and pays exactly once', async () => {
+    const { escrowId, buyer, sellerAccountId } = await releaseAndReadyToSweep();
+    const admin = await registerAdmin();
+
+    const { spy, attempted } = interceptPayout({
+      land: false,
+      expiresAt: new Date(Date.now() - 1_000),
+    });
+    const uncertain = await sweep(admin.accessToken, escrowId);
+    expect(uncertain.settled).toBe(false);
+    spy.mockRestore();
+
+    const retried = await sweep(admin.accessToken, escrowId);
+    expect(retried.settled).toBe(true);
+
+    const settled = (
+      await request(server).get(`/stellar/escrows/${escrowId}`).set(auth(buyer.accessToken))
+    ).body as StellarEscrowBody;
+    expect(settled.status).toBe(StellarEscrowStatus.SETTLED);
+
+    const payout = await network.findPayment(settled.settlementTransactionHash as string);
+    expect(payout?.to).toBe(sellerAccountId);
+    expect(payout?.amount).toBe('975.0000000');
+    expect(settled.settlementTransactionHash).not.toBe(attempted[0]);
+    expect(await network.findPayment(attempted[0])).toBeNull();
+
+    const trail = (await auditTrail(escrowId)).map((event) => event.action);
+    expect(trail).toContain('STELLAR_SETTLEMENT_UNCERTAIN');
+    expect(trail).toContain('STELLAR_SETTLEMENT_RECONCILED');
+    expect(trail.filter((action) => action === 'STELLAR_SETTLEMENT_PAID')).toHaveLength(1);
+  });
+
+  it('refuses to retry a payout that is still in flight', async () => {
+    const { escrowId, buyer } = await releaseAndReadyToSweep();
+    const admin = await registerAdmin();
+
+    const { spy } = interceptPayout({ land: false, expiresAt: new Date(Date.now() + 60_000) });
+    await sweep(admin.accessToken, escrowId);
+    spy.mockRestore();
+
+    const inFlight = await sweep(admin.accessToken, escrowId);
+    expect(inFlight.settled).toBe(false);
+    expect(inFlight.blockedBy).toContain('still in flight');
+
+    const held = (
+      await request(server).get(`/stellar/escrows/${escrowId}`).set(auth(buyer.accessToken))
+    ).body as StellarEscrowBody;
+    expect(held.status).toBe(StellarEscrowStatus.SETTLING);
+    expect(held.settlementTransactionHash).toBeNull();
+
+    expect(
+      (await auditTrail(escrowId)).filter((event) => event.action === 'STELLAR_SETTLEMENT_PAID'),
+    ).toHaveLength(0);
+  });
+
+  it('refuses to requeue a payout that has an unresolved attempt against the chain', async () => {
+    const { escrowId } = await releaseAndReadyToSweep();
+    const admin = await registerAdmin();
+
+    const { spy } = interceptPayout({ land: false, expiresAt: new Date(Date.now() + 60_000) });
+    await sweep(admin.accessToken, escrowId);
+    spy.mockRestore();
+
+    const refused = await request(server)
+      .post(`/stellar/escrows/${escrowId}/requeue-settlement`)
+      .set(auth(admin.accessToken));
+
+    expect(refused.status).toBe(409);
+    expect((refused.body as ErrorBody).code).toBe('STELLAR_SETTLEMENT_NOT_STUCK');
   });
 });

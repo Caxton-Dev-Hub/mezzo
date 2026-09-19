@@ -62,7 +62,7 @@ export const stellarAccountResponseSchema = z.object({
 
 export type StellarAccountResponse = z.infer<typeof stellarAccountResponseSchema>;
 
-export const stellarEscrowStatusSchema = z.enum(['AWAITING_DEPOSIT', 'FUNDED', 'SETTLED']);
+export const stellarEscrowStatusSchema = z.enum(['AWAITING_DEPOSIT', 'FUNDED', 'SETTLING', 'SETTLED']);
 
 export type StellarEscrowStatus = z.infer<typeof stellarEscrowStatusSchema>;
 
