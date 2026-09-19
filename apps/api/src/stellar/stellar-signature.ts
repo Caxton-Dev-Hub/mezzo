@@ -4,6 +4,7 @@ import { Keypair } from '@stellar/stellar-sdk';
 const BASE64 = /^[A-Za-z0-9+/_-]+={0,2}$/;
 const HEX = /^[0-9a-fA-F]+$/;
 const SIGNATURE_BYTES = 64;
+const SEP53_PREFIX = 'Stellar Signed Message:\n';
 
 function decodeSignature(signature: string): Buffer[] {
   const candidates: Buffer[] = [];
@@ -21,7 +22,11 @@ function decodeSignature(signature: string): Buffer[] {
 
 function signedPayloads(message: string): Buffer[] {
   const raw = Buffer.from(message, 'utf8');
-  return [raw, createHash('sha256').update(raw).digest()];
+  const sep53 = createHash('sha256')
+    .update(Buffer.concat([Buffer.from(SEP53_PREFIX, 'utf8'), raw]))
+    .digest();
+
+  return [sep53, raw, createHash('sha256').update(raw).digest()];
 }
 
 export function verifyStellarSignature(

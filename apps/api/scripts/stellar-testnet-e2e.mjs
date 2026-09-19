@@ -3,6 +3,7 @@
 // an issuer, a custody account, a buyer and a seller, funds a trustline, pays
 // the custody account with an escrow memo, reads that payment back through the
 // provider, and pays the seller out. Run `pnpm --filter @mezzo/api build` first.
+import net from 'node:net';
 import {
   Asset,
   BASE_FEE,
@@ -23,6 +24,11 @@ const ASSET_CODE = 'USDC';
 const ESCROW_ID = '11111111-2222-3333-4444-555555555555';
 const PRICE_CENTS = 100_000;
 const FEE_BPS = 250;
+
+// Horizon testnet sits behind a load balancer whose addresses are not all
+// reachable from every network. Without a short attempt timeout, Node stalls on
+// the first unreachable address instead of failing over to a working one.
+net.setDefaultAutoSelectFamilyAttemptTimeout(500);
 
 const server = new Horizon.Server(HORIZON_URL);
 
@@ -51,15 +57,36 @@ function stubConfig(values) {
   };
 }
 
-async function fundFromFriendbot(keypair) {
-  const response = await fetch(`https://friendbot.stellar.org/?addr=${keypair.publicKey()}`);
-  if (!response.ok) {
-    throw new Error(`Friendbot refused ${keypair.publicKey()}: ${response.status}`);
+// The testnet faucet and Horizon are both public services that time out under
+// load, so every call that leaves this machine is retried before it is believed.
+async function withRetry(label, attempt, attempts = 5) {
+  let lastError;
+  for (let tries = 1; tries <= attempts; tries += 1) {
+    try {
+      return await attempt();
+    } catch (error) {
+      lastError = error;
+      if (tries < attempts) {
+        await new Promise((resolve) => setTimeout(resolve, tries * 2000));
+      }
+    }
   }
+  throw new Error(`${label} failed after ${attempts} attempts: ${lastError}`);
+}
+
+async function fundFromFriendbot(keypair) {
+  await withRetry(`Friendbot funding for ${keypair.publicKey()}`, async () => {
+    const response = await fetch(`https://friendbot.stellar.org/?addr=${keypair.publicKey()}`);
+    if (!response.ok) {
+      throw new Error(`Friendbot refused with ${response.status}`);
+    }
+  });
 }
 
 async function submit(sourceKeypair, buildOperations, memo) {
-  const account = await server.loadAccount(sourceKeypair.publicKey());
+  const account = await withRetry('loadAccount', () =>
+    server.loadAccount(sourceKeypair.publicKey()),
+  );
   let builder = new TransactionBuilder(account, {
     fee: BASE_FEE,
     networkPassphrase: Networks.TESTNET,
@@ -144,26 +171,74 @@ async function main() {
   const unknownHash = 'f'.repeat(64);
   check('an unknown transaction hash reads as null, not an error', (await provider.findPayment(unknownHash)) === null);
 
+  console.log('\nverification: payments that must not fund the escrow');
+  const wrongMemoTx = await submit(
+    buyer,
+    () => [Operation.payment({ destination: deposit.accountId, asset, amount: priceOnChain })],
+    'not-this-escrow',
+  );
+  const wrongMemo = await provider.findPayment(wrongMemoTx.hash);
+  check('a payment with another memo reads back with that memo, not ours', wrongMemo?.memo === 'not-this-escrow' && wrongMemo.memo !== deposit.memo);
+
+  const wrongAmountTx = await submit(
+    buyer,
+    () => [Operation.payment({ destination: deposit.accountId, asset, amount: '1.0000000' })],
+    deposit.memo,
+  );
+  const wrongAmount = await provider.findPayment(wrongAmountTx.hash);
+  check('a short payment reads back its real amount, not the expected one', wrongAmount?.amount === '1.0000000' && wrongAmount.amount !== priceOnChain);
+
+  const nativeTx = await submit(
+    buyer,
+    () => [Operation.payment({ destination: deposit.accountId, asset: Asset.native(), amount: '1.0000000' })],
+    deposit.memo,
+  );
+  check('a native XLM payment is not seen as an asset deposit at all', (await provider.findPayment(nativeTx.hash)) === null);
+
+  const strayTx = await submit(
+    buyer,
+    () => [Operation.payment({ destination: seller.publicKey(), asset, amount: '1.0000000' })],
+    deposit.memo,
+  );
+  check('a payment to someone else is not seen as a deposit to custody', (await provider.findPayment(strayTx.hash)) === null);
+
   console.log('\nmoney out: custody pays the seller, net of the platform fee');
+  const sellerBefore = Number(await balanceOf(seller.publicKey(), asset));
   const feeCents = Math.floor((PRICE_CENTS * FEE_BPS) / 10_000);
   const netOnChain = toStellarAmount({ amount: PRICE_CENTS - feeCents, currency: 'USD' });
-  const payoutHash = await provider.sendPayment({
+  const preparedPayout = await provider.preparePayment({
     from: deposit.accountId,
     to: seller.publicKey(),
     amount: netOnChain,
     memo: deposit.memo,
   });
-  check('payout submitted and returned a hash', /^[0-9a-f]{64}$/.test(payoutHash));
-  check('seller received the net amount', (await balanceOf(seller.publicKey(), asset)) === netOnChain);
+  check('payout hash is known before anything is submitted', /^[0-9a-f]{64}$/.test(preparedPayout.transactionHash));
+  check('payout carries a time bound in the future', preparedPayout.expiresAt.getTime() > Date.now());
+  check('an unsubmitted payout is not on the chain', (await provider.findTransaction(preparedPayout.transactionHash)) === null);
+
+  const payoutHash = await preparedPayout.submit();
+  check('payout submitted under the hash it was signed with', payoutHash === preparedPayout.transactionHash);
+  check('the submitted payout reads back as successful', (await provider.findTransaction(payoutHash))?.successful === true);
+  const sellerAfter = Number(await balanceOf(seller.publicKey(), asset));
   check(
-    'custody retains exactly the platform fee',
-    (await balanceOf(custody.publicKey(), asset)) === toStellarAmount({ amount: feeCents, currency: 'USD' }),
+    'seller received exactly the net amount',
+    (sellerAfter - sellerBefore).toFixed(7) === netOnChain,
+    `expected a delta of ${netOnChain}, got ${(sellerAfter - sellerBefore).toFixed(7)}`,
+  );
+  const strayDeposits = toStellarAmount({ amount: PRICE_CENTS + 100, currency: 'USD' });
+  const expectedCustody = (
+    Number(toStellarAmount({ amount: feeCents, currency: 'USD' })) + Number(strayDeposits)
+  ).toFixed(7);
+  check(
+    'custody retains the platform fee plus the deposits it refused to credit',
+    (await balanceOf(custody.publicKey(), asset)) === expectedCustody,
+    `expected ${expectedCustody}, got ${await balanceOf(custody.publicKey(), asset)}`,
   );
 
   console.log('\nrefusals');
   let refused = false;
   try {
-    await provider.sendPayment({
+    await provider.preparePayment({
       from: buyer.publicKey(),
       to: seller.publicKey(),
       amount: '1.0000000',

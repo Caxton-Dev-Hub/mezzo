@@ -1,5 +1,6 @@
 export enum StellarEscrowStatus {
   AWAITING_DEPOSIT = 'AWAITING_DEPOSIT',
   FUNDED = 'FUNDED',
+  SETTLING = 'SETTLING',
   SETTLED = 'SETTLED',
 }

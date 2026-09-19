@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { StellarAsset, StellarNetworkName } from '@mezzo/shared-types';
-import { STELLAR_NETWORK, StellarNetworkClient } from './providers/stellar-network.interface';
+import { isSimulated, STELLAR_NETWORK, StellarNetworkClient } from './providers/stellar-network.interface';
 import { StellarRailDisabledError } from './errors/stellar-rail-disabled.error';
 
 @Injectable()
@@ -17,6 +17,10 @@ export class StellarConfigService {
 
   isEnabled(): boolean {
     return this.enabled;
+  }
+
+  isSimulated(): boolean {
+    return this.enabled && isSimulated(this.network);
   }
 
   assertEnabled(): void {

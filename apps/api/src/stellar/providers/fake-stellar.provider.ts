@@ -10,7 +10,11 @@ import {
   StellarDepositAddress,
   StellarPayment,
   StellarPaymentRequest,
+  StellarPreparedPayment,
+  StellarTransactionOutcome,
 } from './stellar-network.interface';
+
+const PAYMENT_TIMEOUT_SECONDS = 60;
 
 @Injectable()
 export class FakeStellarProvider implements SimulatedStellarNetworkClient {
@@ -46,9 +50,21 @@ export class FakeStellarProvider implements SimulatedStellarNetworkClient {
     return Promise.resolve(this.payments.get(transactionHash) ?? null);
   }
 
-  sendPayment(request: StellarPaymentRequest): Promise<string> {
-    const payment = this.record(request);
-    return Promise.resolve(payment.transactionHash);
+  preparePayment(request: StellarPaymentRequest): Promise<StellarPreparedPayment> {
+    const transactionHash = randomBytes(32).toString('hex');
+    return Promise.resolve({
+      transactionHash,
+      expiresAt: new Date(Date.now() + PAYMENT_TIMEOUT_SECONDS * 1000),
+      submit: () => {
+        this.record(request, transactionHash);
+        return Promise.resolve(transactionHash);
+      },
+    });
+  }
+
+  findTransaction(transactionHash: string): Promise<StellarTransactionOutcome | null> {
+    const payment = this.payments.get(transactionHash);
+    return Promise.resolve(payment ? { transactionHash, successful: true } : null);
   }
 
   receivePayment(request: StellarPaymentRequest): Promise<StellarPayment> {
@@ -59,9 +75,9 @@ export class FakeStellarProvider implements SimulatedStellarNetworkClient {
     this.payments.clear();
   }
 
-  private record(request: StellarPaymentRequest): StellarPayment {
+  private record(request: StellarPaymentRequest, transactionHash?: string): StellarPayment {
     const payment: StellarPayment = {
-      transactionHash: randomBytes(32).toString('hex'),
+      transactionHash: transactionHash ?? randomBytes(32).toString('hex'),
       from: request.from,
       to: request.to,
       memo: request.memo,

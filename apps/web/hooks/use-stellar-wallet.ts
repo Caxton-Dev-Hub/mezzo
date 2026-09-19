@@ -5,10 +5,14 @@ import { QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/re
 import type { StellarNetworkName } from '@mezzo/shared-types';
 import { useAuthStore } from '../lib/auth-store';
 import {
+  confirmStellarDeposit,
+  getStellarEscrow,
   getStellarRailConfig,
   getStellarWallet,
   linkStellarWallet,
+  openStellarFunding,
   requestStellarLinkChallenge,
+  simulateStellarDeposit,
   unlinkStellarWallet,
 } from '../lib/stellar-client';
 import {
@@ -21,6 +25,8 @@ import {
 const WALLET_QUERY_KEY = ['stellar-wallet'];
 const RAIL_CONFIG_QUERY_KEY = ['stellar-rail-config'];
 const WALLET_ADDRESS_QUERY_KEY = ['stellar-wallet-address'];
+
+const stellarEscrowQueryKey = (escrowId: string) => ['stellar-escrow', escrowId];
 
 function resolveNetwork(queryClient: QueryClient): Promise<StellarNetworkName> {
   return queryClient
@@ -98,4 +104,48 @@ export function useStellarWalletSessionSync(): void {
     queryClient.removeQueries({ queryKey: WALLET_QUERY_KEY });
     queryClient.removeQueries({ queryKey: WALLET_ADDRESS_QUERY_KEY });
   }, [status, queryClient]);
+}
+
+export function useStellarEscrow(escrowId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: stellarEscrowQueryKey(escrowId),
+    queryFn: () => getStellarEscrow(escrowId),
+    enabled,
+    retry: false,
+  });
+}
+
+export function useOpenStellarFunding(escrowId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => openStellarFunding(escrowId),
+    onSuccess: (stellarEscrow) => {
+      queryClient.setQueryData(stellarEscrowQueryKey(escrowId), stellarEscrow);
+    },
+  });
+}
+
+export function useConfirmStellarDeposit(escrowId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (transactionHash: string) => confirmStellarDeposit(escrowId, { transactionHash }),
+    onSuccess: (stellarEscrow) => {
+      queryClient.setQueryData(stellarEscrowQueryKey(escrowId), stellarEscrow);
+      queryClient.invalidateQueries({ queryKey: ['escrow', escrowId] });
+    },
+  });
+}
+
+export function useSimulateStellarDeposit(escrowId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => simulateStellarDeposit(escrowId),
+    onSuccess: (stellarEscrow) => {
+      queryClient.setQueryData(stellarEscrowQueryKey(escrowId), stellarEscrow);
+      queryClient.invalidateQueries({ queryKey: ['escrow', escrowId] });
+    },
+  });
 }

@@ -60,6 +60,7 @@ describe('ConnectWalletButton', () => {
   beforeEach(() => {
     getStellarRailConfig.mockReset().mockResolvedValue({
       enabled: true,
+      simulated: false,
       network: 'testnet',
       asset: { code: 'USDC', issuer: OTHER_ACCOUNT_ID },
     });
@@ -85,28 +86,36 @@ describe('ConnectWalletButton', () => {
     vi.unstubAllGlobals();
   });
 
-  it('shows a Stellar coming-soon badge when the rail is not live', () => {
-    vi.stubEnv('NEXT_PUBLIC_STELLAR_MODE', '');
+  it('shows a Stellar coming-soon badge when the API reports the rail is off', async () => {
+    getStellarRailConfig.mockResolvedValue({
+      enabled: false,
+      simulated: false,
+      network: 'testnet',
+      asset: null,
+    });
 
     renderWithProviders(<ConnectWalletButton />);
 
-    expect(screen.getByTestId('stellar-coming-soon')).toBeInTheDocument();
+    expect(await screen.findByTestId('stellar-coming-soon')).toBeInTheDocument();
     expect(screen.getByText('Coming soon')).toBeInTheDocument();
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
     expect(getStellarWallet).not.toHaveBeenCalled();
   });
 
-  it('labels the badge with the Stellar mark', () => {
-    vi.stubEnv('NEXT_PUBLIC_STELLAR_MODE', '');
+  it('labels the badge with the Stellar mark', async () => {
+    getStellarRailConfig.mockResolvedValue({
+      enabled: false,
+      simulated: false,
+      network: 'testnet',
+      asset: null,
+    });
 
     renderWithProviders(<ConnectWalletButton />);
 
-    expect(screen.getByRole('img', { name: 'Stellar' })).toBeInTheDocument();
+    expect(await screen.findByRole('img', { name: 'Stellar' })).toBeInTheDocument();
   });
 
   it('opens the wallet picker on the network the API reports', async () => {
-    vi.stubEnv('NEXT_PUBLIC_STELLAR_MODE', 'live');
-
     renderWithProviders(<ConnectWalletButton />);
 
     await userEvent.click(await screen.findByRole('button', { name: /connect wallet/i }));
@@ -115,8 +124,6 @@ describe('ConnectWalletButton', () => {
   });
 
   it('links the account with a signature over the API-issued challenge', async () => {
-    vi.stubEnv('NEXT_PUBLIC_STELLAR_MODE', 'live');
-
     renderWithProviders(<ConnectWalletButton />);
 
     await userEvent.click(await screen.findByRole('button', { name: /connect wallet/i }));
@@ -132,7 +139,6 @@ describe('ConnectWalletButton', () => {
   });
 
   it('never links an account when the wallet refuses to sign the challenge', async () => {
-    vi.stubEnv('NEXT_PUBLIC_STELLAR_MODE', 'live');
     signWalletMessage.mockRejectedValue(new WalletSignatureUnsupportedError());
 
     renderWithProviders(<ConnectWalletButton />);
@@ -144,7 +150,6 @@ describe('ConnectWalletButton', () => {
   });
 
   it('never links when the wallet signed with a different account', async () => {
-    vi.stubEnv('NEXT_PUBLIC_STELLAR_MODE', 'live');
     signWalletMessage.mockRejectedValue(
       new WalletAccountMismatchError(ACCOUNT_ID, OTHER_ACCOUNT_ID),
     );
@@ -158,7 +163,6 @@ describe('ConnectWalletButton', () => {
   });
 
   it('points at the wallet directory when no wallet is available', async () => {
-    vi.stubEnv('NEXT_PUBLIC_STELLAR_MODE', 'live');
     connectWallet.mockRejectedValue(new WalletUnavailableError());
 
     renderWithProviders(<ConnectWalletButton />);
@@ -170,7 +174,6 @@ describe('ConnectWalletButton', () => {
   });
 
   it('shows the linked account, shortened, once a wallet is connected', async () => {
-    vi.stubEnv('NEXT_PUBLIC_STELLAR_MODE', 'live');
     getStellarWallet.mockResolvedValue(LINKED_ACCOUNT);
 
     renderWithProviders(<ConnectWalletButton />);
@@ -179,7 +182,6 @@ describe('ConnectWalletButton', () => {
   });
 
   it('unlinks on the server and drops the wallet session when disconnected', async () => {
-    vi.stubEnv('NEXT_PUBLIC_STELLAR_MODE', 'live');
     getStellarWallet.mockResolvedValue(LINKED_ACCOUNT);
 
     renderWithProviders(<ConnectWalletButton />);
@@ -191,7 +193,6 @@ describe('ConnectWalletButton', () => {
   });
 
   it('offers a re-link when the wallet is on a different account than the linked one', async () => {
-    vi.stubEnv('NEXT_PUBLIC_STELLAR_MODE', 'live');
     getStellarWallet.mockResolvedValue(LINKED_ACCOUNT);
     restoreWalletAddress.mockResolvedValue(OTHER_ACCOUNT_ID);
 
@@ -201,7 +202,6 @@ describe('ConnectWalletButton', () => {
   });
 
   it('stays quiet when the wallet is on the account already linked', async () => {
-    vi.stubEnv('NEXT_PUBLIC_STELLAR_MODE', 'live');
     getStellarWallet.mockResolvedValue(LINKED_ACCOUNT);
     restoreWalletAddress.mockResolvedValue(ACCOUNT_ID);
 
@@ -212,7 +212,6 @@ describe('ConnectWalletButton', () => {
   });
 
   it('asks the API for nothing until the session is authenticated', () => {
-    vi.stubEnv('NEXT_PUBLIC_STELLAR_MODE', 'live');
     useAuthStore.setState({ status: 'unauthenticated', user: null } as never);
 
     renderWithProviders(<ConnectWalletButton />);
