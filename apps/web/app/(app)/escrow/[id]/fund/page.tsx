@@ -8,6 +8,7 @@ import { useEscrowFunding } from '../../../../../hooks/use-escrow-funding';
 import { ApiError } from '../../../../../lib/api-error';
 import { TermsPanel } from '../../../../../components/escrow/terms-panel';
 import { FundingPanel } from '../../../../../components/escrow/funding-panel';
+import { StellarFundingPanel } from '../../../../../components/stellar/stellar-funding-panel';
 import { EvidenceViewer } from '../../../../../components/evidence/evidence-viewer';
 
 export default function FundEscrowPage() {
@@ -82,7 +83,7 @@ export default function FundEscrowPage() {
         <div className="space-y-6">
           {escrow.terms ? <TermsPanel terms={escrow.terms} frozen /> : null}
           <div className="rounded-xl border border-line-soft bg-surface shadow-card p-4">
-            <h2 className="mb-3 text-sm font-medium text-vellum">Payment</h2>
+            <h2 className="mb-3 text-sm font-medium text-vellum">Pay by card or transfer</h2>
             {intentQuery.isLoading || kycQuery.isLoading ? (
               <div className="h-24 animate-pulse rounded-lg bg-surface-2" />
             ) : (
@@ -93,6 +94,11 @@ export default function FundEscrowPage() {
                 isBuyer={isBuyer}
               />
             )}
+          </div>
+
+          <div className="rounded-xl border border-line-soft bg-surface shadow-card p-4">
+            <h2 className="mb-3 text-sm font-medium text-vellum">Pay on Stellar</h2>
+            <StellarFundingPanel escrow={escrow} isBuyer={isBuyer} />
           </div>
         </div>
       </div>
