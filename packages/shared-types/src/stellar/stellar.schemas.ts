@@ -24,6 +24,7 @@ export type StellarAsset = z.infer<typeof stellarAssetSchema>;
 
 export const stellarRailConfigResponseSchema = z.object({
   enabled: z.boolean(),
+  simulated: z.boolean(),
   network: stellarNetworkSchema,
   asset: stellarAssetSchema.nullable(),
 });
