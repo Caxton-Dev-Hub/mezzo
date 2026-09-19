@@ -6,6 +6,7 @@ import { WalletUnavailableError } from '../../lib/stellar-wallet';
 import {
   useConnectStellarWallet,
   useDisconnectStellarWallet,
+  useStellarRailConfig,
   useStellarWallet,
   useStellarWalletSessionSync,
   useWalletAddress,
@@ -21,7 +22,8 @@ function shortenAccountId(accountId: string): string {
 
 export function ConnectWalletButton({ className }: { className?: string }) {
   const authenticated = useAuthStore((state) => state.status) === 'authenticated';
-  const live = stellarRailMode() === 'live';
+  const railConfig = useStellarRailConfig(true);
+  const live = stellarRailMode(railConfig.data) === 'live';
   const enabled = authenticated && live;
 
   useStellarWalletSessionSync();
@@ -30,6 +32,10 @@ export function ConnectWalletButton({ className }: { className?: string }) {
   const walletAddress = useWalletAddress(enabled);
   const connect = useConnectStellarWallet();
   const disconnect = useDisconnectStellarWallet();
+
+  if (railConfig.isLoading) {
+    return null;
+  }
 
   if (!live) {
     return (
