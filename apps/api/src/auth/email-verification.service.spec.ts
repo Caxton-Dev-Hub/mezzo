@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
 import { EmailVerificationService } from './email-verification.service';
@@ -102,6 +103,17 @@ describe('EmailVerificationService', () => {
       expect(saved.codeHash).toBe(hashOf(emailedCode));
       expect(saved.codeHash).not.toBe(emailedCode);
       expect(mailer.sent[0].recipientEmail).toBe(user.email);
+    });
+
+    it('keeps the stored code when the mailer cannot deliver it', async () => {
+      const { service, codes, mailer } = buildHarness();
+      jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+      jest.spyOn(mailer, 'send').mockRejectedValue(new Error('Resend delivery failed with 422'));
+
+      await expect(service.sendCode(buildUser())).resolves.toBeUndefined();
+
+      const saved = codes.save.mock.calls[0][0] as { codeHash: string };
+      expect(saved.codeHash).toMatch(/^[0-9a-f]{64}$/);
     });
 
     it('replaces any outstanding code for the user in place, resetting attempts', async () => {
