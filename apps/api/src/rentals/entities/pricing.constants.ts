@@ -1,0 +1,9 @@
+export const BASE_RATE_KOBO = 60000;
+
+export const HOURLY_OVERAGE_KOBO = 2500;
+
+export const MAX_OVERAGE_KOBO = 60000;
+
+export const RENTAL_DURATION_MS = 86400000;
+
+export const MAX_OVERAGE_DURATION_MS = 86400000;
