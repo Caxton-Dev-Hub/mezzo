@@ -29,3 +29,5 @@ apps/api/generated/
 # brag launch video output (large renders)
 brag-output/
 brag-output-*/
+
+.agents

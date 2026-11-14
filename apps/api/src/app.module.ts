@@ -25,6 +25,7 @@ import { ReceiptsModule } from './receipts/receipts.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
 import { WaitlistModule } from './waitlist/waitlist.module';
 import { StellarModule } from './stellar/stellar.module';
+import { ShopsModule } from './shops/shops.module';
 
 const databaseBacked = isDatabaseConfigured();
 
@@ -41,6 +42,7 @@ const databaseBacked = isDatabaseConfigured();
     ...(databaseBacked
       ? [
           SettingsModule,
+          ShopsModule,
           KycModule,
           NotificationsModule,
           EscrowModule,
