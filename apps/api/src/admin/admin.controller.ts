@@ -36,6 +36,7 @@ import { PayoutStatus } from '../payments/entities/payout-status.enum';
 import { PaymentIntentStatus } from '../payments/entities/payment-intent-status.enum';
 import { ReconciliationReport } from '../ledger/reconciliation.service';
 import { ProviderFloatReport } from '../payments/provider-float.service';
+import { VerificationSubmissionStatus } from '../database/entities/verification-submission.entity';
 import {
   AdminDisputeSummaryResponse,
   AdminEscrowResponse,
@@ -316,4 +317,60 @@ export class AdminController {
   ): Promise<WhatsappTransactionalSettingsResponse> {
     return this.adminService.setWhatsappTransactionalEnabled(currentUser.id, dto);
   }
+
+  @Get('charge/rentals/overdue')
+  @Roles(UserRole.ADMIN)
+  async listOverdueRentals() {
+    return this.adminService.listOverdueRentals();
+  }
+
+  @Get('charge/rentals/unreturned')
+  @Roles(UserRole.ADMIN)
+  async listUnreturnedRentals() {
+    return this.adminService.listUnreturnedRentals();
+  }
+
+  @Get('charge/shops/revenue')
+  @Roles(UserRole.ADMIN)
+  async listShopRevenue() {
+    return this.adminService.listShopRevenue();
+  }
+
+  @Get('charge/verifications')
+  @Roles(UserRole.ADMIN)
+  async listVerificationQueue(@Query('status') status?: string) {
+    const validStatus = status
+      ? (status.toUpperCase() as VerificationSubmissionStatus)
+      : undefined;
+    return this.adminService.listVerificationQueue(validStatus);
+  }
+
+  @Get('charge/verifications/:id')
+  @Roles(UserRole.ADMIN)
+  async getVerification(@Param('id') id: string) {
+    return this.adminService.getVerification(id);
+  }
+
+  @Post('charge/verifications/:id/approve')
+  @HttpCode(HttpStatus.OK)
+  @Roles(UserRole.ADMIN)
+  async approveChargeVerification(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(adminActionReasonSchema)) dto: AdminActionReasonDto,
+  ) {
+    return this.adminService.approveVerification(currentUser.id, id, dto.reason);
+  }
+
+  @Post('charge/verifications/:id/reject')
+  @HttpCode(HttpStatus.OK)
+  @Roles(UserRole.ADMIN)
+  async rejectChargeVerification(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(adminActionReasonSchema)) dto: AdminActionReasonDto,
+  ) {
+    return this.adminService.rejectVerification(currentUser.id, id, dto.reason);
+  }
 }
+

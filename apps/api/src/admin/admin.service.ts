@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import {
   AdminDisputePacketResponse,
   AdminUserDetailResponse,
@@ -73,6 +75,10 @@ import {
   UpdateWhatsappTransactionalEnabledDto,
 } from './dto/admin.schemas';
 import { ReviewKycVerificationDto } from '@mezzo/shared-types';
+import { Rental, RentalStatus } from '../database/entities/rental.entity';
+import { AccessorySale } from '../database/entities/accessory-sale.entity';
+import { ShopsService } from '../shops/shops.service';
+import { VerificationSubmissionStatus } from '../database/entities/verification-submission.entity';
 
 export type { AdminDisputePacketResponse };
 
@@ -97,6 +103,11 @@ export class AdminService {
     private readonly waitlistService: WaitlistService,
     private readonly chatService: ChatService,
     private readonly tokenService: TokenService,
+    private readonly shopsService: ShopsService,
+    @InjectRepository(Rental)
+    private readonly rentals: Repository<Rental>,
+    @InjectRepository(AccessorySale)
+    private readonly accessorySales: Repository<AccessorySale>,
   ) {}
 
   async listDisputes(state?: DisputeState): Promise<AdminDisputeSummaryResponse[]> {
@@ -561,4 +572,67 @@ export class AdminService {
 
     return { whatsappTransactionalEnabled: after };
   }
+
+  async listOverdueRentals(): Promise<Rental[]> {
+    return this.rentals.find({
+      where: { status: RentalStatus.OVERDUE },
+      order: { dueAt: 'ASC' },
+    });
+  }
+
+  async listUnreturnedRentals(): Promise<Rental[]> {
+    return this.rentals.find({
+      where: { status: RentalStatus.UNRETURNED },
+      order: { startedAt: 'DESC' },
+    });
+  }
+
+  async listShopRevenue(): Promise<{ shopId: string; rentalRevenue: string; accessoryRevenue: string }[]> {
+    const rentalAggregates = await this.rentals
+      .createQueryBuilder('rental')
+      .select('rental.shopId', 'shopId')
+      .addSelect('SUM(CAST(rental.totalChargedAmount AS BIGINT))', 'totalRentalRevenue')
+      .where('rental.status IN (:...statuses)', { statuses: [RentalStatus.RETURNED, RentalStatus.OVERDUE, RentalStatus.UNRETURNED] })
+      .groupBy('rental.shopId')
+      .getRawMany();
+
+    const accessoryAggregates = await this.accessorySales
+      .createQueryBuilder('sale')
+      .select('sale.shopId', 'shopId')
+      .addSelect('SUM(CAST(sale.totalAmount AS BIGINT))', 'totalAccessoryRevenue')
+      .groupBy('sale.shopId')
+      .getRawMany();
+
+    const shopIds = Array.from(
+      new Set([...rentalAggregates.map((r) => r.shopId), ...accessoryAggregates.map((a) => a.shopId)]),
+    );
+
+    return shopIds.map((shopId) => {
+      const rentalRecord = rentalAggregates.find((r) => r.shopId === shopId);
+      const accessoryRecord = accessoryAggregates.find((a) => a.shopId === shopId);
+
+      return {
+        shopId,
+        rentalRevenue: rentalRecord?.totalRentalRevenue || '0',
+        accessoryRevenue: accessoryRecord?.totalAccessoryRevenue || '0',
+      };
+    });
+  }
+
+  async listVerificationQueue(status?: VerificationSubmissionStatus) {
+    return this.shopsService.listVerificationSubmissions(status);
+  }
+
+  async getVerification(id: string) {
+    return this.shopsService.getVerification(id);
+  }
+
+  async approveVerification(actorId: string, id: string, notes?: string) {
+    return this.shopsService.approveVerification(actorId, id, notes ? { notes } : undefined);
+  }
+
+  async rejectVerification(actorId: string, id: string, notes: string) {
+    return this.shopsService.rejectVerification(actorId, id, { notes });
+  }
 }
+

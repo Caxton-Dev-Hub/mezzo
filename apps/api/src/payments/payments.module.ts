@@ -5,6 +5,7 @@ import { PaymentIntent } from '../database/entities/payment-intent.entity';
 import { PaymentWebhookEvent } from '../database/entities/payment-webhook-event.entity';
 import { Payout } from '../database/entities/payout.entity';
 import { PayoutAccount } from '../database/entities/payout-account.entity';
+import { OutstandingBalance } from '../database/entities/outstanding-balance.entity';
 import { EscrowModule } from '../escrow/escrow.module';
 import { LedgerModule } from '../ledger/ledger.module';
 import { KycModule } from '../kyc/kyc.module';
@@ -27,7 +28,13 @@ import { FlutterwaveHttpProvider } from './providers/flutterwave-http.provider';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([PaymentIntent, PaymentWebhookEvent, Payout, PayoutAccount]),
+    TypeOrmModule.forFeature([
+      PaymentIntent,
+      PaymentWebhookEvent,
+      Payout,
+      PayoutAccount,
+      OutstandingBalance,
+    ]),
     EscrowModule,
     LedgerModule,
     KycModule,

@@ -685,3 +685,85 @@ describe('PaymentsService.resolveQuarantinedIntent', () => {
     );
   });
 });
+
+describe('PaymentsService - OutstandingBalance Clearing', () => {
+  it('clears outstanding balances in FIFO order after funding', async () => {
+    const harness = buildHarness({
+      terms: buildTerms(),
+      escrowState: EscrowState.AGREED,
+      existingIntent: buildIntent(),
+      buyer: { id: BUYER_ID, email: 'buyer@example.com' },
+    });
+
+    const balance1 = { id: 'b1', userId: BUYER_ID, amount: '5000', currency: 'NGN', clearedAt: null };
+    const balance2 = { id: 'b2', userId: BUYER_ID, amount: '3000', currency: 'NGN', clearedAt: null };
+
+    const mockManager = {
+      findOne: jest.fn(),
+      save: harness.managerSave,
+      create: jest.fn((_e: any, d: any) => ({ ...d })) as any,
+      find: jest.fn().mockResolvedValue([balance1, balance2]),
+    };
+
+    harness.transactionSpy.mockImplementation((cb) => cb(mockManager));
+    harness.postTransaction.mockResolvedValue({ id: 'posting-1' });
+
+    const ledgerService = {
+      postTransaction: harness.postTransaction,
+      getBalanceOrZero: jest.fn()
+        .mockResolvedValueOnce({ amount: 10000, currency: 'NGN' })
+        .mockResolvedValueOnce({ amount: 5000, currency: 'NGN' }),
+    };
+
+    (harness.service as any).ledgerService = ledgerService;
+
+    await harness.service.handleFlutterwaveWebhook('sig', {
+      event: 'charge.completed',
+      data: { id: 123, tx_ref: 'ref-1', amount: 100000, currency: 'NGN', status: 'successful' },
+    });
+
+    expect(harness.postTransaction).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ idempotencyKey: 'clear-balance:b1' }),
+      mockManager,
+    );
+  });
+
+  it('stops clearing when wallet insufficient', async () => {
+    const harness = buildHarness({
+      terms: buildTerms(),
+      escrowState: EscrowState.AGREED,
+      existingIntent: buildIntent(),
+      buyer: { id: BUYER_ID, email: 'buyer@example.com' },
+    });
+
+    const balance1 = { id: 'b1', userId: BUYER_ID, amount: '5000', currency: 'NGN', clearedAt: null };
+    const balance2 = { id: 'b2', userId: BUYER_ID, amount: '10000', currency: 'NGN', clearedAt: null };
+
+    const mockManager = {
+      findOne: jest.fn(),
+      save: harness.managerSave,
+      create: jest.fn((_entity: any, data: any) => ({ ...data })) as any,
+      find: jest.fn().mockResolvedValue([balance1, balance2]),
+    };
+
+    harness.transactionSpy.mockImplementation((cb: any) => cb(mockManager));
+    harness.postTransaction.mockResolvedValue({ id: 'posting-1' });
+
+    const ledgerService = {
+      postTransaction: harness.postTransaction,
+      getBalanceOrZero: jest.fn()
+        .mockResolvedValueOnce({ amount: 5000, currency: 'NGN' })
+        .mockResolvedValueOnce({ amount: 0, currency: 'NGN' }),
+    };
+
+    (harness.service as any).ledgerService = ledgerService;
+
+    await harness.service.handleFlutterwaveWebhook('sig', {
+      event: 'charge.completed',
+      data: { id: 123, tx_ref: 'ref-1', amount: 100000, currency: 'NGN', status: 'successful' },
+    });
+
+    expect(harness.postTransaction).toHaveBeenCalledTimes(2);
+  });
+});

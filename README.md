@@ -40,6 +40,12 @@ The name reflects the product's role: Mezzo — Italian for "middle" — sits as
 
 Mezzo is a full-stack application: a NestJS API that owns every rule about money, state, and evidence integrity, and a Next.js web client that gives buyers, sellers, and arbiters a fast, camera-first interface for creating escrows, capturing condition evidence, and resolving disputes.
 
+### Products
+
+**Mezzo Escrow** — The core product described above. Located at `apps/web`.
+
+**Mezzo Charge** — A powerbank rental and phone accessories management system for physical shops. Customers rent powerbanks for ₦600/24h with transparent overage billing. Features identity verification with photo upload, wallet-based payments via Flutterwave, staff management, and admin oversight. Located at `apps/charge`. See [RUNBOOK-charge.md](./RUNBOOK-charge.md) for deployment instructions.
+
 ## Transaction Flow
 
 1. **Create** — The initiating party creates an escrow, specifying item description, price, delivery method, and inspection window, along with required photo evidence and optional video.

@@ -2,16 +2,17 @@ import { randomBytes } from 'node:crypto';
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, IsNull, Repository } from 'typeorm';
 import { PaymentIntent } from '../database/entities/payment-intent.entity';
 import { PaymentWebhookEvent } from '../database/entities/payment-webhook-event.entity';
+import { OutstandingBalance } from '../database/entities/outstanding-balance.entity';
 import { PaymentIntentStatus } from './entities/payment-intent-status.enum';
 import { EscrowService } from '../escrow/escrow.service';
 import { EscrowStateMachine } from '../escrow/escrow-state-machine';
 import { EscrowState } from '../escrow/entities/escrow-state.enum';
 import { EscrowRole } from '../escrow/entities/escrow-role.enum';
 import { LedgerService } from '../ledger/ledger.service';
-import { escrowHoldingRef, providerClearingRef } from '../ledger/account-refs';
+import { escrowHoldingRef, providerClearingRef, userWalletRef, rentalRevenueRef } from '../ledger/account-refs';
 import { EntryDirection } from '../ledger/entities/entry-direction.enum';
 import { KycService } from '../kyc/kyc.service';
 import { UsersService } from '../users/users.service';
@@ -247,6 +248,8 @@ export class PaymentsService {
         }),
       );
 
+      await this.clearOutstandingBalances(intent.buyerId, intent.currency, manager);
+
       return fundedEscrow;
     });
 
@@ -256,6 +259,56 @@ export class PaymentsService {
       eventType: NotificationEventType.FUNDED,
       recipientUserIds: parties.map((party) => party.userId),
     });
+  }
+
+  private async clearOutstandingBalances(
+    userId: string,
+    currency: string,
+    manager: EntityManager,
+  ): Promise<void> {
+    const outstandingBalances = await manager.find(OutstandingBalance, {
+      where: {
+        userId,
+        clearedAt: IsNull(),
+      },
+      order: { createdAt: 'ASC' },
+    });
+
+    for (const balance of outstandingBalances) {
+      const walletBalance = await this.ledgerService.getBalanceOrZero(
+        userWalletRef(userId, currency as 'NGN' | 'USD'),
+        currency as 'NGN' | 'USD',
+      );
+
+      const balanceAmount = Number(balance.amount);
+
+      if (walletBalance.amount >= balanceAmount) {
+        await this.ledgerService.postTransaction(
+          [
+            {
+              accountRef: userWalletRef(userId, currency as 'NGN' | 'USD'),
+              direction: EntryDirection.DEBIT,
+              money: Money.of(balanceAmount, currency as 'NGN' | 'USD'),
+            },
+            {
+              accountRef: rentalRevenueRef(),
+              direction: EntryDirection.CREDIT,
+              money: Money.of(balanceAmount, currency as 'NGN' | 'USD'),
+            },
+          ],
+          {
+            idempotencyKey: `clear-balance:${balance.id}`,
+            correlationId: balance.id,
+          },
+          manager,
+        );
+
+        balance.clearedAt = new Date();
+        await manager.save(OutstandingBalance, balance);
+      } else {
+        break;
+      }
+    }
   }
 
   private async recordWebhookEvent(
