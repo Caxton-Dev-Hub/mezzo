@@ -25,6 +25,14 @@ export function treasuryRef(currency: Currency, name = 'main'): string {
   return `treasury:${name}:${currency}`;
 }
 
+export function rentalHoldingRef(rentalId: string): string {
+  return `holding:rental:${rentalId}:NGN`;
+}
+
+export function rentalRevenueRef(): string {
+  return `platform:rental_revenue:NGN`;
+}
+
 export interface ParsedAccountRef {
   type: LedgerAccountType;
   normalBalance: EntryDirection;
@@ -59,6 +67,16 @@ const REF_PATTERNS: readonly RefPattern[] = [
     regex: new RegExp(`^treasury:[^:]+:${CURRENCY_SUFFIX}$`),
     type: LedgerAccountType.TREASURY,
     normalBalance: EntryDirection.DEBIT,
+  },
+  {
+    regex: /^holding:rental:[^:]+:NGN$/,
+    type: LedgerAccountType.RENTAL_HOLDING,
+    normalBalance: EntryDirection.CREDIT,
+  },
+  {
+    regex: /^platform:rental_revenue:NGN$/,
+    type: LedgerAccountType.RENTAL_REVENUE,
+    normalBalance: EntryDirection.CREDIT,
   },
 ];
 

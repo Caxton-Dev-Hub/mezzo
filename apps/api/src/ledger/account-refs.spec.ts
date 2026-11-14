@@ -5,6 +5,8 @@ import {
   providerClearingRef,
   treasuryRef,
   userWalletRef,
+  rentalHoldingRef,
+  rentalRevenueRef,
 } from './account-refs';
 import { LedgerAccountType } from './entities/ledger-account-type.enum';
 import { EntryDirection } from './entities/entry-direction.enum';
@@ -43,6 +45,20 @@ describe('parseAccountRef', () => {
     expect(parseAccountRef(treasuryRef('NGN'))).toEqual({
       type: LedgerAccountType.TREASURY,
       normalBalance: EntryDirection.DEBIT,
+    });
+  });
+
+  it('resolves a rental holding ref to a credit-normal RENTAL_HOLDING account', () => {
+    expect(parseAccountRef(rentalHoldingRef('r1'))).toEqual({
+      type: LedgerAccountType.RENTAL_HOLDING,
+      normalBalance: EntryDirection.CREDIT,
+    });
+  });
+
+  it('resolves a rental revenue ref to a credit-normal RENTAL_REVENUE account', () => {
+    expect(parseAccountRef(rentalRevenueRef())).toEqual({
+      type: LedgerAccountType.RENTAL_REVENUE,
+      normalBalance: EntryDirection.CREDIT,
     });
   });
 
