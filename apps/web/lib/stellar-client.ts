@@ -46,6 +46,12 @@ export function openStellarFunding(escrowId: string): Promise<StellarEscrowRespo
   });
 }
 
+export function simulateStellarDeposit(escrowId: string): Promise<StellarEscrowResponse> {
+  return apiRequest<StellarEscrowResponse>(`/stellar/escrows/${escrowId}/simulate-deposit`, {
+    method: 'POST',
+  });
+}
+
 export function confirmStellarDeposit(
   escrowId: string,
   dto: ConfirmStellarDepositDto,

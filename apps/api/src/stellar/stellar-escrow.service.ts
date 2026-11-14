@@ -2,6 +2,7 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { StellarEscrow } from '../database/entities/stellar-escrow.entity';
+import { AuditService } from '../audit/audit.service';
 import { EscrowService } from '../escrow/escrow.service';
 import { EscrowStateMachine } from '../escrow/escrow-state-machine';
 import { EscrowRole } from '../escrow/entities/escrow-role.enum';
@@ -17,6 +18,7 @@ import { StellarEscrowStatus } from './entities/stellar-escrow-status.enum';
 import { StellarConfigService } from './stellar-config.service';
 import { STELLAR_LEDGER_PROVIDER } from './stellar-ledger-provider.constant';
 import { toStellarAmount } from './stellar-amount';
+import { STELLAR_AUDIT_ACTIONS, STELLAR_ESCROW_ENTITY } from './stellar-audit-actions';
 import {
   isSimulated,
   STELLAR_NETWORK,
@@ -25,7 +27,10 @@ import {
 } from './providers/stellar-network.interface';
 import { StellarFundingUnavailableError } from './errors/stellar-funding-unavailable.error';
 import { StellarDepositNotFoundError } from './errors/stellar-deposit-not-found.error';
-import { StellarDepositMismatchError } from './errors/stellar-deposit-mismatch.error';
+import {
+  StellarDepositMismatchError,
+  StellarDepositMismatchReason,
+} from './errors/stellar-deposit-mismatch.error';
 import { StellarSimulationUnavailableError } from './errors/stellar-simulation-unavailable.error';
 import { UnsupportedStellarCurrencyError } from './errors/unsupported-stellar-currency.error';
 
@@ -43,6 +48,7 @@ export class StellarEscrowService {
     private readonly stateMachine: EscrowStateMachine,
     private readonly ledgerService: LedgerService,
     private readonly notificationsService: NotificationsService,
+    private readonly auditService: AuditService,
   ) {}
 
   async openFunding(escrowId: string, actorId: string): Promise<StellarEscrow> {
@@ -71,7 +77,7 @@ export class StellarEscrowService {
 
     const address = await this.network.openDepositAddress(escrowId);
 
-    return this.stellarEscrows.save(
+    const opened = await this.stellarEscrows.save(
       this.stellarEscrows.create({
         escrowId,
         network: this.network.name,
@@ -84,6 +90,25 @@ export class StellarEscrowService {
         status: StellarEscrowStatus.AWAITING_DEPOSIT,
       }),
     );
+
+    await this.auditService.record({
+      actorId,
+      action: STELLAR_AUDIT_ACTIONS.FUNDING_OPENED,
+      entityType: STELLAR_ESCROW_ENTITY,
+      entityId: escrowId,
+      reason: `Opened a ${opened.assetCode} deposit on ${opened.network}`,
+      after: {
+        depositAccountId: opened.depositAccountId,
+        memo: opened.memo,
+        assetCode: opened.assetCode,
+        assetIssuer: opened.assetIssuer,
+        expectedAmount: opened.expectedAmount,
+        expectedCurrency: opened.expectedCurrency,
+      },
+      correlationId: escrowId,
+    });
+
+    return opened;
   }
 
   async get(escrowId: string, actorId: string): Promise<StellarEscrow> {
@@ -104,6 +129,19 @@ export class StellarEscrowService {
       return stellarEscrow;
     }
     if (stellarEscrow.status !== StellarEscrowStatus.AWAITING_DEPOSIT) {
+      await this.auditService.record({
+        actorId,
+        action: STELLAR_AUDIT_ACTIONS.DEPOSIT_REJECTED,
+        entityType: STELLAR_ESCROW_ENTITY,
+        entityId: escrowId,
+        reason: 'Deposit rejected: ALREADY_APPLIED — the escrow is already funded',
+        before: {
+          status: stellarEscrow.status,
+          fundingTransactionHash: stellarEscrow.fundingTransactionHash,
+        },
+        after: { transactionHash },
+        correlationId: escrowId,
+      });
       throw new StellarDepositMismatchError('ALREADY_APPLIED', transactionHash);
     }
 
@@ -111,7 +149,7 @@ export class StellarEscrowService {
     if (!payment) {
       throw new StellarDepositNotFoundError(transactionHash);
     }
-    this.assertPaymentFunds(stellarEscrow, payment);
+    await this.assertPaymentFunds(stellarEscrow, payment, actorId);
 
     const funded = Money.of(stellarEscrow.expectedAmount, stellarEscrow.expectedCurrency);
 
@@ -147,6 +185,29 @@ export class StellarEscrowService {
       stellarEscrow.status = StellarEscrowStatus.FUNDED;
       stellarEscrow.fundingTransactionHash = transactionHash;
       await manager.save(StellarEscrow, stellarEscrow);
+
+      await this.auditService.record(
+        {
+          actorId,
+          action: STELLAR_AUDIT_ACTIONS.DEPOSIT_CONFIRMED,
+          entityType: STELLAR_ESCROW_ENTITY,
+          entityId: escrowId,
+          reason: `Verified ${payment.amount} ${payment.asset.code} from ${payment.from}`,
+          before: { status: StellarEscrowStatus.AWAITING_DEPOSIT },
+          after: {
+            status: StellarEscrowStatus.FUNDED,
+            transactionHash,
+            from: payment.from,
+            amount: payment.amount,
+            assetCode: payment.asset.code,
+            assetIssuer: payment.asset.issuer,
+            creditedAmount: funded.amount,
+            creditedCurrency: funded.currency,
+          },
+          correlationId: escrowId,
+        },
+        manager,
+      );
     });
 
     const { escrow, parties } = await this.escrowService.getDetail(escrowId);
@@ -186,25 +247,68 @@ export class StellarEscrowService {
     return stellarEscrow;
   }
 
-  private assertPaymentFunds(stellarEscrow: StellarEscrow, payment: StellarPayment): void {
+  private async assertPaymentFunds(
+    stellarEscrow: StellarEscrow,
+    payment: StellarPayment,
+    actorId: string,
+  ): Promise<void> {
+    const expected = toStellarAmount(
+      Money.of(stellarEscrow.expectedAmount, stellarEscrow.expectedCurrency),
+    );
+
+    const mismatch = this.findMismatch(stellarEscrow, payment, expected);
+    if (!mismatch) {
+      return;
+    }
+
+    await this.auditService.record({
+      actorId,
+      action: STELLAR_AUDIT_ACTIONS.DEPOSIT_REJECTED,
+      entityType: STELLAR_ESCROW_ENTITY,
+      entityId: stellarEscrow.escrowId,
+      reason: `Deposit rejected: ${mismatch} did not match the escrow`,
+      before: {
+        depositAccountId: stellarEscrow.depositAccountId,
+        memo: stellarEscrow.memo,
+        assetCode: stellarEscrow.assetCode,
+        assetIssuer: stellarEscrow.assetIssuer,
+        expectedAmount: expected,
+      },
+      after: {
+        transactionHash: payment.transactionHash,
+        from: payment.from,
+        to: payment.to,
+        memo: payment.memo,
+        assetCode: payment.asset.code,
+        assetIssuer: payment.asset.issuer,
+        amount: payment.amount,
+      },
+      correlationId: stellarEscrow.escrowId,
+    });
+
+    throw new StellarDepositMismatchError(mismatch, payment.transactionHash);
+  }
+
+  private findMismatch(
+    stellarEscrow: StellarEscrow,
+    payment: StellarPayment,
+    expected: string,
+  ): StellarDepositMismatchReason | null {
     if (payment.to !== stellarEscrow.depositAccountId) {
-      throw new StellarDepositMismatchError('DESTINATION', payment.transactionHash);
+      return 'DESTINATION';
     }
     if (payment.memo !== stellarEscrow.memo) {
-      throw new StellarDepositMismatchError('MEMO', payment.transactionHash);
+      return 'MEMO';
     }
     if (
       payment.asset.code !== stellarEscrow.assetCode ||
       payment.asset.issuer !== stellarEscrow.assetIssuer
     ) {
-      throw new StellarDepositMismatchError('ASSET', payment.transactionHash);
+      return 'ASSET';
     }
-
-    const expected = toStellarAmount(
-      Money.of(stellarEscrow.expectedAmount, stellarEscrow.expectedCurrency),
-    );
     if (payment.amount !== expected) {
-      throw new StellarDepositMismatchError('AMOUNT', payment.transactionHash);
+      return 'AMOUNT';
     }
+    return null;
   }
 }

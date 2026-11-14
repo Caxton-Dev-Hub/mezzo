@@ -1,5 +1,5 @@
 import { createHash, randomInt } from 'node:crypto';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -14,6 +14,8 @@ import {
 
 @Injectable()
 export class EmailVerificationService {
+  private readonly logger = new Logger(EmailVerificationService.name);
+
   constructor(
     @InjectRepository(EmailVerificationCode)
     private readonly codes: Repository<EmailVerificationCode>,
@@ -37,7 +39,15 @@ export class EmailVerificationService {
       usedAt: null,
     });
 
-    await this.mailer.send({ recipientEmail: user.email, code });
+    try {
+      await this.mailer.send({ recipientEmail: user.email, code });
+    } catch (error) {
+      this.logger.error(
+        `Verification e-mail to ${user.email} could not be delivered via ${this.mailer.name}: ` +
+          `${String(error)}. The code is stored, so the account can still be verified once ` +
+          'delivery is working or the code is resent.',
+      );
+    }
   }
 
   async resend(dto: ResendVerificationDto): Promise<void> {

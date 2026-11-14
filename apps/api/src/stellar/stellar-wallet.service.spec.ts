@@ -1,9 +1,10 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { Keypair } from '@stellar/stellar-sdk';
 import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
 import { StellarAccount } from '../database/entities/stellar-account.entity';
 import { RedisService } from '../redis/redis.service';
+import { AuditService } from '../audit/audit.service';
 import { StellarWalletService } from './stellar-wallet.service';
 import { StellarConfigService } from './stellar-config.service';
 import { StellarLinkChallengeService } from './stellar-link-challenge.service';
@@ -16,12 +17,25 @@ import { StellarSignatureInvalidError } from './errors/stellar-signature-invalid
 
 const USER_ID = 'user-1';
 
+function sep53Payload(message: string): Buffer {
+  return createHash('sha256')
+    .update(
+      Buffer.concat([
+        Buffer.from('Stellar Signed Message:\n', 'utf8'),
+        Buffer.from(message, 'utf8'),
+      ]),
+    )
+    .digest();
+}
+const LINKED_ACCOUNT = encodeStellarAccountId(randomBytes(32));
+
 interface Harness {
   service: StellarWalletService;
   challenges: StellarLinkChallengeService;
   findOne: jest.Mock;
   save: jest.Mock;
   remove: jest.Mock;
+  record: jest.Mock;
 }
 
 function buildHarness(
@@ -67,9 +81,13 @@ function buildHarness(
 
   const challenges = new StellarLinkChallengeService(redis, configService, stellarConfig);
 
+  const record = jest.fn().mockResolvedValue(undefined);
+  const auditService = { record } as unknown as AuditService;
+
   return {
-    service: new StellarWalletService(accounts, stellarConfig, challenges),
+    service: new StellarWalletService(accounts, stellarConfig, challenges, auditService),
     challenges,
+    record,
     findOne,
     save,
     remove,
@@ -84,7 +102,7 @@ async function linkSigned(
   const accountId = options.accountId ?? keypair.publicKey();
   const challenge = await harness.service.createChallenge(USER_ID, accountId);
   const signature = (options.signWith ?? keypair)
-    .sign(Buffer.from(challenge.message, 'utf8'))
+    .sign(sep53Payload(challenge.message))
     .toString('base64');
 
   return harness.service.link(USER_ID, accountId, signature);
@@ -218,10 +236,52 @@ describe('StellarWalletService', () => {
   });
 
   it('unlinks only the current network', async () => {
-    const harness = buildHarness();
+    const harness = buildHarness({ existing: { accountId: LINKED_ACCOUNT, network: 'testnet' } });
 
     await harness.service.unlink(USER_ID);
 
     expect(harness.remove).toHaveBeenCalledWith({ userId: USER_ID, network: 'testnet' });
+  });
+
+  it('records the removed destination in the audit trail', async () => {
+    const harness = buildHarness({ existing: { accountId: LINKED_ACCOUNT, network: 'testnet' } });
+
+    await harness.service.unlink(USER_ID);
+
+    expect(harness.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'STELLAR_WALLET_UNLINKED',
+        actorId: USER_ID,
+        entityId: USER_ID,
+        before: { accountId: LINKED_ACCOUNT, network: 'testnet' },
+        after: null,
+      }),
+    );
+  });
+
+  it('does not delete or audit anything when no wallet is linked', async () => {
+    const harness = buildHarness();
+
+    await harness.service.unlink(USER_ID);
+
+    expect(harness.remove).not.toHaveBeenCalled();
+    expect(harness.record).not.toHaveBeenCalled();
+  });
+
+  it('records the proven account as the new settlement destination', async () => {
+    const harness = buildHarness();
+    const keypair = Keypair.random();
+
+    await linkSigned(harness, keypair);
+
+    expect(harness.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'STELLAR_WALLET_LINKED',
+        actorId: USER_ID,
+        entityId: USER_ID,
+        before: null,
+        after: { accountId: keypair.publicKey(), network: 'testnet' },
+      }),
+    );
   });
 });

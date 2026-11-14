@@ -1,5 +1,7 @@
+import type { StellarRailConfigResponse } from '@mezzo/shared-types';
+
 export type StellarRailMode = 'live' | 'coming-soon';
 
-export function stellarRailMode(): StellarRailMode {
-  return process.env.NEXT_PUBLIC_STELLAR_MODE === 'live' ? 'live' : 'coming-soon';
+export function stellarRailMode(config: StellarRailConfigResponse | undefined): StellarRailMode {
+  return config?.enabled ? 'live' : 'coming-soon';
 }

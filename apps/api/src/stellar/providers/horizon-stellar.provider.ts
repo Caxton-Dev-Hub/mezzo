@@ -17,9 +17,12 @@ import {
   StellarNetworkClient,
   StellarPayment,
   StellarPaymentRequest,
+  StellarPreparedPayment,
+  StellarTransactionOutcome,
 } from './stellar-network.interface';
 
 const TRANSACTION_TIMEOUT_SECONDS = 60;
+const MAX_OPERATIONS_PER_TRANSACTION = 200;
 
 @Injectable()
 export class HorizonStellarProvider implements StellarNetworkClient {
@@ -59,7 +62,11 @@ export class HorizonStellarProvider implements StellarNetworkClient {
       return null;
     }
 
-    const { records } = await this.server.payments().forTransaction(transactionHash).call();
+    const { records } = await this.server
+      .payments()
+      .forTransaction(transactionHash)
+      .limit(MAX_OPERATIONS_PER_TRANSACTION)
+      .call();
     const payment = records.find(
       (record): record is Horizon.ServerApi.PaymentOperationRecord =>
         record.type === Horizon.HorizonApi.OperationResponseType.payment &&
@@ -79,7 +86,7 @@ export class HorizonStellarProvider implements StellarNetworkClient {
     };
   }
 
-  async sendPayment(request: StellarPaymentRequest): Promise<string> {
+  async preparePayment(request: StellarPaymentRequest): Promise<StellarPreparedPayment> {
     if (request.from !== this.custody.publicKey()) {
       throw new ServiceUnavailableException('Mezzo does not hold the key for that Stellar account');
     }
@@ -102,13 +109,30 @@ export class HorizonStellarProvider implements StellarNetworkClient {
 
     transaction.sign(this.custody);
 
-    try {
-      const result = await this.server.submitTransaction(transaction);
-      return result.hash;
-    } catch (error) {
-      this.logger.error(`Stellar payment submission failed: ${describeSubmitError(error)}`);
-      throw new ServiceUnavailableException('The Stellar network rejected the payment');
+    const transactionHash = transaction.hash().toString('hex');
+    const maxTime = Number(transaction.timeBounds?.maxTime ?? 0);
+
+    return {
+      transactionHash,
+      expiresAt: new Date(maxTime * 1000),
+      submit: async () => {
+        try {
+          const result = await this.server.submitTransaction(transaction);
+          return result.hash;
+        } catch (error) {
+          this.logger.error(`Stellar payment submission failed: ${describeSubmitError(error)}`);
+          throw new ServiceUnavailableException('The Stellar network rejected the payment');
+        }
+      },
+    };
+  }
+
+  async findTransaction(transactionHash: string): Promise<StellarTransactionOutcome | null> {
+    const transaction = await this.loadTransaction(transactionHash);
+    if (!transaction) {
+      return null;
     }
+    return { transactionHash, successful: transaction.successful };
   }
 
   private async loadTransaction(

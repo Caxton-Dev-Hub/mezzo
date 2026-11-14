@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { NotFoundException } from '@nestjs/common';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { StellarEscrow } from '../database/entities/stellar-escrow.entity';
+import { AuditService } from '../audit/audit.service';
 import { StellarEscrowService } from './stellar-escrow.service';
 import { StellarConfigService } from './stellar-config.service';
 import { StellarEscrowStatus } from './entities/stellar-escrow-status.enum';
@@ -77,6 +78,7 @@ interface Harness {
   transition: jest.Mock;
   notify: jest.Mock;
   assertIsParty: jest.Mock;
+  record: jest.Mock;
 }
 
 function buildHarness(
@@ -149,6 +151,9 @@ function buildHarness(
   const notify = jest.fn().mockResolvedValue(undefined);
   const notificationsService = { notify } as unknown as NotificationsService;
 
+  const record = jest.fn().mockResolvedValue(undefined);
+  const auditService = { record } as unknown as AuditService;
+
   const service = new StellarEscrowService(
     stellarEscrows,
     dataSource,
@@ -158,6 +163,7 @@ function buildHarness(
     stateMachine,
     ledgerService,
     notificationsService,
+    auditService,
   );
 
   return {
@@ -172,6 +178,7 @@ function buildHarness(
     transition,
     notify,
     assertIsParty,
+    record,
   };
 }
 

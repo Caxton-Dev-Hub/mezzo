@@ -22,6 +22,7 @@ export function toStellarRailConfigResponse(
 ): StellarRailConfigResponse {
   return {
     enabled: stellarConfig.isEnabled(),
+    simulated: stellarConfig.isSimulated(),
     network: stellarConfig.networkName,
     asset: stellarConfig.asset,
   };

@@ -25,3 +25,7 @@ apps/api/generated/
 
 .data/
 *.json.tmp
+
+# brag launch video output (large renders)
+brag-output/
+brag-output-*/

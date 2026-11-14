@@ -23,20 +23,30 @@ export interface StellarPaymentRequest {
   memo: string;
 }
 
+export interface StellarPreparedPayment {
+  transactionHash: string;
+  expiresAt: Date;
+  submit(): Promise<string>;
+}
+
+export interface StellarTransactionOutcome {
+  transactionHash: string;
+  successful: boolean;
+}
+
 export interface StellarNetworkClient {
   readonly name: StellarNetworkName;
   readonly asset: StellarAsset;
   openDepositAddress(escrowId: string): Promise<StellarDepositAddress>;
   findPayment(transactionHash: string): Promise<StellarPayment | null>;
-  sendPayment(request: StellarPaymentRequest): Promise<string>;
+  preparePayment(request: StellarPaymentRequest): Promise<StellarPreparedPayment>;
+  findTransaction(transactionHash: string): Promise<StellarTransactionOutcome | null>;
 }
 
 export interface SimulatedStellarNetworkClient extends StellarNetworkClient {
   receivePayment(request: StellarPaymentRequest): Promise<StellarPayment>;
 }
 
-export function isSimulated(
-  client: StellarNetworkClient,
-): client is SimulatedStellarNetworkClient {
+export function isSimulated(client: StellarNetworkClient): client is SimulatedStellarNetworkClient {
   return typeof (client as SimulatedStellarNetworkClient).receivePayment === 'function';
 }

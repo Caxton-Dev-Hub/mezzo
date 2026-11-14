@@ -56,6 +56,14 @@ env schema with the rest of the fail-fast configuration rules.
 payment, and returns a typed 403 otherwise. No `NODE_ENV` branch in the
 service, and no dev-only route that exists in a production build.
 
+`GET /stellar/config` reports that same fact to the client as `simulated`, so
+the web app offers the "simulate the deposit" shortcut exactly when the server
+would honour it. The alternative — a `NEXT_PUBLIC_` build-time flag — is how the
+rail's availability used to be decided in the browser, and it was wrong twice
+over: it could disagree with the server, and it meant the front end asserted
+something only the back end knows. `enabled` and `simulated` both now come from
+this endpoint, and the web app has no Stellar environment variable at all.
+
 ## Custody, and why deposits are addressed by memo
 
 Every escrow shares one custody account and is distinguished by the
@@ -103,11 +111,24 @@ their own release proceeds to it irrecoverably. On-chain payments do not bounce.
 
 `verifyStellarSignature()` is deliberately permissive about *encoding* and
 strict about *provenance*. Wallets disagree on both halves of what `signMessage`
-returns, so it accepts base64 (what SEP-43 specifies) or hex, and checks the
-signature against the message bytes or their SHA-256 digest, requiring exactly
-64 bytes. Every one of those candidates is still a signature over a payload
-uniquely derived from this challenge's nonce, so widening the encodings costs
-nothing: an attacker needs the private key either way.
+returns, so it accepts base64 (what SEP-43 specifies) or hex, requiring exactly
+64 bytes, and checks the signature against three payloads:
+
+1. **SEP-53** — `sha256("Stellar Signed Message:\n" + message)`. This is the
+   standard, and what Freighter produces. It is tried first.
+2. The raw message bytes.
+3. The SHA-256 digest of the raw message.
+
+Only the first of those was missing once, and it was the one that mattered: a
+SEP-53 wallet could not link at all, failing with a 403 that correctly said the
+signature did not prove control — because against the two payloads then being
+checked, it didn't. The lesson is that "permissive about encoding" has to
+include the payload construction, not just the character set.
+
+Every one of those candidates is still a signature over a payload uniquely
+derived from this challenge's nonce, so widening them costs nothing: an attacker
+needs the private key either way. A test asserts that a SEP-53 signature over a
+*different* message is still rejected.
 
 `signMessage` is a required method on the kit's module interface, but a few
 hardware and bridge wallets reject it at runtime; those wallets cannot link an
@@ -142,6 +163,82 @@ be able to double-fund:
 3. If both of those were somehow bypassed, the ledger's own
    `stellar-fund:{hash}` idempotency key and the partial unique index on
    `funding_transaction_hash` make a second posting impossible at the database.
+
+## Settlement claims the row before it touches the chain
+
+`settleDue()` is the one place in this module that moves money *out*, and an
+on-chain payment does not bounce. So the sweep claims each escrow with a
+conditional update before it submits anything:
+
+```sql
+UPDATE stellar_escrows SET status = 'SETTLING'
+ WHERE id = $1 AND status = 'FUNDED'
+```
+
+If that update touches no rows, another run already holds the payout and this
+one skips it. Writing `SETTLED` *after* a successful submit would not have been
+enough: two overlapping sweeps — two admins, or a cron overlapping a manual run
+— would both read `FUNDED`, both submit, and the seller would be paid twice.
+Postgres serialises the two updates on the row lock, so exactly one wins.
+
+A submission that throws is the harder case, because a timeout does not say
+whether the transaction landed. Guessing either way loses money: assume it
+failed and you pay twice, assume it succeeded and the seller is never paid. So
+the sweep never guesses — it makes the answer *knowable in advance*.
+
+A Stellar transaction's hash is fixed when it is signed, and its time bounds
+make it permanently unappliable once they pass. `preparePayment()` therefore
+signs the payment and hands back that hash and expiry **without submitting**,
+and the sweep records both on the row before `submit()` is ever called. That
+ordering is the whole guarantee: there is no window in which money can move
+under a hash Mezzo has not already written down.
+
+A row found in `SETTLING` with a recorded attempt is then resolved by asking the
+chain, never by assuming:
+
+| The chain says | What that proves | What the sweep does |
+|---|---|---|
+| found, successful | the payout landed | mark `SETTLED` with **that** hash — no second payment |
+| found, failed | it moved no funds | clear the attempt, retry from `FUNDED` |
+| not found, past expiry | it can never apply | clear the attempt, retry from `FUNDED` |
+| not found, within expiry | still in flight | leave it alone and report it |
+
+Both transitions out of `SETTLING` are themselves conditional updates pinned to
+the attempt hash, so two concurrent sweeps cannot both reconcile the same row.
+
+`POST /stellar/escrows/:id/requeue-settlement` (admin) remains for the residual
+case: a row claimed but abandoned *before* an attempt was recorded. It refuses
+any row that has an unresolved attempt hash — requeuing one of those would be
+exactly the double-pay the recorded hash exists to prevent. The only way past an
+in-flight payout is the chain answering, which it always eventually does.
+
+## The audit trail
+
+The rail records every step that moves money or changes where money will go,
+through the same `AuditService` that `disputes` and `admin` use:
+
+| Action | When | Actor |
+|---|---|---|
+| `STELLAR_WALLET_LINKED` | a proven account becomes the settlement destination | the user |
+| `STELLAR_WALLET_UNLINKED` | that destination is removed | the user |
+| `STELLAR_FUNDING_OPENED` | a deposit address is issued for an escrow | the buyer |
+| `STELLAR_DEPOSIT_CONFIRMED` | a verified payment funds the escrow | the confirming party |
+| `STELLAR_DEPOSIT_REJECTED` | a claimed deposit failed verification | the confirming party |
+| `STELLAR_SETTLEMENT_PAID` | the payout landed, with hash and destination | the admin who swept |
+| `STELLAR_SETTLEMENT_BLOCKED` | the sweep skipped an escrow, and why | the admin who swept |
+| `STELLAR_SETTLEMENT_UNCERTAIN` | a submission failed with an unknown result | the admin who swept |
+| `STELLAR_SETTLEMENT_RECONCILED` | a recorded attempt was resolved against the chain | the admin who swept |
+| `STELLAR_SETTLEMENT_CLAIMED` | an operator requeued a payout that was never submitted | the admin |
+
+`STELLAR_DEPOSIT_CONFIRMED` is written inside the funding transaction, through
+the optional `EntityManager` that `AuditService.record()` now accepts, for the
+same reason the ledger posting and the state transition are: a funded escrow
+without an audit row would be a funded escrow nobody can explain. The rejection
+events are written *outside* any transaction, because the request they belong to
+is about to fail — an audit row that rolls back with the rejection would erase
+exactly the evidence worth keeping. A rejected deposit is the most interesting
+thing this module logs: it is what an attempted wrong-memo, wrong-amount or
+double-fund deposit looks like from the inside.
 
 ## Money
 
@@ -178,10 +275,28 @@ payouts.
 ## Operating the live rail
 
 The custody account needs a trustline to the asset before it can hold it, and
-enough XLM for the base reserve plus fees. `apps/api/scripts/stellar-testnet-e2e.mjs`
-provisions exactly that against testnet — issuer, custody, buyer and seller
-accounts, trustlines, and a full fund-then-settle round trip — and is the
-script to read before pointing `STELLAR_NETWORK=public` at real money.
+enough XLM for the base reserve plus fees. Two things exercise that against the
+real network, and they cover different halves of the rail:
+
+- `apps/api/scripts/stellar-testnet-e2e.mjs` drives `HorizonStellarProvider`
+  directly. It provisions issuer, custody, buyer and seller accounts with
+  friendbot, opens trustlines, and then checks both what must fund an escrow and
+  what must not: a wrong memo, a short payment, a native XLM payment, and a
+  payment to a third party all read back as something the deposit check will
+  reject. Run `pnpm --filter @mezzo/api build` first, since it imports `dist/`.
+- `apps/api/test/e2e/stellar-testnet.e2e-spec.ts` drives the *whole API* against
+  testnet with `STELLAR_MODE=live`: a real escrow, a real on-chain deposit
+  confirmed through `POST /stellar/escrows/:id/confirm`, a real release, and a
+  real payout swept to the seller's wallet — then asserts the ledger balance,
+  the seller's on-chain balance delta, and the audit trail. It is skipped unless
+  `STELLAR_TESTNET_E2E=1`, so CI never depends on a public network:
+
+  ```
+  STELLAR_TESTNET_E2E=1 pnpm --filter @mezzo/api test:e2e -- stellar-testnet
+  ```
+
+Both are the scripts to read before pointing `STELLAR_NETWORK=public` at real
+money.
 
 Going to mainnet changes four things and no code: `STELLAR_NETWORK=public`,
 `STELLAR_HORIZON_URL` to a public Horizon, `STELLAR_ASSET_ISSUER` to Circle's

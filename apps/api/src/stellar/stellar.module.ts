@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuditModule } from '../audit/audit.module';
 import { StellarAccount } from '../database/entities/stellar-account.entity';
 import { StellarEscrow } from '../database/entities/stellar-escrow.entity';
 import { EscrowModule } from '../escrow/escrow.module';
@@ -19,6 +20,7 @@ import { STELLAR_NETWORK, StellarNetworkClient } from './providers/stellar-netwo
 @Module({
   imports: [
     TypeOrmModule.forFeature([StellarAccount, StellarEscrow]),
+    AuditModule,
     EscrowModule,
     LedgerModule,
     NotificationsModule,

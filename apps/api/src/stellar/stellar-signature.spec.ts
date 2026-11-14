@@ -13,6 +13,36 @@ describe('verifyStellarSignature', () => {
     expect(verifyStellarSignature(keypair.publicKey(), MESSAGE, signature)).toBe(true);
   });
 
+  it('accepts a SEP-53 signature, which is what Freighter produces', () => {
+    const keypair = Keypair.random();
+    const payload = createHash('sha256')
+      .update(
+        Buffer.concat([
+          Buffer.from('Stellar Signed Message:\n', 'utf8'),
+          Buffer.from(MESSAGE, 'utf8'),
+        ]),
+      )
+      .digest();
+    const signature = keypair.sign(payload).toString('base64');
+
+    expect(verifyStellarSignature(keypair.publicKey(), MESSAGE, signature)).toBe(true);
+  });
+
+  it('rejects a SEP-53 signature made over a different message', () => {
+    const keypair = Keypair.random();
+    const payload = createHash('sha256')
+      .update(
+        Buffer.concat([
+          Buffer.from('Stellar Signed Message:\n', 'utf8'),
+          Buffer.from('a challenge for somebody else', 'utf8'),
+        ]),
+      )
+      .digest();
+    const signature = keypair.sign(payload).toString('base64');
+
+    expect(verifyStellarSignature(keypair.publicKey(), MESSAGE, signature)).toBe(false);
+  });
+
   it('accepts a hex signature, which some wallets return instead', () => {
     const keypair = Keypair.random();
     const signature = keypair.sign(Buffer.from(MESSAGE, 'utf8')).toString('hex');

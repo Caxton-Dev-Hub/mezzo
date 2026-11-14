@@ -50,7 +50,12 @@ export class StellarEscrow {
   @Column({ name: 'expected_currency', type: 'varchar', length: 8 })
   expectedCurrency!: Currency;
 
-  @Column({ name: 'status', type: 'varchar', length: 24, default: StellarEscrowStatus.AWAITING_DEPOSIT })
+  @Column({
+    name: 'status',
+    type: 'varchar',
+    length: 24,
+    default: StellarEscrowStatus.AWAITING_DEPOSIT,
+  })
   status!: StellarEscrowStatus;
 
   @Index({ unique: true, where: 'funding_transaction_hash IS NOT NULL' })
@@ -59,6 +64,12 @@ export class StellarEscrow {
 
   @Column({ name: 'settlement_transaction_hash', type: 'varchar', length: 64, nullable: true })
   settlementTransactionHash!: string | null;
+
+  @Column({ name: 'settlement_attempt_hash', type: 'varchar', length: 64, nullable: true })
+  settlementAttemptHash!: string | null;
+
+  @Column({ name: 'settlement_attempt_expires_at', type: 'timestamptz', nullable: true })
+  settlementAttemptExpiresAt!: Date | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

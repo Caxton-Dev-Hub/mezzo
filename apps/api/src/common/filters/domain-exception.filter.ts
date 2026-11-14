@@ -28,6 +28,11 @@ export class DomainExceptionFilter implements ExceptionFilter {
 
   private toResponseBody(exception: unknown): ErrorResponseBody {
     if (exception instanceof DomainError) {
+      this.logger.warn(
+        `${exception.code} (${exception.statusCode}): ${exception.message}` +
+          (exception.details ? ` ${JSON.stringify(exception.details)}` : ''),
+      );
+
       return {
         statusCode: exception.statusCode,
         code: exception.code,
