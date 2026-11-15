@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import { Repository } from 'typeorm';
 import { AdminService } from './admin.service';
 import { EscrowService } from '../escrow/escrow.service';
 import { SettlementService } from '../escrow/settlement.service';
@@ -25,6 +26,9 @@ import { RequestContextService } from '../common/context/request-context';
 import { AuthenticatedUser } from '../common/types/authenticated-user';
 import { UserRole } from '../users/entities/user-role.enum';
 import { UserStatus } from '../users/entities/user-status.enum';
+import { ShopsService } from '../shops/shops.service';
+import { Rental } from '../database/entities/rental.entity';
+import { AccessorySale } from '../database/entities/accessory-sale.entity';
 import { callArg } from '../../test/support/mock-calls';
 
 const ADMIN_ID = 'admin-1';
@@ -181,6 +185,33 @@ function buildHarness(
     getOrThrow: <T>(key: string): T => riskConfig[key] as T,
   } as unknown as ConfigService;
 
+  const shopsService = {
+    listVerificationSubmissions: jest.fn().mockResolvedValue([]),
+    getVerification: jest.fn(),
+    approveVerification: jest.fn(),
+    rejectVerification: jest.fn(),
+  } as unknown as ShopsService;
+
+  const rentals = {
+    find: jest.fn().mockResolvedValue([]),
+    createQueryBuilder: jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([]),
+    }),
+  } as unknown as Repository<Rental>;
+
+  const accessorySales = {
+    createQueryBuilder: jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([]),
+    }),
+  } as unknown as Repository<AccessorySale>;
+
   const service = new AdminService(
     disputeService,
     arbitrationService,
@@ -200,6 +231,9 @@ function buildHarness(
     waitlistService,
     chatService,
     tokenService,
+    shopsService,
+    rentals,
+    accessorySales,
   );
 
   return {

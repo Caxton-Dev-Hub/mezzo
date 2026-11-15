@@ -588,20 +588,30 @@ export class AdminService {
   }
 
   async listShopRevenue(): Promise<{ shopId: string; rentalRevenue: string; accessoryRevenue: string }[]> {
+    interface RentalAggregate {
+      shopId: string;
+      totalRentalRevenue: string;
+    }
+
+    interface AccessoryAggregate {
+      shopId: string;
+      totalAccessoryRevenue: string;
+    }
+
     const rentalAggregates = await this.rentals
       .createQueryBuilder('rental')
       .select('rental.shopId', 'shopId')
       .addSelect('SUM(CAST(rental.totalChargedAmount AS BIGINT))', 'totalRentalRevenue')
       .where('rental.status IN (:...statuses)', { statuses: [RentalStatus.RETURNED, RentalStatus.OVERDUE, RentalStatus.UNRETURNED] })
       .groupBy('rental.shopId')
-      .getRawMany();
+      .getRawMany<RentalAggregate>();
 
     const accessoryAggregates = await this.accessorySales
       .createQueryBuilder('sale')
       .select('sale.shopId', 'shopId')
       .addSelect('SUM(CAST(sale.totalAmount AS BIGINT))', 'totalAccessoryRevenue')
       .groupBy('sale.shopId')
-      .getRawMany();
+      .getRawMany<AccessoryAggregate>();
 
     const shopIds = Array.from(
       new Set([...rentalAggregates.map((r) => r.shopId), ...accessoryAggregates.map((a) => a.shopId)]),

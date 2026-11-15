@@ -45,7 +45,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: apps/ap`i/Dockerfile
+      dockerfile: apps/api/Dockerfile
     env_file:
       - path: ./apps/api/.env.example
         required: false

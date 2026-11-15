@@ -22,7 +22,14 @@ describe('AccessoriesService', () => {
   let dataSource: jest.Mocked<DataSource>;
 
   beforeEach(async () => {
-    const mockManager = {
+    type MockManager = {
+      findOne: jest.Mock;
+      save: jest.Mock;
+      create: jest.Mock;
+      find: jest.Mock;
+    };
+
+    const mockManager: MockManager = {
       findOne: jest.fn(),
       save: jest.fn(),
       create: jest.fn(),
@@ -67,7 +74,8 @@ describe('AccessoriesService', () => {
         {
           provide: getDataSourceToken(),
           useValue: {
-            transaction: jest.fn((cb) => cb(mockManager)),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+            transaction: jest.fn().mockImplementation((runInTransaction: any) => runInTransaction(mockManager)),
           },
         },
       ],
@@ -117,13 +125,20 @@ describe('AccessoriesService', () => {
       accessoriesRepo.findOne.mockResolvedValue(accessory);
       shopsService.getStaffShopIds.mockResolvedValue(['shop-1']);
 
-      const mockManager = {
-        findOne: jest.fn().mockResolvedValue({ ...accessory }),
-        save: jest.fn(),
-        create: jest.fn() as any,
+      type MockManager = {
+        findOne: jest.Mock;
+        save: jest.Mock;
+        create: jest.Mock;
       };
 
-      dataSource.transaction.mockImplementation((cb: any) => cb(mockManager));
+      const mockManager: MockManager = {
+        findOne: jest.fn().mockResolvedValue({ ...accessory }),
+        save: jest.fn(),
+        create: jest.fn(),
+      };
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+      dataSource.transaction.mockImplementation((runInTransaction: any) => runInTransaction(mockManager));
 
       await expect(service.recordSale(actorId, dto)).rejects.toThrow(InsufficientStockError);
     });
@@ -149,19 +164,27 @@ describe('AccessoriesService', () => {
         totalAmount: '3000',
         totalCurrency: 'NGN',
         soldAt: new Date(),
-      } as AccessorySale;
+      };
 
       accessoriesRepo.findOne.mockResolvedValue(accessory);
       shopsService.getStaffShopIds.mockResolvedValue(['shop-1']);
 
-      const lockedAccessory = { ...accessory };
-      const mockManager = {
-        findOne: jest.fn().mockResolvedValue(lockedAccessory),
-        save: jest.fn().mockImplementation((_entity: any, data: any) => Promise.resolve(data || lockedAccessory)),
-        create: jest.fn().mockReturnValue(sale) as any,
+      type MockManager = {
+        findOne: jest.Mock;
+        save: jest.Mock;
+        create: jest.Mock;
       };
 
-      dataSource.transaction.mockImplementation((cb: any) => cb(mockManager));
+      const lockedAccessory = { ...accessory };
+      const mockManager: MockManager = {
+        findOne: jest.fn().mockResolvedValue(lockedAccessory),
+        save: jest.fn().mockImplementation((_entity: unknown, data?: unknown) => Promise.resolve(data || lockedAccessory)),
+        create: jest.fn().mockReturnValue(sale),
+      };
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+      dataSource.transaction.mockImplementation((runInTransaction: any) => runInTransaction(mockManager));
+       
       auditService.record.mockResolvedValue({} as never);
 
       const result = await service.recordSale(actorId, dto);
@@ -178,6 +201,7 @@ describe('AccessoriesService', () => {
           totalAmount: '3000',
         }),
       );
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(auditService.record).toHaveBeenCalledWith(
         expect.objectContaining({
           actorId,
@@ -201,6 +225,7 @@ describe('AccessoriesService', () => {
       const result = await service.listSales('admin-id', UserRole.ADMIN, null);
 
       expect(result).toEqual(sales);
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(accessorySalesRepo.find).toHaveBeenCalledWith({
         order: { soldAt: 'DESC' },
       });
@@ -214,7 +239,9 @@ describe('AccessoriesService', () => {
       const result = await service.listSales('staff-id', UserRole.STAFF, ['shop-1', 'shop-2']);
 
       expect(result).toEqual(sales);
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(accessorySalesRepo.find).toHaveBeenCalledWith({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         where: { shopId: expect.anything() },
         order: { soldAt: 'DESC' },
       });

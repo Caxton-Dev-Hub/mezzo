@@ -698,14 +698,23 @@ describe('PaymentsService - OutstandingBalance Clearing', () => {
     const balance1 = { id: 'b1', userId: BUYER_ID, amount: '5000', currency: 'NGN', clearedAt: null };
     const balance2 = { id: 'b2', userId: BUYER_ID, amount: '3000', currency: 'NGN', clearedAt: null };
 
-    const mockManager = {
+    type MockManager = {
+      findOne: jest.Mock;
+      save: jest.Mock;
+      create: jest.Mock<Record<string, unknown>, [unknown, unknown]>;
+      find: jest.Mock;
+    };
+
+    const mockManager: MockManager = {
       findOne: jest.fn(),
       save: harness.managerSave,
-      create: jest.fn((_e: any, d: any) => ({ ...d })) as any,
+      create: jest.fn((_e: unknown, d: unknown): Record<string, unknown> => ({ ...(d as Record<string, unknown>) })),
       find: jest.fn().mockResolvedValue([balance1, balance2]),
     };
 
-    harness.transactionSpy.mockImplementation((cb) => cb(mockManager));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+    harness.transactionSpy.mockImplementation((runInTransaction: any) => runInTransaction(mockManager));
+     
     harness.postTransaction.mockResolvedValue({ id: 'posting-1' });
 
     const ledgerService = {
@@ -715,6 +724,7 @@ describe('PaymentsService - OutstandingBalance Clearing', () => {
         .mockResolvedValueOnce({ amount: 5000, currency: 'NGN' }),
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
     (harness.service as any).ledgerService = ledgerService;
 
     await harness.service.handleFlutterwaveWebhook('sig', {
@@ -740,14 +750,23 @@ describe('PaymentsService - OutstandingBalance Clearing', () => {
     const balance1 = { id: 'b1', userId: BUYER_ID, amount: '5000', currency: 'NGN', clearedAt: null };
     const balance2 = { id: 'b2', userId: BUYER_ID, amount: '10000', currency: 'NGN', clearedAt: null };
 
-    const mockManager = {
+    type MockManager = {
+      findOne: jest.Mock;
+      save: jest.Mock;
+      create: jest.Mock<Record<string, unknown>, [unknown, unknown]>;
+      find: jest.Mock;
+    };
+
+    const mockManager: MockManager = {
       findOne: jest.fn(),
       save: harness.managerSave,
-      create: jest.fn((_entity: any, data: any) => ({ ...data })) as any,
+      create: jest.fn((_entity: unknown, data: unknown): Record<string, unknown> => ({ ...(data as Record<string, unknown>) })),
       find: jest.fn().mockResolvedValue([balance1, balance2]),
     };
 
-    harness.transactionSpy.mockImplementation((cb: any) => cb(mockManager));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+    harness.transactionSpy.mockImplementation((runInTransaction: any) => runInTransaction(mockManager));
+     
     harness.postTransaction.mockResolvedValue({ id: 'posting-1' });
 
     const ledgerService = {
@@ -757,6 +776,7 @@ describe('PaymentsService - OutstandingBalance Clearing', () => {
         .mockResolvedValueOnce({ amount: 0, currency: 'NGN' }),
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
     (harness.service as any).ledgerService = ledgerService;
 
     await harness.service.handleFlutterwaveWebhook('sig', {
