@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -18,8 +18,16 @@ type LoginForm = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const setAuth = useAuthStore((state) => state.setAuth);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (searchParams.get('verified') === 'true') {
+      setSuccessMessage('Email verified! You can now log in.');
+    }
+  }, [searchParams]);
 
   const {
     register,
@@ -32,6 +40,7 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginForm) => {
     try {
       setError(null);
+      setSuccessMessage(null);
       const response = await login(data);
       setAuth(response.accessToken, {
         id: response.user.id,
@@ -41,7 +50,21 @@ export default function LoginPage() {
       });
       router.push('/dashboard');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      const errorMessage = err instanceof Error ? err.message : 'Login failed';
+      
+      // Check if error is related to unverified email
+      if (errorMessage.toLowerCase().includes('email') && errorMessage.toLowerCase().includes('verif')) {
+        setError(
+          <>
+            Your email is not verified.{' '}
+            <Link href="/verify-email" className="underline hover:text-mint-deep">
+              Click here to verify
+            </Link>
+          </> as any
+        );
+      } else {
+        setError(errorMessage);
+      }
     }
   };
 
@@ -58,6 +81,12 @@ export default function LoginPage() {
 
         <div className="bg-surface rounded-2xl shadow-card p-8">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            {successMessage && (
+              <div className="bg-mint/10 border border-mint/20 rounded-lg p-4 text-sm text-mint">
+                {successMessage}
+              </div>
+            )}
+
             {error && (
               <div className="bg-danger/10 border border-danger/20 rounded-lg p-4 text-sm text-danger">
                 {error}

@@ -6,7 +6,7 @@ import { persist } from 'zustand/middleware';
 export interface User {
   id: string;
   email: string;
-  role: 'CUSTOMER' | 'STAFF' | 'ADMIN';
+  role: 'USER' | 'ARBITER' | 'ADMIN' | 'STAFF';
   isVerified: boolean;
 }
 

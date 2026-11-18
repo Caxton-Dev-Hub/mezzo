@@ -7,7 +7,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { register as registerUser } from '@/lib/api-client';
-import { useAuthStore } from '@/lib/auth';
 
 const registerSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -22,7 +21,6 @@ type RegisterForm = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
   const router = useRouter();
-  const setAuth = useAuthStore((state) => state.setAuth);
   const [error, setError] = useState<string | null>(null);
 
   const {
@@ -40,13 +38,7 @@ export default function RegisterPage() {
         email: data.email,
         password: data.password,
       });
-      setAuth(response.accessToken, {
-        id: response.user.id,
-        email: response.user.email,
-        role: response.user.role,
-        isVerified: false,
-      });
-      router.push('/verify');
+      router.push(`/verify-email?email=${encodeURIComponent(response.email)}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     }

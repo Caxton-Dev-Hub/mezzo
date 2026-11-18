@@ -50,34 +50,38 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
   return response.json();
 }
 
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
+import type {
+  LoginDto,
+  LoginResponse,
+  RegisterDto,
+  RegisterResponse,
+  VerifyEmailDto,
+  ResendVerificationDto,
+} from '@mezzo/shared-types';
 
-export interface AuthResponse {
-  accessToken: string;
-  user: {
-    id: string;
-    email: string;
-    role: 'CUSTOMER' | 'STAFF' | 'ADMIN';
-  };
-}
-
-export interface RegisterRequest {
-  email: string;
-  password: string;
-}
-
-export async function login(data: LoginRequest): Promise<AuthResponse> {
-  return fetchApi<AuthResponse>('/auth/login', {
+export async function login(data: LoginDto): Promise<LoginResponse> {
+  return fetchApi<LoginResponse>('/auth/login', {
     method: 'POST',
     body: JSON.stringify(data),
   });
 }
 
-export async function register(data: RegisterRequest): Promise<AuthResponse> {
-  return fetchApi<AuthResponse>('/auth/register', {
+export async function register(data: RegisterDto): Promise<RegisterResponse> {
+  return fetchApi<RegisterResponse>('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function verifyEmail(data: VerifyEmailDto): Promise<void> {
+  return fetchApi<void>('/auth/verify-email', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function resendVerification(data: ResendVerificationDto): Promise<void> {
+  return fetchApi<void>('/auth/resend-verification', {
     method: 'POST',
     body: JSON.stringify(data),
   });
