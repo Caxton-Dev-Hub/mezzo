@@ -30,6 +30,7 @@ export default function VerifyEmailPage() {
     handleSubmit,
     formState: { errors, isSubmitting },
     setValue,
+    getValues,
   } = useForm<VerifyEmailForm>({
     resolver: zodResolver(verifyEmailSchema),
     defaultValues: {
@@ -73,7 +74,7 @@ export default function VerifyEmailPage() {
   };
 
   const handleResend = async () => {
-    const email = emailParam || '';
+    const email = getValues('email');
     if (!email) {
       setResendMessage('Please enter your email address');
       return;
@@ -135,8 +136,7 @@ export default function VerifyEmailPage() {
                 id="email"
                 type="email"
                 autoComplete="email"
-                readOnly={!!emailParam}
-                className="w-full px-4 py-3 bg-ink border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-mint focus:border-transparent disabled:opacity-50"
+                className="w-full px-4 py-3 bg-ink border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-mint focus:border-transparent"
               />
               {errors.email && (
                 <p className="mt-2 text-sm text-danger">{errors.email.message}</p>

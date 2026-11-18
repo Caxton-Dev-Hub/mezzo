@@ -20,7 +20,7 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const setAuth = useAuthStore((state) => state.setAuth);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<React.ReactNode | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -46,21 +46,21 @@ export default function LoginPage() {
         id: response.user.id,
         email: response.user.email,
         role: response.user.role,
-        isVerified: false,
+        isVerified: response.user.emailVerified,
       });
       router.push('/dashboard');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Login failed';
       
-      // Check if error is related to unverified email
-      if (errorMessage.toLowerCase().includes('email') && errorMessage.toLowerCase().includes('verif')) {
+      // Check for the specific EmailNotVerifiedError message from backend
+      if (errorMessage === 'Verify your email address before signing in') {
         setError(
           <>
             Your email is not verified.{' '}
             <Link href="/verify-email" className="underline hover:text-mint-deep">
               Click here to verify
             </Link>
-          </> as any
+          </>
         );
       } else {
         setError(errorMessage);
