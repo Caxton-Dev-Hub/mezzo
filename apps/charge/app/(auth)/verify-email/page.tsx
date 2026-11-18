@@ -10,7 +10,7 @@ import { verifyEmail, resendVerification } from '@/lib/api-client';
 
 const verifyEmailSchema = z.object({
   email: z.string().email('Invalid email address'),
-  code: z.string().length(6, 'Code must be 6 digits').regex(/^\d+$/, 'Code must contain only digits'),
+  code: z.string().length(6, 'Code must be 6 characters'),
 });
 
 type VerifyEmailForm = z.infer<typeof verifyEmailSchema>;
@@ -22,6 +22,7 @@ export default function VerifyEmailPage() {
   
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [resendStatus, setResendStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
 
@@ -45,9 +46,13 @@ export default function VerifyEmailPage() {
     }
   }, [emailParam, setValue]);
 
-  // Load cooldown from sessionStorage on mount
+  // Load cooldown from localStorage on mount (keyed by email for cross-session persistence)
   useEffect(() => {
-    const storedExpiry = sessionStorage.getItem('resendCooldownExpiry');
+    const email = emailParam || '';
+    if (!email) return;
+
+    const cooldownKey = `resendCooldown:${email}`;
+    const storedExpiry = localStorage.getItem(cooldownKey);
     if (storedExpiry) {
       const expiryTime = parseInt(storedExpiry, 10);
       const now = Date.now();
@@ -55,30 +60,21 @@ export default function VerifyEmailPage() {
         const remainingSeconds = Math.ceil((expiryTime - now) / 1000);
         setResendCooldown(remainingSeconds);
       } else {
-        sessionStorage.removeItem('resendCooldownExpiry');
+        localStorage.removeItem(cooldownKey);
       }
     }
-  }, []);
+  }, [emailParam]);
 
   useEffect(() => {
     if (resendCooldown > 0) {
       const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
       return () => clearTimeout(timer);
-    } else if (resendCooldown === 0) {
-      sessionStorage.removeItem('resendCooldownExpiry');
+    } else if (resendCooldown === 0 && emailParam) {
+      const cooldownKey = `resendCooldown:${emailParam}`;
+      localStorage.removeItem(cooldownKey);
     }
     return undefined;
-  }, [resendCooldown]);
-
-  useEffect(() => {
-    if (success) {
-      const timer = setTimeout(() => {
-        router.push('/login?verified=true');
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-    return undefined;
-  }, [success, router]);
+  }, [resendCooldown, emailParam]);
 
   const onSubmit = async (data: VerifyEmailForm) => {
     try {
@@ -93,18 +89,23 @@ export default function VerifyEmailPage() {
   const handleResend = async () => {
     const email = getValues('email');
     if (!email) {
+      setResendStatus('error');
       setResendMessage('Please enter your email address');
       return;
     }
 
     try {
+      setResendStatus('idle');
       setResendMessage(null);
       await resendVerification({ email });
+      setResendStatus('success');
       setResendMessage('Verification code sent to your email');
       const expiryTime = Date.now() + 30000; // 30 seconds from now
-      sessionStorage.setItem('resendCooldownExpiry', expiryTime.toString());
+      const cooldownKey = `resendCooldown:${email}`;
+      localStorage.setItem(cooldownKey, expiryTime.toString());
       setResendCooldown(30);
     } catch (err) {
+      setResendStatus('error');
       setResendMessage(err instanceof Error ? err.message : 'Failed to resend code');
     }
   };
@@ -132,13 +133,20 @@ export default function VerifyEmailPage() {
 
             {success && (
               <div className="bg-mint/10 border border-mint/20 rounded-lg p-4 text-sm text-mint">
-                Email verified successfully! Redirecting to login...
+                <p className="mb-3">Email verified successfully!</p>
+                <button
+                  type="button"
+                  onClick={() => router.push('/login?verified=true')}
+                  className="w-full px-4 py-2 bg-mint text-white font-medium rounded-lg hover:bg-mint-deep transition-colors"
+                >
+                  Continue to Login
+                </button>
               </div>
             )}
 
             {resendMessage && (
               <div className={`${
-                resendMessage.includes('sent') || resendMessage.includes('Verification')
+                resendStatus === 'success'
                   ? 'bg-mint/10 border-mint/20 text-mint'
                   : 'bg-danger/10 border-danger/20 text-danger'
               } border rounded-lg p-4 text-sm`}>

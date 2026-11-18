@@ -27,6 +27,19 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'charge-auth',
+      // Migration: convert old 'CUSTOMER' role to 'USER'
+      migrate: (persistedState: any) => {
+        if (persistedState?.user?.role === 'CUSTOMER') {
+          return {
+            ...persistedState,
+            user: {
+              ...persistedState.user,
+              role: 'USER',
+            },
+          };
+        }
+        return persistedState;
+      },
     },
   ),
 );
