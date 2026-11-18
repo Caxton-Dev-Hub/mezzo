@@ -52,8 +52,8 @@ export default function LoginPage() {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Login failed';
       
-      // Check for the specific EmailNotVerifiedError message from backend
-      if (errorMessage === 'Verify your email address before signing in') {
+      // Check for unverified email error - match substring to be resilient to message changes
+      if (errorMessage.toLowerCase().includes('verif') && errorMessage.toLowerCase().includes('email')) {
         setError(
           <>
             Your email is not verified.{' '}

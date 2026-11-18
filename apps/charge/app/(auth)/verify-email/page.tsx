@@ -45,10 +45,27 @@ export default function VerifyEmailPage() {
     }
   }, [emailParam, setValue]);
 
+  // Load cooldown from sessionStorage on mount
+  useEffect(() => {
+    const storedExpiry = sessionStorage.getItem('resendCooldownExpiry');
+    if (storedExpiry) {
+      const expiryTime = parseInt(storedExpiry, 10);
+      const now = Date.now();
+      if (expiryTime > now) {
+        const remainingSeconds = Math.ceil((expiryTime - now) / 1000);
+        setResendCooldown(remainingSeconds);
+      } else {
+        sessionStorage.removeItem('resendCooldownExpiry');
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (resendCooldown > 0) {
       const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000);
       return () => clearTimeout(timer);
+    } else if (resendCooldown === 0) {
+      sessionStorage.removeItem('resendCooldownExpiry');
     }
     return undefined;
   }, [resendCooldown]);
@@ -84,6 +101,8 @@ export default function VerifyEmailPage() {
       setResendMessage(null);
       await resendVerification({ email });
       setResendMessage('Verification code sent to your email');
+      const expiryTime = Date.now() + 30000; // 30 seconds from now
+      sessionStorage.setItem('resendCooldownExpiry', expiryTime.toString());
       setResendCooldown(30);
     } catch (err) {
       setResendMessage(err instanceof Error ? err.message : 'Failed to resend code');
