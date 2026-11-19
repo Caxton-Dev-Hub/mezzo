@@ -59,6 +59,12 @@ export function Navbar() {
                 >
                   Powerbanks
                 </Link>
+                <Link
+                  href="/admin/shops"
+                  className="text-sm font-medium hover:text-mint transition-colors"
+                >
+                  Shops & Staff
+                </Link>
               </>
             )}
             <div className="flex items-center gap-3 pl-3 border-l border-line">

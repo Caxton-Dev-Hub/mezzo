@@ -317,6 +317,63 @@ export async function fundWallet(data: FundWalletRequest): Promise<FundWalletRes
   });
 }
 
+// Shop Management
+export interface ShopListResponse {
+  id: string;
+  name: string;
+  location: string;
+  createdAt: string;
+}
+
+export interface CreateShopRequest {
+  name: string;
+  location: string;
+}
+
+export async function getShopsForAdmin(): Promise<ShopListResponse[]> {
+  return fetchApi<ShopListResponse[]>('/shops');
+}
+
+export async function createShop(data: CreateShopRequest): Promise<ShopListResponse> {
+  return fetchApi<ShopListResponse>('/shops', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+// Staff Management
+export interface StaffAssignment {
+  shopId: string;
+  userId: string;
+  userEmail: string;
+  assignedAt: string;
+}
+
+export async function assignStaffToShop(shopId: string, userId: string): Promise<StaffAssignment> {
+  return fetchApi<StaffAssignment>(`/shops/${shopId}/staff`, {
+    method: 'POST',
+    body: JSON.stringify({ userId }),
+  });
+}
+
+export async function removeStaffFromShop(shopId: string, userId: string): Promise<void> {
+  return fetchApi<void>(`/shops/${shopId}/staff/${userId}`, {
+    method: 'DELETE',
+  });
+}
+
+export interface UserListResponse {
+  id: string;
+  email: string;
+  role: 'USER' | 'ADMIN' | 'STAFF' | 'ARBITER';
+  status: string;
+  createdAt: string;
+}
+
+export async function getUsers(): Promise<UserListResponse[]> {
+  return fetchApi<UserListResponse[]>('/users');
+}
+
 import type {
   PowerbankDto,
   PowerbankListResponse,
