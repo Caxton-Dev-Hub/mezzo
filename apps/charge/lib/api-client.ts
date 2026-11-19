@@ -2,11 +2,12 @@ import { useAuthStore } from './auth';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
-class ApiError extends Error {
+export class ApiError extends Error {
   constructor(
     public status: number,
     public statusText: string,
     message: string,
+    public code?: string,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -40,6 +41,7 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
       response.status,
       response.statusText,
       errorData.message || `Request failed: ${response.statusText}`,
+      errorData.code,
     );
   }
 

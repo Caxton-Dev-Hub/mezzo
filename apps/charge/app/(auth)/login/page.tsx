@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { login } from '@/lib/api-client';
+import { login, ApiError } from '@/lib/api-client';
 import { useAuthStore } from '@/lib/auth';
 
 const loginSchema = z.object({
@@ -32,6 +32,7 @@ export default function LoginPage() {
   const {
     register,
     handleSubmit,
+    getValues,
     formState: { errors, isSubmitting },
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -50,19 +51,23 @@ export default function LoginPage() {
       });
       router.push('/dashboard');
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Login failed';
+      const email = getValues('email');
       
-      // Check for unverified email error - match substring to be resilient to message changes
-      if (errorMessage.toLowerCase().includes('verif') && errorMessage.toLowerCase().includes('email')) {
+      // Check for unverified email error using the error code from backend
+      if (err instanceof ApiError && err.code === 'EMAIL_NOT_VERIFIED') {
         setError(
           <>
             Your email is not verified.{' '}
-            <Link href="/verify-email" className="underline hover:text-mint-deep">
+            <Link 
+              href={`/verify-email?email=${encodeURIComponent(email)}`} 
+              className="underline hover:text-mint-deep"
+            >
               Click here to verify
             </Link>
           </>
         );
       } else {
+        const errorMessage = err instanceof Error ? err.message : 'Login failed';
         setError(errorMessage);
       }
     }
