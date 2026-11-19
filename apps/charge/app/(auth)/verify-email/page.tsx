@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
@@ -15,7 +15,7 @@ const verifyEmailSchema = z.object({
 
 type VerifyEmailForm = z.infer<typeof verifyEmailSchema>;
 
-export default function VerifyEmailPage() {
+function VerifyEmailPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const emailParam = searchParams.get('email');
@@ -220,5 +220,14 @@ export default function VerifyEmailPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <VerifyEmailPageContent />
+    </Suspense>
   );
 }
