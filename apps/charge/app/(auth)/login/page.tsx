@@ -52,9 +52,17 @@ export default function LoginPage() {
       router.push('/dashboard');
     } catch (err) {
       const email = getValues('email');
+      const errorMessage = err instanceof Error ? err.message : 'Login failed';
+      
+      console.log('[Login Error]', { err, isApiError: err instanceof ApiError, code: (err as ApiError)?.code }); // Debug log
       
       // Check for unverified email error using the error code from backend
-      if (err instanceof ApiError && err.code === 'EMAIL_NOT_VERIFIED') {
+      // Also check message as fallback in case error code isn't available
+      const isEmailNotVerified = 
+        (err instanceof ApiError && err.code === 'EMAIL_NOT_VERIFIED') ||
+        (errorMessage.toLowerCase().includes('verify') && errorMessage.toLowerCase().includes('email'));
+      
+      if (isEmailNotVerified) {
         setError(
           <>
             Your email is not verified.{' '}
@@ -67,7 +75,6 @@ export default function LoginPage() {
           </>
         );
       } else {
-        const errorMessage = err instanceof Error ? err.message : 'Login failed';
         setError(errorMessage);
       }
     }
