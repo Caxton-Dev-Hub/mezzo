@@ -198,6 +198,7 @@ export function computeRiskItems(
 
   const latestIntentByEscrow = new Map<string, PaymentIntent>();
   for (const intent of input.intents) {
+    if (!intent.escrowId) continue; // Skip wallet top-ups
     const latest = latestIntentByEscrow.get(intent.escrowId);
     if (!latest || intent.createdAt > latest.createdAt) {
       latestIntentByEscrow.set(intent.escrowId, intent);
@@ -205,6 +206,7 @@ export function computeRiskItems(
   }
 
   for (const intent of input.intents) {
+    if (!intent.escrowId) continue; // Skip wallet top-ups
     const superseded = latestIntentByEscrow.get(intent.escrowId) !== intent;
     if (superseded && intent.status === PaymentIntentStatus.PENDING) {
       continue;

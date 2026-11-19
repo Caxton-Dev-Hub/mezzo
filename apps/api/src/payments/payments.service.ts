@@ -197,7 +197,14 @@ export class PaymentsService {
       return;
     }
 
-    const { escrow: current, parties } = await this.escrowService.getDetail(intent.escrowId);
+    // Handle wallet top-up
+    if (intent.fundingType === 'WALLET') {
+      await this.processWalletTopup(intent, event);
+      return;
+    }
+
+    // Handle escrow funding
+    const { escrow: current, parties } = await this.escrowService.getDetail(intent.escrowId!);
     const amountMatches = event.amount === intent.amount && event.currency === intent.currency;
 
     if (!amountMatches || current.state !== EscrowState.AGREED) {
@@ -216,7 +223,7 @@ export class PaymentsService {
             money: Money.of(intent.amount, intent.currency),
           },
           {
-            accountRef: escrowHoldingRef(intent.escrowId),
+            accountRef: escrowHoldingRef(intent.escrowId!),
             direction: EntryDirection.CREDIT,
             money: Money.of(intent.amount, intent.currency),
           },
@@ -226,7 +233,7 @@ export class PaymentsService {
       );
 
       const fundedEscrow = await this.stateMachine.transition(
-        intent.escrowId,
+        intent.escrowId!,
         EscrowState.FUNDED,
         {
           actorId: null,
@@ -254,10 +261,59 @@ export class PaymentsService {
     });
 
     await this.notificationsService.notify({
-      escrowId: intent.escrowId,
+      escrowId: intent.escrowId!,
       sourceEventId: `${intent.escrowId}_${escrow.state}_${escrow.version}`,
       eventType: NotificationEventType.FUNDED,
       recipientUserIds: parties.map((party) => party.userId),
+    });
+  }
+
+  private async processWalletTopup(
+    intent: PaymentIntent,
+    event: PaymentWebhookEventInput,
+  ): Promise<void> {
+    const amountMatches = event.amount === intent.amount && event.currency === intent.currency;
+
+    if (!amountMatches) {
+      intent.status = PaymentIntentStatus.QUARANTINED;
+      await this.intents.save(intent);
+      await this.recordWebhookEvent(event, null);
+      return;
+    }
+
+    await this.dataSource.transaction(async (manager) => {
+      // Credit user wallet
+      await this.ledgerService.postTransaction(
+        [
+          {
+            accountRef: providerClearingRef(intent.provider, intent.currency),
+            direction: EntryDirection.DEBIT,
+            money: Money.of(intent.amount, intent.currency),
+          },
+          {
+            accountRef: userWalletRef(intent.buyerId, intent.currency),
+            direction: EntryDirection.CREDIT,
+            money: Money.of(intent.amount, intent.currency),
+          },
+        ],
+        { idempotencyKey: `wallet-topup:${intent.id}`, correlationId: intent.id },
+        manager,
+      );
+
+      intent.status = PaymentIntentStatus.FUNDED;
+      await manager.save(PaymentIntent, intent);
+
+      await manager.save(
+        PaymentWebhookEvent,
+        manager.create(PaymentWebhookEvent, {
+          provider: event.provider,
+          providerEventId: event.eventId,
+          escrowId: null,
+        }),
+      );
+
+      // Clear any outstanding balances if wallet now has sufficient funds
+      await this.clearOutstandingBalances(intent.buyerId, intent.currency, manager);
     });
   }
 

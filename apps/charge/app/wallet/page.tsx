@@ -1,11 +1,24 @@
 'use client';
 
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { AuthGuard } from '@/components/auth-guard';
 import { Navbar } from '@/components/layout/navbar';
+import { AddFundsModal } from '@/components/add-funds-modal';
+import { getWalletBalance } from '@/lib/api-client';
 import { Plus } from 'lucide-react';
 
 function WalletContent() {
-  const balance = 0;
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  const { data: walletData, isLoading } = useQuery({
+    queryKey: ['wallet-balance'],
+    queryFn: getWalletBalance,
+  });
+
+  const balance = walletData?.available 
+    ? parseFloat(walletData.available.amount) / 100 
+    : 0;
 
   return (
     <div className="min-h-screen bg-ink">
@@ -20,8 +33,13 @@ function WalletContent() {
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-gradient-to-br from-mint to-mint-deep rounded-2xl p-8 text-white shadow-float">
               <p className="text-sm opacity-90 mb-2">Available Balance</p>
-              <p className="text-5xl font-display mb-6 tabular">₦{balance.toLocaleString()}</p>
-              <button className="px-6 py-3 bg-white text-mint font-medium rounded-lg hover:bg-ink transition-colors flex items-center gap-2">
+              <p className="text-5xl font-display mb-6 tabular">
+                {isLoading ? '...' : `₦${balance.toLocaleString()}`}
+              </p>
+              <button 
+                onClick={() => setIsModalOpen(true)}
+                className="px-6 py-3 bg-white text-mint font-medium rounded-lg hover:bg-ink transition-colors flex items-center gap-2"
+              >
                 <Plus className="w-4 h-4" />
                 Add Funds
               </button>
@@ -71,6 +89,8 @@ function WalletContent() {
           </div>
         </div>
       </main>
+      
+      <AddFundsModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </div>
   );
 }

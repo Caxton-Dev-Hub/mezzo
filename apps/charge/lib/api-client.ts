@@ -281,3 +281,38 @@ export async function uploadFile(file: File): Promise<string> {
 
   return storageKey;
 }
+
+export interface WalletBalanceResponse {
+  available: {
+    amount: string;
+    currency: string;
+  };
+  pending: {
+    amount: string;
+    currency: string;
+  };
+  heldInEscrow: {
+    amount: string;
+    currency: string;
+  };
+}
+
+export async function getWalletBalance(): Promise<WalletBalanceResponse> {
+  return fetchApi<WalletBalanceResponse>('/wallet');
+}
+
+export interface FundWalletRequest {
+  amountKobo: number;
+}
+
+export interface FundWalletResponse {
+  authorizationUrl: string;
+  reference: string;
+}
+
+export async function fundWallet(data: FundWalletRequest): Promise<FundWalletResponse> {
+  return fetchApi<FundWalletResponse>('/wallet/fund', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}

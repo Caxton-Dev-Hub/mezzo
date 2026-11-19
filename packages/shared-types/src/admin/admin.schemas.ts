@@ -82,7 +82,7 @@ export type AdminPayoutResponse = z.infer<typeof adminPayoutResponseSchema>;
 
 export const adminPaymentIntentResponseSchema = z.object({
   id: z.string().uuid(),
-  escrowId: z.string().uuid(),
+  escrowId: z.string().uuid().nullable(),
   buyerId: z.string().uuid(),
   buyerEmail: z.string(),
   amount: moneySchema,
@@ -176,7 +176,7 @@ export type AdminUserDetailDispute = z.infer<typeof adminUserDetailDisputeSchema
 
 export const adminUserDetailPaymentIntentSchema = z.object({
   id: z.string().uuid(),
-  escrowId: z.string().uuid(),
+  escrowId: z.string().uuid().nullable(),
   amount: moneySchema,
   status: paymentIntentStatusSchema,
   createdAt: z.coerce.date(),

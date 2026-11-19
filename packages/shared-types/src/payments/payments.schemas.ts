@@ -7,7 +7,7 @@ export type PaymentIntentStatus = z.infer<typeof paymentIntentStatusSchema>;
 
 export const paymentIntentResponseSchema = z.object({
   id: z.string().uuid(),
-  escrowId: z.string().uuid(),
+  escrowId: z.string().uuid().nullable(),
   amount: z.number().int().nonnegative(),
   currency: currencySchema,
   status: paymentIntentStatusSchema,
@@ -90,6 +90,7 @@ export const walletBalancesResponseSchema = z.object({
 export type WalletBalancesResponse = z.infer<typeof walletBalancesResponseSchema>;
 
 export const walletActivityKindSchema = z.enum([
+  'WALLET_TOPUP',
   'ESCROW_FUNDING',
   'ESCROW_RELEASE',
   'ESCROW_REFUND',

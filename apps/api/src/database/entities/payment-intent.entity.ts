@@ -21,12 +21,12 @@ export class PaymentIntent {
   id!: string;
 
   @Index()
-  @Column({ name: 'escrow_id', type: 'uuid' })
-  escrowId!: string;
+  @Column({ name: 'escrow_id', type: 'uuid', nullable: true })
+  escrowId!: string | null;
 
   @ManyToOne(() => Escrow, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'escrow_id' })
-  escrow!: Escrow;
+  escrow!: Escrow | null;
 
   @Column({ name: 'buyer_id', type: 'uuid' })
   buyerId!: string;
@@ -53,6 +53,9 @@ export class PaymentIntent {
 
   @Column({ name: 'authorization_url', type: 'text', nullable: true })
   authorizationUrl!: string | null;
+
+  @Column({ name: 'funding_type', type: 'varchar', length: 32, default: 'ESCROW' })
+  fundingType!: 'ESCROW' | 'WALLET';
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
