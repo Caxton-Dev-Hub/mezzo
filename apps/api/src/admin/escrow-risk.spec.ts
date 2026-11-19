@@ -79,7 +79,7 @@ function buildIntent(
   return {
     id: '55555555-5555-4555-8555-555555555555',
     escrowId: '11111111-1111-4111-8111-111111111111',
-    escrow: null as unknown as PaymentIntent['escrow'],
+    escrow: null,
     buyerId: '66666666-6666-4666-8666-666666666666',
     buyer: null as unknown as PaymentIntent['buyer'],
     amount: 5_000_000,

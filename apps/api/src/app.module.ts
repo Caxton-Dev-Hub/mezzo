@@ -28,6 +28,7 @@ import { StellarModule } from './stellar/stellar.module';
 import { ShopsModule } from './shops/shops.module';
 import { RentalsModule } from './rentals/rentals.module';
 import { AccessoriesModule } from './accessories/accessories.module';
+import { PowerbanksModule } from './powerbanks/powerbanks.module';
 
 const databaseBacked = isDatabaseConfigured();
 
@@ -47,6 +48,7 @@ const databaseBacked = isDatabaseConfigured();
           ShopsModule,
           RentalsModule,
           AccessoriesModule,
+          PowerbanksModule,
           KycModule,
           NotificationsModule,
           EscrowModule,

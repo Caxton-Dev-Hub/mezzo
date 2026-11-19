@@ -11,6 +11,7 @@ const ACTIVITY_LABELS: Record<WalletActivityKind, string> = {
   DISPUTE_RESOLUTION: 'Dispute resolution settlement',
   PAYOUT: 'Payout to your bank',
   PAYOUT_REVERSAL: 'Payout returned to your wallet',
+  WALLET_TOPUP: 'Added funds to wallet',
   OTHER: 'Wallet adjustment',
 };
 

@@ -16,3 +16,4 @@ export * from './settings';
 export * from './receipts';
 export * from './waitlist';
 export * from './stellar';
+export * from './powerbanks';

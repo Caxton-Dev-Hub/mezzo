@@ -1,4 +1,4 @@
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { WalletService } from './wallet.service';
 import { PayoutStatus } from './entities/payout-status.enum';
 import { PaymentIntentStatus } from './entities/payment-intent-status.enum';
@@ -8,6 +8,8 @@ import { AccountActivity, LedgerService } from '../ledger/ledger.service';
 import { EntryDirection } from '../ledger/entities/entry-direction.enum';
 import { escrowHoldingRef, userWalletRef } from '../ledger/account-refs';
 import { EscrowService } from '../escrow/escrow.service';
+import { UsersService } from '../users/users.service';
+import { PaymentProvider } from './providers/payment-provider.interface';
 
 const USER_ID = 'user-1';
 
@@ -87,9 +89,12 @@ function buildHarness(
 
   const listEscrowIdsForUser = jest.fn().mockResolvedValue(options.escrowIds ?? ['escrow-5']);
   const escrowService = { listEscrowIdsForUser } as unknown as EscrowService;
+  const usersService = {} as unknown as UsersService;
+  const paymentProvider = {} as unknown as PaymentProvider;
+  const dataSource = {} as unknown as DataSource;
 
   return {
-    service: new WalletService(payouts, intents, ledgerService, escrowService),
+    service: new WalletService(payouts, intents, ledgerService, escrowService, usersService, paymentProvider, dataSource),
     getBalanceOrZero,
     sumBalances,
     listActivity,
