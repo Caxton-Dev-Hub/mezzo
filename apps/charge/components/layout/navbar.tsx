@@ -46,12 +46,20 @@ export function Navbar() {
               </Link>
             )}
             {isAdmin && (
-              <Link
-                href="/admin"
-                className="text-sm font-medium hover:text-mint transition-colors"
-              >
-                Admin
-              </Link>
+              <>
+                <Link
+                  href="/admin"
+                  className="text-sm font-medium hover:text-mint transition-colors"
+                >
+                  Admin
+                </Link>
+                <Link
+                  href="/admin/powerbanks"
+                  className="text-sm font-medium hover:text-mint transition-colors"
+                >
+                  Powerbanks
+                </Link>
+              </>
             )}
             <div className="flex items-center gap-3 pl-3 border-l border-line">
               <span className="text-sm text-fog flex items-center gap-2">

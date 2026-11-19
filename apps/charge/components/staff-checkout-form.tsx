@@ -2,14 +2,15 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { getShops, checkout } from '@/lib/api-client';
+import { PowerbankSelector } from './powerbank-selector';
 
 const checkoutSchema = z.object({
   shopId: z.string().uuid('Please select a shop'),
-  powerbankId: z.string().uuid('Invalid powerbank ID'),
+  powerbankId: z.string().uuid('Please select a powerbank'),
   customerEmail: z.string().email('Invalid email address'),
 });
 
@@ -29,10 +30,14 @@ export function StaffCheckoutForm() {
     register,
     handleSubmit,
     reset,
+    control,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema),
   });
+
+  const selectedShopId = watch('shopId');
 
   const checkoutMutation = useMutation({
     mutationFn: checkout,
@@ -92,21 +97,21 @@ export function StaffCheckoutForm() {
           )}
         </div>
 
-        <div>
-          <label htmlFor="powerbankId" className="block text-sm font-medium mb-2">
-            Powerbank ID
-          </label>
-          <input
-            {...register('powerbankId')}
-            id="powerbankId"
-            type="text"
-            placeholder="Scan or enter powerbank UUID"
-            className="w-full px-4 py-3 bg-ink border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-mint focus:border-transparent font-mono"
-          />
-          {errors.powerbankId && (
-            <p className="mt-2 text-sm text-danger">{errors.powerbankId.message}</p>
+        <Controller
+          name="powerbankId"
+          control={control}
+          render={({ field }) => (
+            <PowerbankSelector
+              shopId={selectedShopId || null}
+              value={field.value}
+              onChange={field.onChange}
+              disabled={!selectedShopId}
+            />
           )}
-        </div>
+        />
+        {errors.powerbankId && (
+          <p className="mt-2 text-sm text-danger">{errors.powerbankId.message}</p>
+        )}
 
         <div>
           <label htmlFor="customerEmail" className="block text-sm font-medium mb-2">

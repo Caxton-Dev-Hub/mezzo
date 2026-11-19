@@ -316,3 +316,37 @@ export async function fundWallet(data: FundWalletRequest): Promise<FundWalletRes
     body: JSON.stringify(data),
   });
 }
+
+import type {
+  PowerbankDto,
+  PowerbankListResponse,
+  CreatePowerbankDto,
+} from '@mezzo/shared-types';
+
+export async function getAvailablePowerbanks(): Promise<PowerbankListResponse> {
+  return fetchApi<PowerbankListResponse>('/powerbanks?status=AVAILABLE');
+}
+
+export async function getPowerbanks(shopId?: string): Promise<PowerbankListResponse> {
+  const query = shopId ? `?shopId=${shopId}` : '';
+  return fetchApi<PowerbankListResponse>(`/powerbanks${query}`);
+}
+
+export async function createPowerbank(data: CreatePowerbankDto): Promise<PowerbankDto> {
+  return fetchApi<PowerbankDto>('/powerbanks', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function markPowerbankAvailable(id: string): Promise<PowerbankDto> {
+  return fetchApi<PowerbankDto>(`/powerbanks/${id}/available`, {
+    method: 'POST',
+  });
+}
+
+export async function markPowerbankMaintenance(id: string): Promise<PowerbankDto> {
+  return fetchApi<PowerbankDto>(`/powerbanks/${id}/maintenance`, {
+    method: 'POST',
+  });
+}
