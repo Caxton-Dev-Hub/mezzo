@@ -26,7 +26,7 @@ services:
       retries: 5
 
   minio:
-    image: quay.io/minio/minio:RELEASE.2024-09-07T16-13-09Z
+    image: cgr.dev/chainguard/minio:latest
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: mezzo
