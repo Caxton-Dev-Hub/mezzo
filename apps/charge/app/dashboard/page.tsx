@@ -1,16 +1,19 @@
 'use client';
 
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { AlertCircle, Plus } from 'lucide-react';
 import { AuthGuard } from '@/components/auth-guard';
 import { Navbar } from '@/components/layout/navbar';
 import { RentalCard } from '@/components/rental-card';
+import { AddFundsModal } from '@/components/add-funds-modal';
 import { getRentals } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth';
 
 function DashboardContent() {
   const { user } = useAuth();
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ['rentals'],
     queryFn: getRentals,
@@ -88,13 +91,13 @@ function DashboardContent() {
             <div className="bg-surface rounded-xl p-6 shadow-card">
               <h3 className="font-medium mb-4">Quick Actions</h3>
               <div className="space-y-3">
-                <Link
-                  href="/wallet"
+                <button
+                  onClick={() => setIsModalOpen(true)}
                   className="block w-full px-4 py-3 text-center bg-mint text-white font-medium rounded-lg hover:bg-mint-deep transition-colors"
                 >
                   <Plus className="w-4 h-4 inline-block mr-2" />
                   Add Funds
-                </Link>
+                </button>
                 {!user?.isVerified && (
                   <Link
                     href="/verify"
@@ -117,15 +120,13 @@ function DashboardContent() {
                   <span className="text-fog">Overdue (per hour)</span>
                   <span className="font-medium tabular">₦25</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-fog">Maximum charge</span>
-                  <span className="font-medium tabular">₦1,200</span>
-                </div>
               </div>
             </div>
           </div>
         </div>
       </main>
+      
+      <AddFundsModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { LogOut, Wallet, User } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
@@ -18,8 +19,8 @@ export function Navbar() {
     <nav className="border-b border-line bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
-          <Link href="/dashboard" className="font-display text-2xl hover:text-mint transition-colors">
-            Mezzo Charge
+          <Link href="/dashboard" className="hover:opacity-80 transition-opacity">
+            <Image src="/mezzo-mark.svg" alt="Mezzo Charge" width={100} height={32} className="h-8" />
           </Link>
 
           <div className="flex items-center gap-6">

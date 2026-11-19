@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { Battery, Shield, MapPin } from 'lucide-react';
 
 export default function HomePage() {
@@ -6,7 +7,7 @@ export default function HomePage() {
     <div className="min-h-screen flex flex-col">
       <header className="border-b border-line py-4 px-6">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <h1 className="font-display text-2xl">Mezzo Charge</h1>
+          <Image src="/mezzo-mark.svg" alt="Mezzo Charge" width={100} height={32} className="h-8" />
           <div className="flex gap-3">
             <Link
               href="/login"

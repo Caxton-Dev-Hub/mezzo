@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -114,8 +115,8 @@ function VerifyEmailPageContent() {
     <div className="min-h-screen flex items-center justify-center px-6 py-12">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Link href="/" className="font-display text-3xl">
-            Mezzo Charge
+          <Link href="/" className="inline-block">
+            <Image src="/mezzo-mark.svg" alt="Mezzo Charge" width={120} height={40} />
           </Link>
           <h1 className="text-2xl font-medium mt-4">Verify your email</h1>
           <p className="text-fog mt-2">
