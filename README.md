@@ -36,6 +36,8 @@ Peer-to-peer trade of physical goods across distance is undermined by a simple a
 
 Mezzo is built on the opposite premise: **structured evidence capture is the foundation of the transaction, not a fallback.** Every escrow requires the seller to document the item's condition before a buyer is permitted to fund it. This evidence is hashed, timestamped, and stored immutably, and forms the primary input to dispute resolution if one becomes necessary.
 
+**Mezzo Charge** — A powerbank rental and phone accessories management system for physical shops. Customers rent powerbanks for ₦600/24h with transparent overage billing. Features identity verification with photo upload, wallet-based payments via Flutterwave, staff management, and admin oversight. Located at `apps/charge`. See [RUNBOOK-charge.md](./RUNBOOK-charge.md) for deployment instructions.
+
 The name reflects the product's role: Mezzo — Italian for "middle" — sits as the neutral, verifiable intermediary between two parties who have no other basis for trust.
 
 Mezzo is a full-stack application: a NestJS API that owns every rule about money, state, and evidence integrity, and a Next.js web client that gives buyers, sellers, and arbiters a fast, camera-first interface for creating escrows, capturing condition evidence, and resolving disputes.
