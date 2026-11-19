@@ -76,6 +76,16 @@ export class FlutterwaveHttpProvider implements PaymentProvider {
   async initializeTransaction(
     input: InitializeTransactionInput,
   ): Promise<InitializeTransactionResult> {
+    // Determine redirect URL based on funding type
+    let redirectUrl: string;
+    if (input.metadata?.fundingType === 'WALLET') {
+      // Redirect to charge app wallet page after wallet funding
+      redirectUrl = `${this.configService.getOrThrow<string>('CHARGE_APP_URL')}/wallet`;
+    } else {
+      // Redirect to main web app for escrow funding
+      redirectUrl = `${this.configService.getOrThrow<string>('WEB_APP_URL')}/escrow/${input.escrowId}/fund`;
+    }
+
     const response = await this.request(`${this.baseUrl()}/payments`, {
       method: 'POST',
       headers: this.headers(),
@@ -83,7 +93,7 @@ export class FlutterwaveHttpProvider implements PaymentProvider {
         tx_ref: input.reference,
         amount: minorToMajorUnits(input.amountKobo),
         currency: input.currency,
-        redirect_url: `${this.configService.getOrThrow<string>('WEB_APP_URL')}/escrow/${input.escrowId}/fund`,
+        redirect_url: redirectUrl,
         customer: { email: input.email },
         meta: input.metadata,
       }),

@@ -70,6 +70,16 @@ export class PaystackHttpProvider implements PaymentProvider {
   async initializeTransaction(
     input: InitializeTransactionInput,
   ): Promise<InitializeTransactionResult> {
+    // Determine callback URL based on funding type
+    let callbackUrl: string;
+    if (input.metadata?.fundingType === 'WALLET') {
+      // Redirect to charge app wallet page after wallet funding
+      callbackUrl = `${this.configService.getOrThrow<string>('CHARGE_APP_URL')}/wallet`;
+    } else {
+      // Redirect to main web app for escrow funding
+      callbackUrl = `${this.configService.getOrThrow<string>('WEB_APP_URL')}/escrow/${input.escrowId}/fund`;
+    }
+
     const response = await fetch(`${this.baseUrl()}/transaction/initialize`, {
       method: 'POST',
       headers: this.headers(),
@@ -78,7 +88,7 @@ export class PaystackHttpProvider implements PaymentProvider {
         amount: input.amountKobo,
         currency: input.currency,
         reference: input.reference,
-        callback_url: `${this.configService.getOrThrow<string>('WEB_APP_URL')}/escrow/${input.escrowId}/fund`,
+        callback_url: callbackUrl,
         metadata: input.metadata,
       }),
     });
