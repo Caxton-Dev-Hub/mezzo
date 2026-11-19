@@ -340,13 +340,13 @@ export async function createPowerbank(data: CreatePowerbankDto): Promise<Powerba
 }
 
 export async function markPowerbankAvailable(id: string): Promise<PowerbankDto> {
-  return fetchApi<PowerbankDto>(`/powerbanks/${id}/available`, {
-    method: 'POST',
+  return fetchApi<PowerbankDto>(`/powerbanks/${id}/mark-available`, {
+    method: 'PATCH',
   });
 }
 
 export async function markPowerbankMaintenance(id: string): Promise<PowerbankDto> {
-  return fetchApi<PowerbankDto>(`/powerbanks/${id}/maintenance`, {
-    method: 'POST',
+  return fetchApi<PowerbankDto>(`/powerbanks/${id}/mark-maintenance`, {
+    method: 'PATCH',
   });
 }
