@@ -61,8 +61,16 @@ function buildUsersService(bootstrapAdminEmails = ''): {
     get: () => bootstrapAdminEmails,
   } as unknown as ConfigService;
 
+  const mockStorage = {
+    getPresignedDownloadUrl: jest.fn().mockResolvedValue(null),
+  };
+
   return {
-    usersService: new UsersService(repository as unknown as Repository<User>, configService),
+    usersService: new UsersService(
+      repository as unknown as Repository<User>,
+      configService,
+      mockStorage as any,
+    ),
     repository,
   };
 }

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ILike, In, Repository } from 'typeorm';
@@ -7,6 +7,7 @@ import { UserRole } from './entities/user-role.enum';
 import { UserStatus } from './entities/user-status.enum';
 import { KycTier } from '../kyc/entities/kyc-tier.enum';
 import { EmailAlreadyRegisteredError } from './errors/email-already-registered.error';
+import { STORAGE_PROVIDER, StorageProvider } from '../evidence/storage/storage-provider.interface';
 
 export interface UserSearchQuery {
   q?: string;
@@ -30,6 +31,8 @@ export class UsersService {
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
     configService: ConfigService,
+    @Inject(STORAGE_PROVIDER)
+    private readonly storage: StorageProvider,
   ) {
     this.bootstrapAdminEmails = new Set(
       (configService.get<string>('BOOTSTRAP_ADMIN_EMAILS') ?? '')
@@ -159,5 +162,13 @@ export class UsersService {
     });
 
     return new Map(users.map((user) => [user.id, user.email]));
+  }
+
+  async resolveAvatarUrl(user: User): Promise<string | null> {
+    if (!user.avatarKey) {
+      return null;
+    }
+
+    return this.storage.getPresignedDownloadUrl(user.avatarKey);
   }
 }

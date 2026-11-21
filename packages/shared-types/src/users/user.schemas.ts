@@ -14,6 +14,7 @@ export const userResponseSchema = z.object({
   role: userRoleSchema,
   emailVerified: z.boolean(),
   createdAt: z.coerce.date(),
+  avatarUrl: z.string().url().nullable(),
 });
 
 export type UserResponse = z.infer<typeof userResponseSchema>;

@@ -368,6 +368,7 @@ export interface UserListResponse {
   role: 'USER' | 'ADMIN' | 'STAFF' | 'ARBITER';
   status: string;
   createdAt: string;
+  avatarUrl: string | null;
 }
 
 export async function getUsers(): Promise<UserListResponse[]> {
@@ -378,7 +379,29 @@ import type {
   PowerbankDto,
   PowerbankListResponse,
   CreatePowerbankDto,
+  PresignAvatarDto,
+  PresignAvatarResponse,
+  ConfirmAvatarDto,
+  ProfileResponse,
 } from '@mezzo/shared-types';
+
+export async function presignProfilePhoto(data: PresignAvatarDto): Promise<PresignAvatarResponse> {
+  return fetchApi<PresignAvatarResponse>('/profiles/me/avatar/presign', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function confirmProfilePhoto(data: ConfirmAvatarDto): Promise<ProfileResponse> {
+  return fetchApi<ProfileResponse>('/profiles/me/avatar', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getProfile(): Promise<ProfileResponse> {
+  return fetchApi<ProfileResponse>('/profiles/me');
+}
 
 export async function getAvailablePowerbanks(): Promise<PowerbankListResponse> {
   return fetchApi<PowerbankListResponse>('/powerbanks?status=AVAILABLE');
@@ -404,6 +427,22 @@ export async function markPowerbankAvailable(id: string): Promise<PowerbankDto> 
 
 export async function markPowerbankMaintenance(id: string): Promise<PowerbankDto> {
   return fetchApi<PowerbankDto>(`/powerbanks/${id}/mark-maintenance`, {
+    method: 'PATCH',
+  });
+}
+
+export async function getPowerbank(id: string): Promise<PowerbankDto> {
+  return fetchApi<PowerbankDto>(`/powerbanks/${id}`);
+}
+
+export async function markPowerbankLost(id: string): Promise<PowerbankDto> {
+  return fetchApi<PowerbankDto>(`/powerbanks/${id}/mark-lost`, {
+    method: 'PATCH',
+  });
+}
+
+export async function markPowerbankUnreturned(id: string): Promise<PowerbankDto> {
+  return fetchApi<PowerbankDto>(`/powerbanks/${id}/mark-unreturned`, {
     method: 'PATCH',
   });
 }

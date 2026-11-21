@@ -48,6 +48,13 @@ export function Navbar() {
               <Wallet className="w-4 h-4" />
               Wallet
             </Link>
+            <Link
+              href="/profile"
+              className="text-sm font-medium hover:text-mint transition-colors flex items-center gap-2"
+            >
+              <User className="w-4 h-4" />
+              Profile
+            </Link>
             {isStaff && (
               <Link
                 href="/staff"
@@ -124,6 +131,14 @@ export function Navbar() {
             >
               <Wallet className="w-4 h-4" />
               Wallet
+            </Link>
+            <Link
+              href="/profile"
+              onClick={closeMenu}
+              className="block text-sm font-medium hover:text-mint transition-colors py-2 flex items-center gap-2"
+            >
+              <User className="w-4 h-4" />
+              Profile
             </Link>
             {isStaff && (
               <Link

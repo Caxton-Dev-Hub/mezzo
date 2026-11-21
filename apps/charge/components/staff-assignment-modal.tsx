@@ -48,8 +48,8 @@ export function StaffAssignmentModal({ isOpen, shopId, shopName, onClose }: Staf
     assignMutation.mutate();
   };
 
-  // Filter for STAFF or USER roles that could be assigned
-  const availableUsers = users?.filter((u) => u.role === 'STAFF' || u.role === 'USER') || [];
+  // Filter for any non-admin users that can be assigned to shops
+  const availableUsers = users?.filter((u) => u.role !== 'ADMIN') || [];
 
   if (!isOpen) return null;
 
@@ -78,26 +78,57 @@ export function StaffAssignmentModal({ isOpen, shopId, shopName, onClose }: Staf
             <label htmlFor="user-select" className="block text-sm font-medium mb-2">
               Select Staff Member
             </label>
-            <select
-              id="user-select"
-              value={selectedUserId}
-              onChange={(e) => {
-                setSelectedUserId(e.target.value);
-                setError('');
-              }}
-              disabled={isLoading || assignMutation.isPending}
-              className="w-full px-4 py-3 bg-ink border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-mint focus:border-transparent"
-            >
-              <option value="">Choose a user...</option>
-              {availableUsers.map((user) => (
-                <option key={user.id} value={user.id}>
-                  {user.email} ({user.role})
-                </option>
-              ))}
-            </select>
-            {availableUsers.length === 0 && !isLoading && (
-              <p className="text-sm text-seller mt-2">No users available to assign</p>
-            )}
+            <div className="space-y-2">
+              {isLoading ? (
+                <div className="text-sm text-fog">Loading users...</div>
+              ) : (
+                <select
+                  id="user-select"
+                  value={selectedUserId}
+                  onChange={(e) => {
+                    setSelectedUserId(e.target.value);
+                    setError('');
+                  }}
+                  disabled={isLoading || assignMutation.isPending}
+                  className="w-full px-4 py-3 bg-ink border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-mint focus:border-transparent"
+                >
+                  <option value="">Choose a user...</option>
+                  {availableUsers.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.email} ({user.role})
+                    </option>
+                  ))}
+                </select>
+              )}
+              {selectedUserId && availableUsers.length > 0 && (
+                <div className="flex items-center gap-3 p-3 bg-ink rounded-lg border border-line">
+                  {availableUsers.find((u) => u.id === selectedUserId)?.avatarUrl ? (
+                    <img
+                      src={availableUsers.find((u) => u.id === selectedUserId)!.avatarUrl!}
+                      alt="Profile"
+                      className="w-10 h-10 rounded-full object-cover border-2 border-line"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-mint/20 flex items-center justify-center text-mint font-medium text-sm">
+                      {availableUsers
+                        .find((u) => u.id === selectedUserId)
+                        ?.email[0].toUpperCase()}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-vellum truncate">
+                      {availableUsers.find((u) => u.id === selectedUserId)?.email}
+                    </div>
+                    <div className="text-sm text-fog">
+                      {availableUsers.find((u) => u.id === selectedUserId)?.role}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {availableUsers.length === 0 && !isLoading && (
+                <p className="text-sm text-seller mt-2">No users available to assign</p>
+              )}
+            </div>
           </div>
 
           {error && (

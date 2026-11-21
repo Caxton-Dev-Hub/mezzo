@@ -18,13 +18,20 @@ export class UsersController {
       throw new NotFoundException('User not found');
     }
 
-    return toUserResponse(user);
+    const avatarUrl = await this.usersService.resolveAvatarUrl(user);
+    return toUserResponse(user, avatarUrl);
   }
 
   @Get()
   @Roles(UserRole.ADMIN)
   async findAll(): Promise<UserResponse[]> {
     const users = await this.usersService.findAll();
-    return users.map(toUserResponse);
+    const userResponses = await Promise.all(
+      users.map(async (user) => {
+        const avatarUrl = await this.usersService.resolveAvatarUrl(user);
+        return toUserResponse(user, avatarUrl);
+      }),
+    );
+    return userResponses;
   }
 }
