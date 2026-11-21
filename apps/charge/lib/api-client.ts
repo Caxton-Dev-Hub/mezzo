@@ -387,8 +387,6 @@ import type {
 
 export type { PowerbankDto, PowerbankListResponse, CreatePowerbankDto };
 
-export type { PowerbankDto, PowerbankListResponse, CreatePowerbankDto };
-
 export async function presignProfilePhoto(data: PresignAvatarDto): Promise<PresignAvatarResponse> {
   return fetchApi<PresignAvatarResponse>('/profiles/me/avatar/presign', {
     method: 'POST',

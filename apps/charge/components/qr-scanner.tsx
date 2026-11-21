@@ -61,12 +61,15 @@ export function QRScanner({ onScan, onError }: QRScannerProps) {
     initScanner();
 
     return () => {
-      if (videoRef.current?.srcObject) {
-        const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
+      const videoElement = videoRef.current;
+      const intervalId = scannerIntervalRef.current;
+
+      if (videoElement?.srcObject) {
+        const tracks = (videoElement.srcObject as MediaStream).getTracks();
         tracks.forEach(track => track.stop());
       }
-      if (scannerIntervalRef.current) {
-        clearInterval(scannerIntervalRef.current);
+      if (intervalId) {
+        clearInterval(intervalId);
       }
     };
   }, [onScan, onError]);
@@ -131,7 +134,7 @@ export function QRScanner({ onScan, onError }: QRScannerProps) {
 
       <div className="bg-ink/50 border border-line rounded-lg p-4">
         <p className="text-xs text-fog text-center">
-          ℹ️ Manual QR Code Input: Use the input field below if scanning doesn't work
+          ℹ️ Manual QR Code Input: Use the input field below if scanning doesn&apos;t work
         </p>
       </div>
     </div>

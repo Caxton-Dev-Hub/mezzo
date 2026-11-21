@@ -105,7 +105,7 @@ function ProfilePageContent() {
             </div>
 
             <div className="flex items-start gap-3">
-              {profile.kycTier === 'VERIFIED' ? (
+              {profile.kycTier !== 'TIER_0' ? (
                 <CheckCircle className="w-5 h-5 text-success mt-0.5" />
               ) : (
                 <XCircle className="w-5 h-5 text-fog mt-0.5" />

@@ -1,7 +1,7 @@
-import QRCode from 'qrcode';
-
 export async function generateQRCode(text: string): Promise<string> {
   try {
+    // @ts-ignore - qrcode doesn't have type definitions but is available at runtime
+    const QRCode = (await import('qrcode')).default;
     const dataUrl = await QRCode.toDataURL(text, {
       errorCorrectionLevel: 'H',
       type: 'image/png',
