@@ -216,6 +216,9 @@ importers:
       next:
         specifier: ^15.1.6
         version: 15.5.21(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@playwright/test@1.62.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      qrcode:
+        specifier: ^1.5.3
+        version: 1.5.3
       react:
         specifier: ^19.0.0
         version: 19.2.8
