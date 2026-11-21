@@ -8,7 +8,7 @@ export const createPowerbankSchema = z.object({
 export type CreatePowerbankDto = z.infer<typeof createPowerbankSchema>;
 
 export const updatePowerbankStatusSchema = z.object({
-  status: z.enum(['AVAILABLE', 'MAINTENANCE']),
+  status: z.enum(['AVAILABLE', 'MAINTENANCE', 'LOST', 'UNRETURNED']),
 });
 
 export type UpdatePowerbankStatusDto = z.infer<typeof updatePowerbankStatusSchema>;

@@ -64,6 +64,12 @@ function StaffContent() {
             >
               Rentals
             </button>
+            <a
+              href="/staff/scan"
+              className="pb-4 px-2 border-b-2 border-transparent text-fog hover:text-vellum transition-colors font-medium"
+            >
+              Scan
+            </a>
           </div>
         </div>
 

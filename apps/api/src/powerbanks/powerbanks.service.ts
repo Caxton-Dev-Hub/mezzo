@@ -103,4 +103,56 @@ export class PowerbanksService {
 
     return updated;
   }
+
+  async markLost(id: string, actorId: string): Promise<Powerbank> {
+    const powerbank = await this.powerbanks.findOne({ where: { id } });
+    if (!powerbank) {
+      throw new PowerbankNotFoundError(id);
+    }
+
+    const previousStatus = powerbank.status;
+    powerbank.status = PowerbankStatus.LOST;
+    const updated = await this.powerbanks.save(powerbank);
+
+    await this.auditService.record({
+      actorId,
+      action: 'powerbank.mark_lost',
+      entityType: 'Powerbank',
+      entityId: id,
+      before: { status: previousStatus },
+      after: { status: PowerbankStatus.LOST },
+    });
+
+    return updated;
+  }
+
+  async markUnreturned(id: string, actorId: string): Promise<Powerbank> {
+    const powerbank = await this.powerbanks.findOne({ where: { id } });
+    if (!powerbank) {
+      throw new PowerbankNotFoundError(id);
+    }
+
+    const previousStatus = powerbank.status;
+    powerbank.status = PowerbankStatus.UNRETURNED;
+    const updated = await this.powerbanks.save(powerbank);
+
+    await this.auditService.record({
+      actorId,
+      action: 'powerbank.mark_unreturned',
+      entityType: 'Powerbank',
+      entityId: id,
+      before: { status: previousStatus },
+      after: { status: PowerbankStatus.UNRETURNED },
+    });
+
+    return updated;
+  }
+
+  async getPowerbank(id: string): Promise<Powerbank> {
+    const powerbank = await this.powerbanks.findOne({ where: { id } });
+    if (!powerbank) {
+      throw new PowerbankNotFoundError(id);
+    }
+    return powerbank;
+  }
 }

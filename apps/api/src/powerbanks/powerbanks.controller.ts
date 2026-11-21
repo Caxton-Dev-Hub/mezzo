@@ -73,4 +73,31 @@ export class PowerbanksController {
     const powerbank = await this.powerbanksService.markMaintenance(id, currentUser.id);
     return toPowerbankDetailResponse(powerbank);
   }
+
+  @Get(':id')
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  async getPowerbank(@Param('id') id: string): Promise<PowerbankDetailResponse> {
+    const powerbank = await this.powerbanksService.getPowerbank(id);
+    return toPowerbankDetailResponse(powerbank);
+  }
+
+  @Patch(':id/mark-lost')
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  async markLost(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ): Promise<PowerbankDetailResponse> {
+    const powerbank = await this.powerbanksService.markLost(id, currentUser.id);
+    return toPowerbankDetailResponse(powerbank);
+  }
+
+  @Patch(':id/mark-unreturned')
+  @Roles(UserRole.ADMIN, UserRole.STAFF)
+  async markUnreturned(
+    @Param('id') id: string,
+    @CurrentUser() currentUser: AuthenticatedUser,
+  ): Promise<PowerbankDetailResponse> {
+    const powerbank = await this.powerbanksService.markUnreturned(id, currentUser.id);
+    return toPowerbankDetailResponse(powerbank);
+  }
 }

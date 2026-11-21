@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { Battery, Shield, MapPin } from 'lucide-react';
+import { QRCodeDisplay } from '@/components/qrcode-display';
 
 export default function HomePage() {
   return (
@@ -89,6 +90,19 @@ export default function HomePage() {
               Create Account
             </Link>
           </div>
+        </section>
+
+        <section className="max-w-2xl mx-auto px-6 py-16">
+          <div className="text-center mb-12">
+            <h3 className="font-display text-3xl mb-2">Quick Access</h3>
+            <p className="text-fog">Scan this code to visit Charge</p>
+          </div>
+          <QRCodeDisplay
+            url="https://charge.mezzoescrow.xyz"
+            title="Mezzo Charge"
+            subtitle="Rent powerbanks instantly"
+            downloadFileName="mezzo-charge-qrcode.png"
+          />
         </section>
       </main>
 
