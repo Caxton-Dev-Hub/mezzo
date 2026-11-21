@@ -26,16 +26,21 @@ export function toShopResponse(shop: Shop): ShopResponse {
 export interface StaffAssignmentResponse {
   id: string;
   userId: string;
+  userEmail: string;
   shopId: string;
-  createdAt: string;
+  assignedAt: string;
 }
 
-export function toStaffAssignmentResponse(assignment: StaffAssignment): StaffAssignmentResponse {
+export function toStaffAssignmentResponse(
+  assignment: StaffAssignment,
+  userEmail: string,
+): StaffAssignmentResponse {
   return {
     id: assignment.id,
     userId: assignment.userId,
+    userEmail,
     shopId: assignment.shopId,
-    createdAt: assignment.createdAt.toISOString(),
+    assignedAt: assignment.createdAt.toISOString(),
   };
 }
 

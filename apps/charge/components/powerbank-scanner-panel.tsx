@@ -25,11 +25,6 @@ export function PowerbankScannerPanel({ initialPowerbankId }: PowerbankScannerPa
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const handleScan = async (id: string) => {
-    setPowerbankId(id);
-    await fetchPowerbank(id);
-  };
-
   const fetchPowerbank = async (id: string) => {
     try {
       setLoading(true);

@@ -78,7 +78,10 @@ export class ShopsController {
     @Body(new ZodValidationPipe(assignStaffSchema)) dto: AssignStaffDto,
   ): Promise<StaffAssignmentResponse> {
     const assignment = await this.shopsService.assignStaff(shopId, dto.userId);
-    return toStaffAssignmentResponse(assignment);
+    // Fetch user to get email - we need to inject UsersService for this
+    // For now, we can pass the userId and the service can be extended
+    const user = await this.shopsService.getUserForAssignment(dto.userId);
+    return toStaffAssignmentResponse(assignment, user.email);
   }
 
   @Delete(':shopId/staff/:userId')

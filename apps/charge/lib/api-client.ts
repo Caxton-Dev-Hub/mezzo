@@ -341,8 +341,8 @@ export async function createShop(data: CreateShopRequest): Promise<ShopListRespo
   });
 }
 
-// Staff Management
 export interface StaffAssignment {
+  id: string;
   shopId: string;
   userId: string;
   userEmail: string;
@@ -366,7 +366,7 @@ export interface UserListResponse {
   id: string;
   email: string;
   role: 'USER' | 'ADMIN' | 'STAFF' | 'ARBITER';
-  status: string;
+  emailVerified: boolean;
   createdAt: string;
   avatarUrl: string | null;
 }
@@ -384,6 +384,10 @@ import type {
   ConfirmAvatarDto,
   ProfileResponse,
 } from '@mezzo/shared-types';
+
+export type { PowerbankDto, PowerbankListResponse, CreatePowerbankDto };
+
+export type { PowerbankDto, PowerbankListResponse, CreatePowerbankDto };
 
 export async function presignProfilePhoto(data: PresignAvatarDto): Promise<PresignAvatarResponse> {
   return fetchApi<PresignAvatarResponse>('/profiles/me/avatar/presign', {

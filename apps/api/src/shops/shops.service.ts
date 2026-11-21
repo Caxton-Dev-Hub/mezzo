@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Shop } from '../database/entities/shop.entity';
 import { StaffAssignment } from '../database/entities/staff-assignment.entity';
+import { User } from '../users/entities/user.entity';
 import {
   VerificationSubmission,
   VerificationSubmissionStatus,
@@ -28,6 +29,8 @@ export class ShopsService {
     private readonly shops: Repository<Shop>,
     @InjectRepository(StaffAssignment)
     private readonly staffAssignments: Repository<StaffAssignment>,
+    @InjectRepository(User)
+    private readonly users: Repository<User>,
     @InjectRepository(VerificationSubmission)
     private readonly verificationSubmissions: Repository<VerificationSubmission>,
     private readonly auditService: AuditService,
@@ -72,6 +75,14 @@ export class ShopsService {
     });
 
     return this.staffAssignments.save(assignment);
+  }
+
+  async getUserForAssignment(userId: string): Promise<User> {
+    const user = await this.users.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new Error(`User not found: ${userId}`);
+    }
+    return user;
   }
 
   async removeStaff(shopId: string, userId: string): Promise<void> {
