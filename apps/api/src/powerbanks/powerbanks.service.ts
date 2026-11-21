@@ -75,8 +75,8 @@ export class PowerbanksService {
       action: 'powerbank.mark_available',
       entityType: 'Powerbank',
       entityId: id,
-      before: { status: previousStatus },
-      after: { status: PowerbankStatus.AVAILABLE },
+      before: { status: previousStatus, shopId: powerbank.shopId },
+      after: { status: PowerbankStatus.AVAILABLE, shopId: powerbank.shopId },
     });
 
     return updated;
@@ -97,8 +97,8 @@ export class PowerbanksService {
       action: 'powerbank.mark_maintenance',
       entityType: 'Powerbank',
       entityId: id,
-      before: { status: previousStatus },
-      after: { status: PowerbankStatus.MAINTENANCE },
+      before: { status: previousStatus, shopId: powerbank.shopId },
+      after: { status: PowerbankStatus.MAINTENANCE, shopId: powerbank.shopId },
     });
 
     return updated;
@@ -119,8 +119,8 @@ export class PowerbanksService {
       action: 'powerbank.mark_lost',
       entityType: 'Powerbank',
       entityId: id,
-      before: { status: previousStatus },
-      after: { status: PowerbankStatus.LOST },
+      before: { status: previousStatus, shopId: powerbank.shopId },
+      after: { status: PowerbankStatus.LOST, shopId: powerbank.shopId },
     });
 
     return updated;
@@ -141,8 +141,8 @@ export class PowerbanksService {
       action: 'powerbank.mark_unreturned',
       entityType: 'Powerbank',
       entityId: id,
-      before: { status: previousStatus },
-      after: { status: PowerbankStatus.UNRETURNED },
+      before: { status: previousStatus, shopId: powerbank.shopId },
+      after: { status: PowerbankStatus.UNRETURNED, shopId: powerbank.shopId },
     });
 
     return updated;
