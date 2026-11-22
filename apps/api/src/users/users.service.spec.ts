@@ -5,6 +5,7 @@ import { User } from '../database/entities/user.entity';
 import { UserRole } from './entities/user-role.enum';
 import { UserStatus } from './entities/user-status.enum';
 import { KycTier } from '../kyc/entities/kyc-tier.enum';
+import { StorageProvider } from '../evidence/storage/storage-provider.interface';
 
 function buildUser(overrides: Partial<User> = {}): User {
   return {
@@ -63,13 +64,14 @@ function buildUsersService(bootstrapAdminEmails = ''): {
 
   const mockStorage = {
     getPresignedDownloadUrl: jest.fn().mockResolvedValue(null),
-  };
+    getPresignedUploadUrl: jest.fn().mockResolvedValue(''),
+  } as unknown as StorageProvider;
 
   return {
     usersService: new UsersService(
       repository as unknown as Repository<User>,
       configService,
-      mockStorage as any,
+      mockStorage,
     ),
     repository,
   };

@@ -88,6 +88,7 @@ function buildIntent(
     providerReference: 'intent-1',
     authorizationUrl: null,
     status,
+    fundingType: 'ESCROW',
     createdAt,
     updatedAt,
   };
