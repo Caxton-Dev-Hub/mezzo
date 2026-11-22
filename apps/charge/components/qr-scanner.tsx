@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { X, AlertCircle } from 'lucide-react';
+import type { QrcodeErrorCallback, QrcodeSuccessCallback } from 'html5-qrcode';
 
 interface QRScannerProps {
   onScan: (result: string) => void;
@@ -9,18 +10,17 @@ interface QRScannerProps {
 }
 
 export function QRScanner({ onScan, onError }: QRScannerProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const scannerRef = useRef<unknown>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  const scannerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
-    let isMounted = true;
+    isMountedRef.current = true;
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      if (isMounted) {
+      if (isMountedRef.current) {
         setError('Camera access not supported in this browser');
         setHasPermission(false);
       }
@@ -29,25 +29,47 @@ export function QRScanner({ onScan, onError }: QRScannerProps) {
 
     const initScanner = async () => {
       try {
-        // Request camera permission
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: 'environment' } 
+        // Dynamically import html5-qrcode
+        const { Html5Qrcode: Html5QrcodeClass } = await import('html5-qrcode');
+
+        const scanner = new Html5QrcodeClass('qr-reader', {
+          formFactor: 'portrait',
+          disableFlip: false,
         });
-        
-        if (isMounted && videoRef.current) {
-          videoRef.current.srcObject = stream;
+
+        const successCallback: QrcodeSuccessCallback = (decodedText: string) => {
+          if (isMountedRef.current) {
+            onScan(decodedText);
+          }
+        };
+
+        const errorCallback: QrcodeErrorCallback = () => {
+          // Suppress decode errors; we only want actual camera/permission errors
+        };
+
+        await scanner.start(
+          { facingMode: 'environment' },
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          successCallback,
+          errorCallback,
+        );
+
+        if (isMountedRef.current) {
+          scannerRef.current = scanner;
           setHasPermission(true);
           setIsScanning(true);
           setError(null);
-          
-          // Start scanning for QR codes
-          scanForQRCode();
         }
       } catch (err) {
-        if (!isMounted) return;
-        
+        if (!isMountedRef.current) return;
+
         const message = err instanceof Error ? err.message : 'Failed to access camera';
-        if (message.includes('NotAllowedError') || message.includes('Permission') || message.includes('denied')) {
+        if (
+          message.includes('NotAllowedError') ||
+          message.includes('Permission') ||
+          message.includes('denied') ||
+          message.includes('NotFoundError')
+        ) {
           setHasPermission(false);
           setError('Camera permission denied. Please allow camera access to scan QR codes.');
         } else {
@@ -58,35 +80,38 @@ export function QRScanner({ onScan, onError }: QRScannerProps) {
       }
     };
 
-    const scanForQRCode = () => {
-      // For now, we'll show a message that proper QR scanning requires a decoding library
-      // This is a placeholder that allows manual QR code entry
-      console.log('QR scanner initialized. Please use a browser with a QR code decoder library.');
-    };
-
     initScanner();
 
     return () => {
-      isMounted = false;
-      const videoElement = videoRef.current;
-      const intervalId = scannerIntervalRef.current;
+      isMountedRef.current = false;
+      const scanner = scannerRef.current as unknown as { stop: () => Promise<void> };
 
-      if (videoElement?.srcObject) {
-        const tracks = (videoElement.srcObject as MediaStream).getTracks();
-        tracks.forEach(track => track.stop());
-      }
-      if (intervalId) {
-        clearInterval(intervalId);
+      if (scanner && isScanning) {
+        scanner
+          .stop()
+          .catch((err: unknown) => {
+            // Silently handle stop errors
+            console.error('Error stopping scanner:', err);
+          })
+          .finally(() => {
+            scannerRef.current = null;
+          });
       }
     };
-  }, [onScan, onError]);
+  }, [onScan, onError, isScanning]);
 
-  const handleStop = () => {
-    if (videoRef.current?.srcObject) {
-      const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
-      tracks.forEach(track => track.stop());
+  const handleStop = async () => {
+    const scanner = scannerRef.current as unknown as { stop: () => Promise<void> };
+    if (scanner && isScanning) {
+      try {
+        await scanner.stop();
+        scannerRef.current = null;
+        setIsScanning(false);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to stop scanner';
+        setError(message);
+      }
     }
-    setIsScanning(false);
   };
 
   if (hasPermission === false) {
@@ -109,25 +134,16 @@ export function QRScanner({ onScan, onError }: QRScannerProps) {
         </div>
       )}
 
-      <div className="relative bg-black rounded-lg overflow-hidden" style={{ aspectRatio: '1' }}>
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          aria-label="Camera feed for scanning QR codes"
-          className="w-full h-full object-cover"
-        />
-        <canvas ref={canvasRef} className="hidden" aria-hidden="true" />
-        
-        {/* QR scanner frame */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none" aria-hidden="true">
-          <div className="w-64 h-64 border-4 border-mint rounded-lg opacity-50"></div>
-        </div>
-      </div>
+      <div
+        id="qr-reader"
+        className="relative bg-black rounded-lg overflow-hidden"
+        style={{ aspectRatio: '1' }}
+        aria-label="Camera feed for scanning QR codes"
+      />
 
       <div className="text-center text-sm text-fog">
         <p className="mb-2">Point your camera at a QR code</p>
-        <p className="text-xs">Make sure the QR code is within the square frame</p>
+        <p className="text-xs">Make sure the QR code is within the frame</p>
       </div>
 
       {isScanning && (

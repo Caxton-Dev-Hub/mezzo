@@ -246,4 +246,86 @@ describe('PowerbanksService', () => {
       });
     });
   });
+
+  describe('markLost', () => {
+    it('should throw PowerbankNotFoundError if powerbank does not exist', async () => {
+      powerbanksRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.markLost('pb-id', 'actor-id')).rejects.toThrow(
+        PowerbankNotFoundError,
+      );
+    });
+
+    it('should update status to LOST and record audit', async () => {
+      const powerbank = {
+        id: 'pb-id',
+        number: '2',
+        status: PowerbankStatus.AVAILABLE,
+        shopId: 'shop-1',
+      } as Powerbank;
+
+      const updated = {
+        ...powerbank,
+        status: PowerbankStatus.LOST,
+      } as Powerbank;
+
+      powerbanksRepo.findOne.mockResolvedValue(powerbank);
+      powerbanksRepo.save.mockResolvedValue(updated);
+      auditService.record.mockResolvedValue({} as never);
+
+      const result = await service.markLost('pb-id', 'actor-id');
+
+      expect(result.status).toBe(PowerbankStatus.LOST);
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(auditService.record).toHaveBeenCalledWith({
+        actorId: 'actor-id',
+        action: 'powerbank.mark_lost',
+        entityType: 'Powerbank',
+        entityId: 'pb-id',
+        before: { status: PowerbankStatus.AVAILABLE, shopId: 'shop-1' },
+        after: { status: PowerbankStatus.LOST, shopId: 'shop-1' },
+      });
+    });
+  });
+
+  describe('markUnreturned', () => {
+    it('should throw PowerbankNotFoundError if powerbank does not exist', async () => {
+      powerbanksRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.markUnreturned('pb-id', 'actor-id')).rejects.toThrow(
+        PowerbankNotFoundError,
+      );
+    });
+
+    it('should update status to UNRETURNED and record audit', async () => {
+      const powerbank = {
+        id: 'pb-id',
+        number: '4',
+        status: PowerbankStatus.RENTED,
+        shopId: 'shop-2',
+      } as Powerbank;
+
+      const updated = {
+        ...powerbank,
+        status: PowerbankStatus.UNRETURNED,
+      } as Powerbank;
+
+      powerbanksRepo.findOne.mockResolvedValue(powerbank);
+      powerbanksRepo.save.mockResolvedValue(updated);
+      auditService.record.mockResolvedValue({} as never);
+
+      const result = await service.markUnreturned('pb-id', 'actor-id');
+
+      expect(result.status).toBe(PowerbankStatus.UNRETURNED);
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(auditService.record).toHaveBeenCalledWith({
+        actorId: 'actor-id',
+        action: 'powerbank.mark_unreturned',
+        entityType: 'Powerbank',
+        entityId: 'pb-id',
+        before: { status: PowerbankStatus.RENTED, shopId: 'shop-2' },
+        after: { status: PowerbankStatus.UNRETURNED, shopId: 'shop-2' },
+      });
+    });
+  });
 });
