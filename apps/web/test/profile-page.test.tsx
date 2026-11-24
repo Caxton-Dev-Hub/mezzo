@@ -72,6 +72,7 @@ describe('ProfilePage', () => {
         role: 'USER',
         emailVerified: true,
         createdAt: new Date(),
+      avatarUrl: null,
       },
     });
   });

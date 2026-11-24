@@ -40,6 +40,7 @@ function signIn(role: UserRole) {
       role,
       emailVerified: true,
       createdAt: new Date(),
+      avatarUrl: null,
     },
   });
 }

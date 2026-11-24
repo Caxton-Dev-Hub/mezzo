@@ -54,7 +54,6 @@ export function EscrowFilters({
       }
     }, 300);
     return () => clearTimeout(timeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- debounces on searchInput only; onSearchChange/search are read fresh via closure
   }, [searchInput]);
 
   return (

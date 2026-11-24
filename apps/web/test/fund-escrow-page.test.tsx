@@ -99,6 +99,7 @@ describe('FundEscrowPage', () => {
         role: 'USER',
         emailVerified: true,
         createdAt: new Date(),
+      avatarUrl: null,
       },
     });
   });
@@ -213,6 +214,7 @@ describe('FundEscrowPage', () => {
         role: 'USER',
         emailVerified: true,
         createdAt: new Date(),
+      avatarUrl: null,
       },
     });
     stubFetch({ state: 'AGREED', intent: null });

@@ -53,6 +53,7 @@ describe('DraftList', () => {
         role: 'USER',
         emailVerified: true,
         createdAt: new Date(),
+      avatarUrl: null,
       },
     });
   });

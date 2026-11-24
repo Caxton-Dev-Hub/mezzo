@@ -128,6 +128,7 @@ function signIn(userId: string) {
       role: 'USER',
       emailVerified: true,
       createdAt: new Date(),
+      avatarUrl: null,
     },
   });
 }

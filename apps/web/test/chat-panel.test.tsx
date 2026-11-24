@@ -101,6 +101,7 @@ describe("ChatPanel", () => {
         role: "USER",
         emailVerified: true,
         createdAt: new Date(),
+      avatarUrl: null,
       },
     });
 
@@ -121,6 +122,7 @@ describe("ChatPanel", () => {
         role: "USER",
         emailVerified: true,
         createdAt: new Date(),
+      avatarUrl: null,
       },
     });
 
@@ -181,6 +183,7 @@ describe("ChatPanel", () => {
         role: "USER",
         emailVerified: true,
         createdAt: new Date(),
+      avatarUrl: null,
       },
     });
 
@@ -201,6 +204,7 @@ describe("ChatPanel", () => {
         role: "USER",
         emailVerified: true,
         createdAt: new Date(),
+      avatarUrl: null,
       },
     });
 

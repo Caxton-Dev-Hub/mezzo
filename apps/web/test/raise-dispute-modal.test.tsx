@@ -40,6 +40,7 @@ describe('RaiseDisputeModal', () => {
         role: 'USER',
         emailVerified: true,
         createdAt: new Date(),
+      avatarUrl: null,
       },
     });
     stubRaise();
