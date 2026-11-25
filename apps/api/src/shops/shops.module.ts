@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Shop } from '../database/entities/shop.entity';
 import { StaffAssignment } from '../database/entities/staff-assignment.entity';
+import { User } from '../database/entities/user.entity';
 import { VerificationSubmission } from '../database/entities/verification-submission.entity';
 import { AuditModule } from '../audit/audit.module';
 import { StorageModule } from '../evidence/storage/storage.module';
@@ -11,7 +12,7 @@ import { StaffScopeGuard } from './guards/staff-scope.guard';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Shop, StaffAssignment, VerificationSubmission]),
+    TypeOrmModule.forFeature([Shop, StaffAssignment, User, VerificationSubmission]),
     AuditModule,
     StorageModule,
   ],
